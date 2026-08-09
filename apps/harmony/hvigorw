@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEVECO_STUDIO_HOME="${DEVECO_STUDIO_HOME:-/Applications/DevEco-Studio.app/Contents}"
+export NODE_HOME="${NODE_HOME:-$DEVECO_STUDIO_HOME/tools/node}"
+export JAVA_HOME="${JAVA_HOME:-$DEVECO_STUDIO_HOME/jbr/Contents/Home}"
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+BUNDLED_SDK_ROOT="$DEVECO_STUDIO_HOME/sdk/default/openharmony"
+SDK_VIEW="$PROJECT_ROOT/.deveco-sdk"
+API_24_LINK="$SDK_VIEW/24"
+
+if [[ ! -d "$BUNDLED_SDK_ROOT" ]]; then
+  echo "DevEco OpenHarmony SDK not found: $BUNDLED_SDK_ROOT" >&2
+  exit 1
+fi
+
+mkdir -p "$SDK_VIEW"
+if [[ -L "$API_24_LINK" ]]; then
+  if [[ "$(cd "$API_24_LINK" && pwd -P)" != "$BUNDLED_SDK_ROOT" ]]; then
+    echo "Unexpected API 24 SDK link: $API_24_LINK" >&2
+    exit 1
+  fi
+elif [[ -e "$API_24_LINK" ]]; then
+  echo "Expected an SDK link but found another file: $API_24_LINK" >&2
+  exit 1
+else
+  ln -s "$BUNDLED_SDK_ROOT" "$API_24_LINK"
+fi
+
+printf 'sdk.dir=%s\n' "$SDK_VIEW" > "$PROJECT_ROOT/local.properties"
+export DEVECO_SDK_HOME="$SDK_VIEW"
+export OHOS_SDK_HOME="$SDK_VIEW"
+export PATH="$JAVA_HOME/bin:$NODE_HOME/bin:$DEVECO_STUDIO_HOME/tools/ohpm/bin:$DEVECO_STUDIO_HOME/tools/hvigor/bin:$BUNDLED_SDK_ROOT/toolchains:$PATH"
+
+exec "$DEVECO_STUDIO_HOME/tools/hvigor/bin/hvigorw" "$@"
