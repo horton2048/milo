@@ -44,3 +44,34 @@ test('root page renders the centered MILO smoke shell on the dark background', (
     assert.ok(source.includes(contract), `Missing smoke-shell contract: ${contract}`);
   }
 });
+
+test('start window matches the root background in every system color mode', () => {
+  const moduleProfile = JSON.parse(
+    readFileSync(join(projectRoot, 'entry', 'src', 'main', 'module.json5'), 'utf8')
+  );
+  assert.equal(
+    moduleProfile.module.abilities[0].startWindowBackground,
+    '$color:start_window_background'
+  );
+
+  const startWindowColors = ['base', 'dark'].map((variant) => {
+    const resource = JSON.parse(
+      readFileSync(
+        join(
+          projectRoot,
+          'entry',
+          'src',
+          'main',
+          'resources',
+          variant,
+          'element',
+          'color.json'
+        ),
+        'utf8'
+      )
+    );
+    return resource.color.find(({ name }) => name === 'start_window_background')?.value;
+  });
+
+  assert.deepEqual(startWindowColors, ['#050608', '#050608']);
+});
