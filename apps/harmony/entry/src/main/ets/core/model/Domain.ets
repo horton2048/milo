@@ -57,9 +57,50 @@ export type ScreenName =
   | 'timeline'
   | 'detail';
 
-export interface Screen {
-  name: ScreenName;
-  entryId?: string;
+export class Screen {
+  readonly name: ScreenName;
+  readonly entryId?: string;
+
+  private constructor(name: ScreenName, entryId?: string) {
+    this.name = name;
+    this.entryId = entryId;
+  }
+
+  static home(): Screen {
+    return new Screen('home');
+  }
+
+  static classify(): Screen {
+    return new Screen('classify');
+  }
+
+  static nowNote(): Screen {
+    return new Screen('now-note');
+  }
+
+  static pastTime(): Screen {
+    return new Screen('past-time');
+  }
+
+  static chat(): Screen {
+    return new Screen('chat');
+  }
+
+  static diary(): Screen {
+    return new Screen('diary');
+  }
+
+  static card(entryId: string): Screen {
+    return new Screen('card', entryId);
+  }
+
+  static timeline(): Screen {
+    return new Screen('timeline');
+  }
+
+  static detail(entryId: string): Screen {
+    return new Screen('detail', entryId);
+  }
 }
 
 export interface Draft {

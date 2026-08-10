@@ -1,4 +1,4 @@
-import { ChatMessage, Draft, EntryKind, MoodId, Screen } from '../model/Domain';
+import { ChatMessage, ChatRole, Draft, EntryKind, MoodId, Screen } from '../model/Domain';
 import { moodStateForId } from '../model/Moods';
 
 export interface RecallState {
@@ -6,30 +6,152 @@ export interface RecallState {
   draft: Draft;
 }
 
-export type RecallEventType =
-  | 'SELECT_MOOD'
-  | 'CLASSIFY'
-  | 'SET_NOTE'
-  | 'SET_TIME_MARK'
-  | 'APPEND_MESSAGE'
-  | 'SET_DIARY'
-  | 'OPEN_TIMELINE'
-  | 'OPEN_DETAIL'
-  | 'BACK'
-  | 'RESET';
+export class SelectMoodEvent {
+  readonly type: 'SELECT_MOOD' = 'SELECT_MOOD';
+  readonly moodId: MoodId;
 
-export interface RecallEvent {
-  type: RecallEventType;
-  moodId?: MoodId;
-  kind?: EntryKind;
-  value?: string;
-  message?: ChatMessage;
-  entryId?: string;
+  constructor(moodId: MoodId) {
+    this.moodId = moodId;
+  }
+}
+
+export class ClassifyEvent {
+  readonly type: 'CLASSIFY' = 'CLASSIFY';
+  readonly kind: EntryKind;
+
+  constructor(kind: EntryKind) {
+    this.kind = kind;
+  }
+}
+
+export class SetNoteEvent {
+  readonly type: 'SET_NOTE' = 'SET_NOTE';
+  readonly value: string;
+
+  constructor(value: string) {
+    this.value = value;
+  }
+}
+
+export class SetTimeMarkEvent {
+  readonly type: 'SET_TIME_MARK' = 'SET_TIME_MARK';
+  readonly value: string;
+
+  constructor(value: string) {
+    this.value = value;
+  }
+}
+
+export class AppendMessageEvent {
+  readonly type: 'APPEND_MESSAGE' = 'APPEND_MESSAGE';
+  readonly message: ChatMessage;
+
+  constructor(role: ChatRole, text: string, ts: number) {
+    this.message = { role: role, text: text, ts: ts };
+  }
+}
+
+export class SetDiaryEvent {
+  readonly type: 'SET_DIARY' = 'SET_DIARY';
+  readonly value: string;
+
+  constructor(value: string) {
+    this.value = value;
+  }
+}
+
+export class SetDiaryEnabledEvent {
+  readonly type: 'SET_DIARY_ENABLED' = 'SET_DIARY_ENABLED';
+  readonly value: boolean;
+
+  constructor(value: boolean) {
+    this.value = value;
+  }
+}
+
+export class OpenTimelineEvent {
+  readonly type: 'OPEN_TIMELINE' = 'OPEN_TIMELINE';
+}
+
+export class OpenDetailEvent {
+  readonly type: 'OPEN_DETAIL' = 'OPEN_DETAIL';
+  readonly entryId: string;
+
+  constructor(entryId: string) {
+    this.entryId = entryId;
+  }
+}
+
+export class BackEvent {
+  readonly type: 'BACK' = 'BACK';
+}
+
+export class ResetEvent {
+  readonly type: 'RESET' = 'RESET';
+}
+
+export type RecallEvent =
+  | SelectMoodEvent
+  | ClassifyEvent
+  | SetNoteEvent
+  | SetTimeMarkEvent
+  | AppendMessageEvent
+  | SetDiaryEvent
+  | SetDiaryEnabledEvent
+  | OpenTimelineEvent
+  | OpenDetailEvent
+  | BackEvent
+  | ResetEvent;
+
+export class RecallEvents {
+  static selectMood(moodId: MoodId): SelectMoodEvent {
+    return new SelectMoodEvent(moodId);
+  }
+
+  static classify(kind: EntryKind): ClassifyEvent {
+    return new ClassifyEvent(kind);
+  }
+
+  static setNote(value: string): SetNoteEvent {
+    return new SetNoteEvent(value);
+  }
+
+  static setTimeMark(value: string): SetTimeMarkEvent {
+    return new SetTimeMarkEvent(value);
+  }
+
+  static appendMessage(role: ChatRole, text: string, ts: number): AppendMessageEvent {
+    return new AppendMessageEvent(role, text, ts);
+  }
+
+  static setDiary(value: string): SetDiaryEvent {
+    return new SetDiaryEvent(value);
+  }
+
+  static setDiaryEnabled(value: boolean): SetDiaryEnabledEvent {
+    return new SetDiaryEnabledEvent(value);
+  }
+
+  static openTimeline(): OpenTimelineEvent {
+    return new OpenTimelineEvent();
+  }
+
+  static openDetail(entryId: string): OpenDetailEvent {
+    return new OpenDetailEvent(entryId);
+  }
+
+  static back(): BackEvent {
+    return new BackEvent();
+  }
+
+  static reset(): ResetEvent {
+    return new ResetEvent();
+  }
 }
 
 export function initialRecallState(): RecallState {
   return {
-    screen: { name: 'home' },
+    screen: Screen.home(),
     draft: {
       mood: { valence: 0, labels: [] },
       transcript: [],
@@ -60,88 +182,89 @@ function copyDraft(draft: Draft): Draft {
   };
 }
 
-function withDraft(state: RecallState, screen: Screen, draft: Draft): RecallState {
+function withDraft(screen: Screen, draft: Draft): RecallState {
   return { screen: screen, draft: draft };
 }
 
 function backScreen(state: RecallState): Screen | undefined {
   switch (state.screen.name) {
     case 'classify':
-      return { name: 'home' };
+      return Screen.home();
     case 'now-note':
     case 'past-time':
-      return { name: 'classify' };
+      return Screen.classify();
     case 'chat':
-      return { name: 'past-time' };
+      return Screen.pastTime();
     case 'diary':
-      return { name: 'chat' };
+      return Screen.chat();
     case 'card':
     case 'detail':
-      return { name: 'timeline' };
+      return Screen.timeline();
     case 'timeline':
-      return { name: 'home' };
+      return Screen.home();
     default:
       return undefined;
   }
 }
 
 export function transition(state: RecallState, event: RecallEvent): RecallState {
-  if (event.type === 'RESET') {
+  if (event instanceof ResetEvent) {
     return initialRecallState();
   }
 
-  if (event.type === 'BACK') {
+  if (event instanceof BackEvent) {
     const previous = backScreen(state);
     if (previous === undefined) {
       return state;
     }
-    return withDraft(state, previous, copyDraft(state.draft));
+    return withDraft(previous, copyDraft(state.draft));
   }
 
-  if (event.type === 'SELECT_MOOD') {
-    if (state.screen.name !== 'home' || event.moodId === undefined) {
+  if (event instanceof SelectMoodEvent) {
+    if (state.screen.name !== 'home') {
       return state;
     }
     const mood = moodStateForId(event.moodId);
     if (mood === undefined) {
       return state;
     }
-    return withDraft(state, { name: 'classify' }, {
+    return withDraft(Screen.classify(), {
       mood: mood,
       transcript: [],
       diaryEnabled: true,
     });
   }
 
-  if (event.type === 'CLASSIFY') {
-    if (state.screen.name !== 'classify' || state.draft.mood.emotionId === undefined || event.kind === undefined) {
+  if (event instanceof ClassifyEvent) {
+    if (state.screen.name !== 'classify' || state.draft.mood.emotionId === undefined) {
       return state;
     }
     const draft = copyDraft(state.draft);
     draft.kind = event.kind;
-    return withDraft(state, { name: event.kind === 'now' ? 'now-note' : 'past-time' }, draft);
+    return withDraft(event.kind === 'now' ? Screen.nowNote() : Screen.pastTime(), draft);
   }
 
-  if (event.type === 'SET_NOTE') {
-    if (state.screen.name !== 'now-note' || state.draft.kind !== 'now' || event.value === undefined) {
+  if (event instanceof SetNoteEvent) {
+    if (state.screen.name !== 'now-note' || state.draft.kind !== 'now') {
       return state;
     }
     const draft = copyDraft(state.draft);
     draft.note = event.value;
-    return withDraft(state, { name: 'now-note' }, draft);
+    return withDraft(Screen.nowNote(), draft);
   }
 
-  if (event.type === 'SET_TIME_MARK') {
-    if (state.screen.name !== 'past-time' || state.draft.kind !== 'past' || event.value === undefined || event.value.length === 0) {
+  if (event instanceof SetTimeMarkEvent) {
+    const timeMark = event.value.trim();
+    if (state.screen.name !== 'past-time' || state.draft.kind !== 'past' || timeMark.length === 0) {
       return state;
     }
     const draft = copyDraft(state.draft);
-    draft.timeMark = event.value;
-    return withDraft(state, { name: 'chat' }, draft);
+    draft.timeMark = timeMark;
+    return withDraft(Screen.chat(), draft);
   }
 
-  if (event.type === 'APPEND_MESSAGE') {
-    if (state.screen.name !== 'chat' || state.draft.kind !== 'past' || event.message === undefined) {
+  if (event instanceof AppendMessageEvent) {
+    if (state.screen.name !== 'chat' || state.draft.kind !== 'past') {
       return state;
     }
     const draft = copyDraft(state.draft);
@@ -150,30 +273,39 @@ export function transition(state: RecallState, event: RecallEvent): RecallState 
       text: event.message.text,
       ts: event.message.ts,
     });
-    return withDraft(state, { name: 'chat' }, draft);
+    return withDraft(Screen.chat(), draft);
   }
 
-  if (event.type === 'SET_DIARY') {
-    if ((state.screen.name !== 'chat' && state.screen.name !== 'diary') || event.value === undefined) {
+  if (event instanceof SetDiaryEvent) {
+    if (state.screen.name !== 'chat' && state.screen.name !== 'diary') {
       return state;
     }
     const draft = copyDraft(state.draft);
     draft.diary = event.value;
-    return withDraft(state, { name: 'diary' }, draft);
+    return withDraft(Screen.diary(), draft);
   }
 
-  if (event.type === 'OPEN_TIMELINE') {
+  if (event instanceof SetDiaryEnabledEvent) {
+    if (state.screen.name !== 'diary') {
+      return state;
+    }
+    const draft = copyDraft(state.draft);
+    draft.diaryEnabled = event.value;
+    return withDraft(Screen.diary(), draft);
+  }
+
+  if (event instanceof OpenTimelineEvent) {
     if (state.screen.name !== 'home' && state.screen.name !== 'card') {
       return state;
     }
-    return withDraft(state, { name: 'timeline' }, copyDraft(state.draft));
+    return withDraft(Screen.timeline(), copyDraft(state.draft));
   }
 
-  if (event.type === 'OPEN_DETAIL') {
-    if (state.screen.name !== 'timeline' || event.entryId === undefined) {
+  if (event instanceof OpenDetailEvent) {
+    if (state.screen.name !== 'timeline' || event.entryId.trim().length === 0) {
       return state;
     }
-    return withDraft(state, { name: 'detail', entryId: event.entryId }, copyDraft(state.draft));
+    return withDraft(Screen.detail(event.entryId), copyDraft(state.draft));
   }
 
   return state;

@@ -1,11 +1,13 @@
 import { MoodId, MoodState } from './Domain';
 
-export interface MoodDefinition extends MoodState {
-  id: MoodId;
-  emotionId: MoodId;
+export interface MoodDefinition {
+  readonly id: MoodId;
+  readonly valence: number;
+  readonly labels: ReadonlyArray<string>;
+  readonly emotionId: MoodId;
 }
 
-export const MOODS: MoodDefinition[] = [
+export const MOODS: ReadonlyArray<MoodDefinition> = [
   { id: 'very-low', valence: -3, labels: ['非常低落'], emotionId: 'very-low' },
   { id: 'low', valence: -2, labels: ['低落'], emotionId: 'low' },
   { id: 'heavy', valence: -1, labels: ['有些沉'], emotionId: 'heavy' },

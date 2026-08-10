@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium';
-import { MOODS } from '../../../main/ets/core/model/Moods';
+import { moodStateForId, MOODS } from '../../../main/ets/core/model/Moods';
 
 export default function domainTest() {
   describe('domainTest', () => {
@@ -19,6 +19,16 @@ export default function domainTest() {
       expect(MOODS.map((item) => item.emotionId).join(',')).assertEqual(
         'very-low,low,heavy,calm,okay,bright,joyful,lonely,sad,angry,afraid,disappointed,anxious,aggrieved,embarrassed'
       );
+    });
+
+    it('returns a mutable draft copy without changing catalogue labels', 0, () => {
+      const selected = moodStateForId('calm');
+      if (selected === undefined) {
+        expect(false).assertTrue();
+        return;
+      }
+      selected.labels[0] = '自定义标签';
+      expect(MOODS[3].labels[0]).assertEqual('平静');
     });
   });
 }
