@@ -7,31 +7,21 @@ import {
 } from '../../core/model/MoodAssets';
 import { MOODS, type MoodId } from '../../core/model/Moods';
 
-/**
- * Renders a single mood planet by clipping one panel out of its source sheet.
- *
- * Layout mirrors `apps/web/src/components/MoodPlanetImage.tsx`:
- *  - The viewport is `width × (width * 2700 / 1748)`.
- *  - The inner image is rendered at three times the viewport width so a single
- *    1748×2700 panel fills the visible area.
- *  - The image is shifted horizontally by `moodAssetSheetLeftPercent(asset)` of
- *    the viewport width to land the requested panel inside the clip rectangle.
- */
 @Component
 export struct MoodPlanet {
   @Prop moodId: MoodId = 'calm';
-  @Prop width: number = 120;
+  @Prop planetSize: number = 120;
 
   private get asset() {
     return getMoodAsset(this.moodId);
   }
 
   private get panelViewportHeight(): number {
-    return this.width * (MOOD_SHEET_HEIGHT / MOOD_SHEET_WIDTH);
+    return this.planetSize * (MOOD_SHEET_HEIGHT / MOOD_SHEET_WIDTH);
   }
 
   private get innerImageWidth(): number {
-    return this.width * MOOD_SHEET_PANEL_COUNT;
+    return this.planetSize * MOOD_SHEET_PANEL_COUNT;
   }
 
   private get innerImageHeight(): number {
@@ -43,7 +33,7 @@ export struct MoodPlanet {
     if (asset === undefined) {
       return 0;
     }
-    return (moodAssetSheetLeftPercent(asset) / 100) * this.width;
+    return (moodAssetSheetLeftPercent(asset) / 100) * this.planetSize;
   }
 
   private get label(): string {
@@ -102,10 +92,9 @@ export struct MoodPlanet {
         }
       }
     }
-    .width(this.width)
+    .width(this.planetSize)
     .height(this.panelViewportHeight)
     .clip(true)
     .accessibilityText(this.label + '情绪星球')
-    .accessibilityMode(AccessibilityMode.Basic)
   }
 }
