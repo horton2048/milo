@@ -5,6 +5,7 @@ import moodAssetsTest from '../ohosTest/ets/test/MoodAssets.test';
 import entryRepositoryTest from '../ohosTest/ets/test/EntryRepository.test';
 import offlineFlowTest from '../ohosTest/ets/test/OfflineFlow.test';
 import moodSwipeModelTest from '../ohosTest/ets/test/MoodSwipeModel.test';
+import conversationControllerTest from '../ohosTest/ets/test/ConversationController.test';
 
 export default function testsuite() {
   localUnitTest();
@@ -14,4 +15,5 @@ export default function testsuite() {
   entryRepositoryTest();
   offlineFlowTest();
   moodSwipeModelTest();
+  conversationControllerTest();
 }

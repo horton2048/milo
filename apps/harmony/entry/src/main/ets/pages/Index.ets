@@ -22,6 +22,15 @@ import { DiaryScreen } from '../features/diary/DiaryScreen';
 import { TimelineScreen } from '../features/timeline/TimelineScreen';
 import { DetailScreen } from '../features/timeline/DetailScreen';
 import { CardScreen } from '../features/timeline/CardScreen';
+import {
+  type AiGatewayClient,
+  HttpAiGatewayClient,
+  type FetchLike,
+  type FetchInit,
+  type FetchResponse,
+} from '../core/network/AiGatewayClient';
+import { ConversationController } from '../features/conversation/ConversationController';
+import { FallbackGuide } from '../features/conversation/FallbackGuide';
 
 @Entry
 @Component
@@ -34,6 +43,7 @@ struct Index {
   private storage: KVStorage = new MapKVStorage();
   private entryRepo: EntryRepository = new EntryRepository(this.storage);
   private draftRepo: RecallSessionRepository = new RecallSessionRepository(this.storage);
+  private gateway: AiGatewayClient | null = null;
   private hasRestored: boolean = false;
 
   aboutToAppear(): void {
@@ -46,6 +56,29 @@ struct Index {
       }
     }
     this.refreshEntryCaches();
+  }
+
+  private buildChatController(): ConversationController {
+    if (this.gateway === null) {
+      this.gateway = this.createGateway();
+    }
+    const gateway = this.gateway;
+    return new ConversationController({
+      gateway: gateway,
+      newGuide: (d) => new FallbackGuide(d.timeMark ?? '过去的某一天'),
+    });
+  }
+
+  private createGateway(): AiGatewayClient {
+    // Default offline gateway for now: a stub that always fails closed. The
+    // full HTTP wiring lands when the gateway service is reachable; the
+    // controller handles the offline path cleanly either way.
+    return new HttpAiGatewayClient({
+      baseUrl: 'http://127.0.0.1:8787',
+      bearerToken: 'offline',
+      timeoutMs: 1500,
+      fetcher: offlineFetcher,
+    });
   }
 
   private refreshEntries(): void {
@@ -200,6 +233,7 @@ struct Index {
       } else if (this.state.screen.name === 'chat') {
         ChatScreen({
           draft: this.state.draft,
+          controller: this.buildChatController(),
           onFinish: (_transcript: ChatMessage[]) => {
             const next = transition(this.state, RecallEvents.setDiary(' '));
             this.state = next;
@@ -211,6 +245,7 @@ struct Index {
       } else if (this.state.screen.name === 'diary') {
         DiaryScreen({
           draft: this.state.draft,
+          controller: this.buildChatController(),
           onSave: (diary: string | undefined, enabled: boolean) => this.savePastEntry(diary, enabled),
           onBack: () => this.back(),
         })
@@ -258,3 +293,11 @@ struct Index {
     .backgroundColor('#050608')
   }
 }
+
+class OfflineFetcher implements FetchLike {
+  async fetch(_input: string, _init: FetchInit): Promise<FetchResponse> {
+    throw new Error('offline');
+  }
+}
+
+const offlineFetcher: FetchLike = new OfflineFetcher();

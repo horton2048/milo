@@ -1,10 +1,16 @@
 import { type Draft } from '../../core/model/Domain';
 import { fallbackDiary } from '../conversation/FallbackGuide';
+import {
+  ConversationController,
+  initialConversationState,
+  type ConversationState,
+} from '../conversation/ConversationController';
 
 /**
- * First-person diary generated from the past-branch transcript. In offline
- * mode we use `fallbackDiary`; when an AI gateway is wired up, replace the
- * `aboutToAppear` body with a streaming call. The user can edit before save.
+ * First-person diary generated from the past-branch transcript. Prefers the AI
+ * gateway via `ConversationController.createDiary`; on any failure the local
+ * `fallbackDiary` runs so the user always sees a draft. The user can edit
+ * before save.
  */
 @Component
 export struct DiaryScreen {
@@ -12,14 +18,39 @@ export struct DiaryScreen {
   @State diary: string = '';
   @State generating: boolean = true;
   @State editing: boolean = false;
+  @State conversationState: ConversationState = initialConversationState();
   private draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
+  private controller: ConversationController | null = null;
   private onSave: (diary: string | undefined, enabled: boolean) => void = () => {};
   private onBack: () => void = () => {};
 
   aboutToAppear(): void {
+    if (!this.diaryOn) {
+      this.diary = '';
+      this.generating = false;
+      return;
+    }
     this.generating = true;
-    this.diary = this.diaryOn ? fallbackDiary(this.draft) : '';
+    void this.generateDiary();
+  }
+
+  private async generateDiary(): Promise<void> {
+    if (this.controller === null) {
+      this.diary = fallbackDiary(this.draft);
+      this.generating = false;
+      return;
+    }
+    const result = await this.controller.createDiary(this.draft);
+    this.conversationState = result.state;
+    this.diary = result.diary;
     this.generating = false;
+  }
+
+  private get fallbackNotice(): string {
+    if (this.conversationState.lastError === undefined) {
+      return '';
+    }
+    return 'AI 暂时不可用，已为你用本地模板生成。';
   }
 
   build() {
@@ -50,6 +81,17 @@ export struct DiaryScreen {
       }
       .margin({ top: 16, bottom: 20 })
 
+      if (this.fallbackNotice.length > 0) {
+        Text(this.fallbackNotice)
+          .fontSize(12)
+          .fontColor('#c9befc')
+          .backgroundColor('rgba(139,124,246,0.12)')
+          .padding(8)
+          .borderRadius(10)
+          .margin({ left: 16, right: 16, bottom: 8 })
+          .width('90%')
+      }
+
       Row() {
         Column() {
           Text('沉淀为日记')
@@ -69,7 +111,8 @@ export struct DiaryScreen {
           .onClick(() => {
             this.diaryOn = !this.diaryOn;
             if (this.diaryOn && this.diary.length === 0) {
-              this.diary = fallbackDiary(this.draft);
+              this.generating = true;
+              void this.generateDiary();
             }
           })
       }
