@@ -2,15 +2,19 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "MILO 情绪日记"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "情绪日记主能力"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "MILO"
+    },
+    {
+      "name": "mic_reason",
+      "value": "用于在「回响」时录入你的声音，方便你口述回忆。"
     }
   ]
 }

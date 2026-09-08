@@ -25,6 +25,10 @@ export type EntryKind = 'now' | 'past';
 
 export type StickerTemplateId = 'planet-letter' | 'orbit-theatre';
 
+export const DEFAULT_STICKER_TEMPLATE: StickerTemplateId = 'planet-letter';
+
+export const VALID_STICKER_TEMPLATES: StickerTemplateId[] = ['planet-letter', 'orbit-theatre'];
+
 export type ChatRole = 'user' | 'ai';
 
 export interface ChatMessage {

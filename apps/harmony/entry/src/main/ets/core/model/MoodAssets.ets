@@ -84,3 +84,74 @@ export function getMoodAsset(id: MoodId): MoodAsset | undefined {
 export function moodAssetSheetLeftPercent(asset: MoodAsset): number {
   return asset.panel * -100 + asset.focusOffsetPercent;
 }
+
+/**
+ * Mood palette helpers ported from `apps/web/src/components/moodEmotionModel.ts`.
+ * Each mood returns a 3-color palette ordered as [main, deep, light].
+ */
+export function moodPalette(valence: number, emotionId: MoodId | undefined): string[] {
+  if (emotionId !== undefined) {
+    const asset = getMoodAsset(emotionId);
+    if (asset !== undefined) {
+      return SHEET_PALETTES[asset.sheet];
+    }
+  }
+  switch (valence) {
+    case -3: return ['#3a1f5a', '#1d1130', '#9d7bd6'];
+    case -2: return ['#4a2e6a', '#21153a', '#b497e1'];
+    case -1: return ['#5b3e7a', '#2a1c4a', '#c2a8e8'];
+    case 0: return ['#6b5a8e', '#352c52', '#d2c8ec'];
+    case 1: return ['#7a6fa6', '#3e3863', '#ddd0f3'];
+    case 2: return ['#8b82bd', '#4a4577', '#e7dcf7'];
+    case 3: return ['#9d8fd1', '#5a5188', '#f0e8fa'];
+    default: return ['#6b5a8e', '#352c52', '#d2c8ec'];
+  }
+}
+
+/** Human label for a mood state; mirrors web `moodLabel(valence, emotionId)`. */
+export function moodLabel(valence: number, emotionId: MoodId | undefined): string {
+  if (emotionId !== undefined) {
+    const asset = getMoodAsset(emotionId);
+    if (asset !== undefined) {
+      return asset.id;
+    }
+  }
+  switch (valence) {
+    case -3: return '非常低落';
+    case -2: return '低落';
+    case -1: return '有些沉';
+    case 0: return '平静';
+    case 1: return '还不错';
+    case 2: return '明亮';
+    case 3: return '雀跃';
+    default: return '平静';
+  }
+}
+
+/** Short word describing the mood, used in fallback diary narration. */
+export function moodWord(valence: number, emotionId: MoodId | undefined): string {
+  if (emotionId !== undefined) {
+    const asset = getMoodAsset(emotionId);
+    if (asset !== undefined) {
+      return asset.id;
+    }
+  }
+  switch (valence) {
+    case -3: return '沉重';
+    case -2: return '低落';
+    case -1: return '沉';
+    case 0: return '平静';
+    case 1: return '轻快';
+    case 2: return '明亮';
+    case 3: return '雀跃';
+    default: return '平静';
+  }
+}
+
+const SHEET_PALETTES: Record<MoodAssetSheetName, string[]> = {
+  'mood_sheet_01': ['#3a1f5a', '#1d1130', '#9d7bd6'],
+  'mood_sheet_02': ['#6b5a8e', '#352c52', '#d2c8ec'],
+  'mood_sheet_03': ['#5b3e7a', '#2a1c4a', '#c2a8e8'],
+  'mood_sheet_04': ['#7a6fa6', '#3e3863', '#ddd0f3'],
+  'mood_sheet_05': ['#8b82bd', '#4a4577', '#e7dcf7'],
+};
