@@ -39,3 +39,20 @@ shasum -a 256 docs/superpowers/concepts/mood-orbs/*-transparent.png \
 ```
 
 Replace the SHA-256 table above if any hash drifts.
+
+## Native Screen Parity (Web → HarmonyOS)
+
+| Web screen | Native component | Viewport | Notes |
+| --- | --- | --- | --- |
+| `Home` (echo) | `features/home/HomeScreen.ets` | 360 × 720 | Echo orbit + starfield; theme tokens in `core/theme/MiloTheme.ets` |
+| `Classify` | `features/recall/ClassifyScreen.ets` | 360 × 720 | Two fork cards, glass background |
+| `NowNote` | `features/recall/NowNoteScreen.ets` | 360 × 720 | Mood planet + textarea |
+| `PastTime` | `features/recall/PastTimeScreen.ets` | 360 × 720 | 10 preset chips + custom input |
+| `Chat` | `features/conversation/ChatScreen.ets` | 360 × 720 | Fallback guide only (offline-first) |
+| `Diary` | `features/diary/DiaryScreen.ets` | 360 × 720 | Toggle + first-person draft |
+| `Timeline` | `features/timeline/TimelineScreen.ets` | 360 × 720 | Newest-first list of entries |
+| `Detail` | `features/timeline/DetailScreen.ets` | 360 × 720 | Diary, optional transcript, share-link entry |
+| `Card` | `features/timeline/CardScreen.ets` | 360 × 720 | Sticker template picker; full render in Task 9 |
+
+Screenshots are not committed; capture them on the emulator and attach to
+release notes when a visual diff is suspected.
