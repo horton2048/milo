@@ -1,5 +1,7 @@
 import { MoodId, MoodState } from './Domain';
 
+export { MoodId, MoodState };
+
 export interface MoodDefinition {
   readonly id: MoodId;
   readonly valence: number;

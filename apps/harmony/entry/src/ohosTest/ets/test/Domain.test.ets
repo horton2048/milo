@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium';
+import { Screen } from '../../../main/ets/core/model/Domain';
 import { moodStateForId, MOODS } from '../../../main/ets/core/model/Moods';
 
 export default function domainTest() {
@@ -29,6 +30,18 @@ export default function domainTest() {
       }
       selected.labels[0] = '自定义标签';
       expect(MOODS[3].labels[0]).assertEqual('平静');
+    });
+
+    it('creates entry screens with required identifiers', 0, () => {
+      const home = Screen.home();
+      const card = Screen.card('entry-card');
+      const detail = Screen.detail('entry-detail');
+      expect(home.name).assertEqual('home');
+      expect(home.entryId === undefined).assertTrue();
+      expect(card.name).assertEqual('card');
+      expect(card.entryId).assertEqual('entry-card');
+      expect(detail.name).assertEqual('detail');
+      expect(detail.entryId).assertEqual('entry-detail');
     });
   });
 }
