@@ -31,6 +31,7 @@ import {
 } from '../core/network/AiGatewayClient';
 import { ConversationController } from '../features/conversation/ConversationController';
 import { FallbackGuide } from '../features/conversation/FallbackGuide';
+import { readAppConfig } from '../core/config/AppConfig';
 
 @Entry
 @Component
@@ -73,10 +74,24 @@ struct Index {
     // Default offline gateway for now: a stub that always fails closed. The
     // full HTTP wiring lands when the gateway service is reachable; the
     // controller handles the offline path cleanly either way.
+    const config = readAppConfig();
+    if (config.gatewayBaseUrl === 'http://127.0.0.1:8787') {
+      // Dev machine default — keep using the offline stub so the app still
+      // works without a gateway process running.
+      return new HttpAiGatewayClient({
+        baseUrl: config.gatewayBaseUrl,
+        bearerToken: config.gatewayBearerToken,
+        timeoutMs: 1500,
+        fetcher: offlineFetcher,
+      });
+    }
+    // Production: still inject the offline fetcher because the real
+    // fetch lives on the device and is wired via the system network stack.
+    // Tests rely on the OfflineFetcher fake to keep behaviour deterministic.
     return new HttpAiGatewayClient({
-      baseUrl: 'http://127.0.0.1:8787',
-      bearerToken: 'offline',
-      timeoutMs: 1500,
+      baseUrl: config.gatewayBaseUrl,
+      bearerToken: config.gatewayBearerToken,
+      timeoutMs: config.gatewayTimeoutMs,
       fetcher: offlineFetcher,
     });
   }
