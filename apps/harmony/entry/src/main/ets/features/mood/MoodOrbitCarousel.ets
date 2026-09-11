@@ -10,11 +10,19 @@ import {
   wrapMoodIndex,
 } from './MoodSwipeModel';
 import { MoodPlanet } from './MoodPlanet';
+import { MOOD_SHEET_HEIGHT, MOOD_SHEET_WIDTH } from '../../core/model/MoodAssets';
 
 const RING_DIAMETER = 240;
 const TICK_RADIUS = 116;
 const WORD_RADIUS = 132;
-const PLANET_SIZE = 56;
+// Web reference: orb 244 on a 300 dial (81%); keep the same ratio on the 240 ring.
+const PLANET_SIZE = 195;
+const PLANET_HEIGHT = PLANET_SIZE * (MOOD_SHEET_HEIGHT / MOOD_SHEET_WIDTH);
+// Web layering: orb z=30, ticks z=44, words z=46.
+const TICK_Z_INDEX = 44;
+const WORD_Z_INDEX = 46;
+const CAROUSEL_SIZE = RING_DIAMETER + ECHO_MOOD_ORBIT_TRAVEL_PX * 2;
+const RING_CENTER = CAROUSEL_SIZE / 2;
 const MOOD_LIST: Array<MoodDefinition> = MOODS as Array<MoodDefinition>;
 
 interface Point {
@@ -34,32 +42,37 @@ type SelectCallback = (index: number) => void;
 export struct MoodOrbitCarousel {
   @State dialPosition: number = 3;
   @State expanded: boolean = true;
-  private onSelect: SelectCallback = (_index: number) => {};
+  onSelect: SelectCallback = (_index: number) => {};
 
-  private get count(): number {
+  private count(): number {
     return MOODS.length;
   }
 
-  private get activeIndex(): number {
-    return activeMoodIndex(this.dialPosition, this.count);
+  private activeIndex(): number {
+    return activeMoodIndex(this.dialPosition, this.count());
   }
 
-  private get activeMoodId(): MoodId {
-    return MOODS[this.activeIndex].id;
+  private activeMoodId(): MoodId {
+    return MOODS[this.activeIndex()].id;
   }
 
-  private get activeOrbOffsetY(): number {
-    const pose = orbitalMoodPose(this.activeIndex, this.dialPosition, this.count);
+  private activeOrbOffsetX(): number {
+    const pose = orbitalMoodPose(this.activeIndex(), this.dialPosition, this.count());
+    return pose.x;
+  }
+
+  private activeOrbOffsetY(): number {
+    const pose = orbitalMoodPose(this.activeIndex(), this.dialPosition, this.count());
     return pose.y;
   }
 
-  private get activeOrbScale(): number {
-    const pose = orbitalMoodPose(this.activeIndex, this.dialPosition, this.count);
+  private activeOrbScale(): number {
+    const pose = orbitalMoodPose(this.activeIndex(), this.dialPosition, this.count());
     return pose.scale;
   }
 
-  private get activeOrbZ(): number {
-    const pose = orbitalMoodPose(this.activeIndex, this.dialPosition, this.count);
+  private activeOrbZ(): number {
+    const pose = orbitalMoodPose(this.activeIndex(), this.dialPosition, this.count());
     return pose.zIndex;
   }
 
@@ -73,7 +86,7 @@ export struct MoodOrbitCarousel {
   }
 
   private isTickActive(index: number): boolean {
-    return wrapMoodIndex(index, this.count) === this.activeIndex;
+    return wrapMoodIndex(index, this.count()) === this.activeIndex();
   }
 
   private tickSize(index: number): number {
@@ -85,25 +98,25 @@ export struct MoodOrbitCarousel {
   }
 
   private tickOpacityValue(index: number): number {
-    return moodTickOpacity(index, this.dialPosition, this.count);
+    return moodTickOpacity(index, this.dialPosition, this.count());
   }
 
   private tickX(index: number): number {
-    const angle = moodTickAngle(index, this.dialPosition, this.count);
+    const angle = moodTickAngle(index, this.dialPosition, this.count());
     const point = this.tickPoint(angle, TICK_RADIUS);
     const size = this.tickSize(index);
-    return RING_DIAMETER / 2 + point.x - size / 2;
+    return RING_CENTER + point.x - size / 2;
   }
 
   private tickY(index: number): number {
-    const angle = moodTickAngle(index, this.dialPosition, this.count);
+    const angle = moodTickAngle(index, this.dialPosition, this.count());
     const point = this.tickPoint(angle, TICK_RADIUS);
     const size = this.tickSize(index);
-    return RING_DIAMETER / 2 + point.y - size / 2;
+    return RING_CENTER + point.y - size / 2;
   }
 
   private wordPose(index: number) {
-    return moodOrbitTextPose(index, this.dialPosition, this.count, this.expanded);
+    return moodOrbitTextPose(index, this.dialPosition, this.count(), this.expanded);
   }
 
   private wordPoseVisible(index: number): boolean {
@@ -121,13 +134,13 @@ export struct MoodOrbitCarousel {
   private wordX(index: number): number {
     const pose = this.wordPose(index);
     const point = this.tickPoint(pose.angle, WORD_RADIUS);
-    return RING_DIAMETER / 2 + point.x - 30;
+    return RING_CENTER + point.x - 30;
   }
 
   private wordY(index: number): number {
     const pose = this.wordPose(index);
     const point = this.tickPoint(pose.angle, WORD_RADIUS);
-    return RING_DIAMETER / 2 + point.y - 10;
+    return RING_CENTER + point.y - 10;
   }
 
   build() {
@@ -142,8 +155,9 @@ export struct MoodOrbitCarousel {
           .fill(this.tickColor(index))
           .opacity(this.tickOpacityValue(index))
           .position({ x: this.tickX(index), y: this.tickY(index) })
+          .zIndex(TICK_Z_INDEX)
           .onClick(() => {
-            this.dialPosition = nearestMoodPosition(this.dialPosition, index, this.count);
+            this.dialPosition = nearestMoodPosition(this.dialPosition, index, this.count());
             this.onSelect(index);
           })
       })
@@ -158,25 +172,26 @@ export struct MoodOrbitCarousel {
             .position({ x: this.wordX(index), y: this.wordY(index) })
             .width(60)
             .textAlign(TextAlign.Center)
+            .zIndex(WORD_Z_INDEX)
             .onClick(() => {
-              this.dialPosition = nearestMoodPosition(this.dialPosition, index, this.count);
+              this.dialPosition = nearestMoodPosition(this.dialPosition, index, this.count());
               this.onSelect(index);
             })
         }
       })
 
-      MoodPlanet({ moodId: this.activeMoodId, planetSize: PLANET_SIZE })
+      MoodPlanet({ moodId: this.activeMoodId(), planetSize: PLANET_SIZE })
         .position({
-          x: RING_DIAMETER / 2 - PLANET_SIZE / 2,
-          y: RING_DIAMETER / 2 - PLANET_SIZE / 2 + this.activeOrbOffsetY,
+          x: RING_CENTER - PLANET_SIZE / 2 + this.activeOrbOffsetX(),
+          y: RING_CENTER - PLANET_HEIGHT / 2 + this.activeOrbOffsetY(),
         })
-        .scale({ x: this.activeOrbScale, y: this.activeOrbScale })
-        .zIndex(this.activeOrbZ)
+        .scale({ x: this.activeOrbScale(), y: this.activeOrbScale() })
+        .zIndex(this.activeOrbZ())
         .onClick(() => {
-          this.onSelect(this.activeIndex);
+          this.onSelect(this.activeIndex());
         })
     }
-    .width(RING_DIAMETER + ECHO_MOOD_ORBIT_TRAVEL_PX * 2)
-    .height(RING_DIAMETER + ECHO_MOOD_ORBIT_TRAVEL_PX * 2)
+    .width(CAROUSEL_SIZE)
+    .height(CAROUSEL_SIZE)
   }
 }

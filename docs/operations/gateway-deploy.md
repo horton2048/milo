@@ -96,8 +96,10 @@ curl http://<server>:8787/health
 ## Where to plug the URL into the HarmonyOS app
 
 After the gateway is live, edit
-`apps/harmony/entry/src/main/ets/core/config/AppConfig.ets` (created in
-the next commit) and replace `http://127.0.0.1:8787` with your HTTPS URL.
+`apps/harmony/entry/src/main/ets/core/config/AppConfig.ets` and set
+`GATEWAY_BASE_URL` to your HTTPS URL. The committed empty value deliberately
+keeps the app in its offline-first fallback mode; it never attempts a
+developer-machine loopback address on a user device.
 
 Rebuild:
 ```bash

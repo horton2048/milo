@@ -19,10 +19,10 @@ export struct DiaryScreen {
   @State generating: boolean = true;
   @State editing: boolean = false;
   @State conversationState: ConversationState = initialConversationState();
-  private draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
-  private controller: ConversationController | null = null;
-  private onSave: (diary: string | undefined, enabled: boolean) => void = () => {};
-  private onBack: () => void = () => {};
+  draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
+  controller: ConversationController | null = null;
+  onSave: (diary: string | undefined, enabled: boolean) => void = () => {};
+  onBack: () => void = () => {};
 
   aboutToAppear(): void {
     if (!this.diaryOn) {
@@ -46,7 +46,7 @@ export struct DiaryScreen {
     this.generating = false;
   }
 
-  private get fallbackNotice(): string {
+  private fallbackNotice(): string {
     if (this.conversationState.lastError === undefined) {
       return '';
     }
@@ -81,8 +81,8 @@ export struct DiaryScreen {
       }
       .margin({ top: 16, bottom: 20 })
 
-      if (this.fallbackNotice.length > 0) {
-        Text(this.fallbackNotice)
+      if (this.fallbackNotice().length > 0) {
+        Text(this.fallbackNotice())
           .fontSize(12)
           .fontColor('#c9befc')
           .backgroundColor('rgba(139,124,246,0.12)')

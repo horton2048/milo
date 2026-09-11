@@ -19,10 +19,10 @@ const PRESETS: string[] = [
 export struct PastTimeScreen {
   @State picked: string = '';
   @State custom: string = '';
-  private onNext: (timeMark: string) => void = () => {};
-  private onBack: () => void = () => {};
+  onNext: (timeMark: string) => void = () => {};
+  onBack: () => void = () => {};
 
-  private get mark(): string {
+  private mark(): string {
     const trimmed = this.custom.trim();
     return trimmed.length > 0 ? trimmed : this.picked;
   }
@@ -84,10 +84,10 @@ export struct PastTimeScreen {
         .margin({ top: 26 })
         .backgroundColor('#8b7cf6')
         .fontColor('#ffffff')
-        .enabled(this.mark.length > 0)
-        .opacity(this.mark.length > 0 ? 1.0 : 0.5)
+        .enabled(this.mark().length > 0)
+        .opacity(this.mark().length > 0 ? 1.0 : 0.5)
         .onClick(() => {
-          const value = this.mark;
+          const value = this.mark();
           if (value.length > 0) {
             this.onNext(value);
           }

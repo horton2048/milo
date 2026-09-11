@@ -5,6 +5,8 @@
 **/build
 /.hvigor
 /.deveco-sdk
+/.signing
+/.deveco-sdk-installed
 .cxx
 /.clangd
 /.clang-format

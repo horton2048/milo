@@ -1,6 +1,8 @@
 import {
   getMoodAsset,
   moodAssetSheetLeftPercent,
+  type MoodAsset,
+  type MoodAssetSheetName,
   MOOD_SHEET_HEIGHT,
   MOOD_SHEET_PANEL_COUNT,
   MOOD_SHEET_WIDTH,
@@ -12,31 +14,39 @@ export struct MoodPlanet {
   @Prop moodId: MoodId = 'calm';
   @Prop planetSize: number = 120;
 
-  private get asset() {
+  private asset(): MoodAsset | undefined {
     return getMoodAsset(this.moodId);
   }
 
-  private get panelViewportHeight(): number {
+  private sheet(): MoodAssetSheetName | undefined {
+    const asset = this.asset();
+    if (asset === undefined) {
+      return undefined;
+    }
+    return asset.sheet;
+  }
+
+  private panelViewportHeight(): number {
     return this.planetSize * (MOOD_SHEET_HEIGHT / MOOD_SHEET_WIDTH);
   }
 
-  private get innerImageWidth(): number {
+  private innerImageWidth(): number {
     return this.planetSize * MOOD_SHEET_PANEL_COUNT;
   }
 
-  private get innerImageHeight(): number {
-    return this.panelViewportHeight;
+  private innerImageHeight(): number {
+    return this.panelViewportHeight();
   }
 
-  private get offsetX(): number {
-    const asset = this.asset;
+  private offsetX(): number {
+    const asset = this.asset();
     if (asset === undefined) {
       return 0;
     }
     return (moodAssetSheetLeftPercent(asset) / 100) * this.planetSize;
   }
 
-  private get label(): string {
+  private label(): string {
     for (let index = 0; index < MOODS.length; index += 1) {
       const mood = MOODS[index];
       if (mood.id === this.moodId && mood.labels.length > 0) {
@@ -48,44 +58,44 @@ export struct MoodPlanet {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      if (this.asset !== undefined) {
-        if (this.asset.sheet === 'mood_sheet_01') {
+      if (this.sheet() !== undefined) {
+        if (this.sheet() === 'mood_sheet_01') {
           Image($r('app.media.mood_sheet_01'))
-            .width(this.innerImageWidth)
-            .height(this.innerImageHeight)
-            .offset({ x: this.offsetX, y: 0 })
+            .width(this.innerImageWidth())
+            .height(this.innerImageHeight())
+            .offset({ x: this.offsetX(), y: 0 })
             .interpolation(ImageInterpolation.High)
             .objectFit(ImageFit.Fill)
             .draggable(false)
-        } else if (this.asset.sheet === 'mood_sheet_02') {
+        } else if (this.sheet() === 'mood_sheet_02') {
           Image($r('app.media.mood_sheet_02'))
-            .width(this.innerImageWidth)
-            .height(this.innerImageHeight)
-            .offset({ x: this.offsetX, y: 0 })
+            .width(this.innerImageWidth())
+            .height(this.innerImageHeight())
+            .offset({ x: this.offsetX(), y: 0 })
             .interpolation(ImageInterpolation.High)
             .objectFit(ImageFit.Fill)
             .draggable(false)
-        } else if (this.asset.sheet === 'mood_sheet_03') {
+        } else if (this.sheet() === 'mood_sheet_03') {
           Image($r('app.media.mood_sheet_03'))
-            .width(this.innerImageWidth)
-            .height(this.innerImageHeight)
-            .offset({ x: this.offsetX, y: 0 })
+            .width(this.innerImageWidth())
+            .height(this.innerImageHeight())
+            .offset({ x: this.offsetX(), y: 0 })
             .interpolation(ImageInterpolation.High)
             .objectFit(ImageFit.Fill)
             .draggable(false)
-        } else if (this.asset.sheet === 'mood_sheet_04') {
+        } else if (this.sheet() === 'mood_sheet_04') {
           Image($r('app.media.mood_sheet_04'))
-            .width(this.innerImageWidth)
-            .height(this.innerImageHeight)
-            .offset({ x: this.offsetX, y: 0 })
+            .width(this.innerImageWidth())
+            .height(this.innerImageHeight())
+            .offset({ x: this.offsetX(), y: 0 })
             .interpolation(ImageInterpolation.High)
             .objectFit(ImageFit.Fill)
             .draggable(false)
         } else {
           Image($r('app.media.mood_sheet_05'))
-            .width(this.innerImageWidth)
-            .height(this.innerImageHeight)
-            .offset({ x: this.offsetX, y: 0 })
+            .width(this.innerImageWidth())
+            .height(this.innerImageHeight())
+            .offset({ x: this.offsetX(), y: 0 })
             .interpolation(ImageInterpolation.High)
             .objectFit(ImageFit.Fill)
             .draggable(false)
@@ -93,8 +103,8 @@ export struct MoodPlanet {
       }
     }
     .width(this.planetSize)
-    .height(this.panelViewportHeight)
+    .height(this.panelViewportHeight())
     .clip(true)
-    .accessibilityText(this.label + '情绪星球')
+    .accessibilityText(this.label() + '情绪星球')
   }
 }

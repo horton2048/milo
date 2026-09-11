@@ -19,11 +19,11 @@ export struct ChatScreen {
   @State busy: boolean = true;
   @State conversationState: ConversationState = initialConversationState();
   private guide: FallbackGuide | null = null;
-  private controller: ConversationController | null = null;
-  private draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
-  private onFinish: (transcript: ChatMessage[]) => void = () => {};
-  private onBack: () => void = () => {};
-  private onSend: (text: string) => void = () => {};
+  controller: ConversationController | null = null;
+  draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
+  onFinish: (transcript: ChatMessage[]) => void = () => {};
+  onBack: () => void = () => {};
+  onSend: (text: string) => void = () => {};
 
   aboutToAppear(): void {
     const timeMark = this.draft.timeMark ?? '过去的某一天';
@@ -70,7 +70,7 @@ export struct ChatScreen {
     this.messages = next;
   }
 
-  private get userSpoke(): boolean {
+  private userSpoke(): boolean {
     for (let index = 0; index < this.messages.length; index += 1) {
       if (this.messages[index].role === 'user') {
         return true;
@@ -79,8 +79,8 @@ export struct ChatScreen {
     return false;
   }
 
-  private get canFinish(): boolean {
-    if (!this.userSpoke) {
+  private canFinish(): boolean {
+    if (!this.userSpoke()) {
       return false;
     }
     if (this.controller !== null) {
@@ -92,7 +92,7 @@ export struct ChatScreen {
     return this.guide.isWrappingUp();
   }
 
-  private get fallbackNotice(): string {
+  private fallbackNotice(): string {
     const error = this.conversationState.lastError;
     if (error === undefined) {
       return '';
@@ -123,8 +123,8 @@ export struct ChatScreen {
       .width('100%')
       .padding({ left: 16, right: 16, top: 16, bottom: 8 })
 
-      if (this.fallbackNotice.length > 0) {
-        Text(this.fallbackNotice)
+      if (this.fallbackNotice().length > 0) {
+        Text(this.fallbackNotice())
           .fontSize(12)
           .fontColor('#c9befc')
           .backgroundColor('rgba(139,124,246,0.12)')
@@ -154,7 +154,7 @@ export struct ChatScreen {
       .width('100%')
       .padding({ left: 16, right: 16 })
 
-      if (this.canFinish) {
+      if (this.canFinish()) {
         Button('✦ 沉淀这段回忆')
           .width('90%')
           .height(44)

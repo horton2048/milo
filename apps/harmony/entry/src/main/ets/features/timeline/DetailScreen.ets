@@ -10,10 +10,10 @@ function formatDate(ts: number): string {
 @Component
 export struct DetailScreen {
   @State showChat: boolean = false;
-  private entry: DiaryEntry | undefined = undefined;
-  private onCard: (entryId: string) => void = () => {};
-  private onBack: () => void = () => {};
-  private onRemove: (entryId: string) => void = () => {};
+  entry: DiaryEntry | undefined = undefined;
+  onCard: (entryId: string) => void = () => {};
+  onBack: () => void = () => {};
+  onRemove: (entryId: string) => void = () => {};
 
   build() {
     Column() {

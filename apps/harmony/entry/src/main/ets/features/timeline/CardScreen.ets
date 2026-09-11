@@ -20,10 +20,10 @@ const TEMPLATES: TemplateMeta[] = [
 @Component
 export struct CardScreen {
   @Prop selected: StickerTemplateId = 'planet-letter';
-  private entry: DiaryEntry | undefined = undefined;
-  private onSelect: (template: StickerTemplateId) => void = () => {};
-  private onDone: () => void = () => {};
-  private onHome: () => void = () => {};
+  entry: DiaryEntry | undefined = undefined;
+  onSelect: (template: StickerTemplateId) => void = () => {};
+  onDone: () => void = () => {};
+  onHome: () => void = () => {};
 
   build() {
     Column() {

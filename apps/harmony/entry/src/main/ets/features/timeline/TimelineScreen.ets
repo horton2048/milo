@@ -37,8 +37,8 @@ function preview(entry: DiaryEntry): string {
 @Component
 export struct TimelineScreen {
   @Prop entries: DiaryEntry[] = [];
-  private onOpen: (entryId: string) => void = () => {};
-  private onBack: () => void = () => {};
+  onOpen: (entryId: string) => void = () => {};
+  onBack: () => void = () => {};
 
   build() {
     Column() {

@@ -29,3 +29,5 @@ apps/harmony/.hvigor/
 apps/harmony/.idea/
 apps/harmony/**/build/
 apps/harmony/oh_modules/
+apps/harmony/.harmony-sdk-bridge/
+apps/harmony/.harmony-sdk-bridge-v2/

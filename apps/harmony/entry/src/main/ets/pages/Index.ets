@@ -10,7 +10,7 @@ import {
   transition,
   type RecallState,
 } from '../core/flow/RecallMachine';
-import { MapKVStorage, type KVStorage } from '../core/data/KVStorage';
+import { PreferencesKVStorage, type KVStorage } from '../core/data/KVStorage';
 import { EntryRepository } from '../core/data/EntryRepository';
 import { RecallSessionRepository } from '../core/data/RecallSessionRepository';
 import { HomeScreen } from '../features/home/HomeScreen';
@@ -26,12 +26,11 @@ import {
   type AiGatewayClient,
   HttpAiGatewayClient,
   type FetchLike,
-  type FetchInit,
-  type FetchResponse,
 } from '../core/network/AiGatewayClient';
 import { ConversationController } from '../features/conversation/ConversationController';
 import { FallbackGuide } from '../features/conversation/FallbackGuide';
-import { readAppConfig } from '../core/config/AppConfig';
+import { isGatewayConfigured, readAppConfig } from '../core/config/AppConfig';
+import { HarmonyHttpFetcher } from '../core/network/HarmonyHttpFetcher';
 
 @Entry
 @Component
@@ -41,7 +40,7 @@ struct Index {
   @State entries: DiaryEntry[] = [];
   @State detailEntry: DiaryEntry | undefined = undefined;
   @State cardEntry: DiaryEntry | undefined = undefined;
-  private storage: KVStorage = new MapKVStorage();
+  private storage: KVStorage = new PreferencesKVStorage(getContext(this));
   private entryRepo: EntryRepository = new EntryRepository(this.storage);
   private draftRepo: RecallSessionRepository = new RecallSessionRepository(this.storage);
   private gateway: AiGatewayClient | null = null;
@@ -71,13 +70,8 @@ struct Index {
   }
 
   private createGateway(): AiGatewayClient {
-    // Default offline gateway for now: a stub that always fails closed. The
-    // full HTTP wiring lands when the gateway service is reachable; the
-    // controller handles the offline path cleanly either way.
     const config = readAppConfig();
-    if (config.gatewayBaseUrl === 'http://127.0.0.1:8787') {
-      // Dev machine default — keep using the offline stub so the app still
-      // works without a gateway process running.
+    if (!isGatewayConfigured(config)) {
       return new HttpAiGatewayClient({
         baseUrl: config.gatewayBaseUrl,
         bearerToken: config.gatewayBearerToken,
@@ -85,14 +79,11 @@ struct Index {
         fetcher: offlineFetcher,
       });
     }
-    // Production: still inject the offline fetcher because the real
-    // fetch lives on the device and is wired via the system network stack.
-    // Tests rely on the OfflineFetcher fake to keep behaviour deterministic.
     return new HttpAiGatewayClient({
       baseUrl: config.gatewayBaseUrl,
       bearerToken: config.gatewayBearerToken,
       timeoutMs: config.gatewayTimeoutMs,
-      fetcher: offlineFetcher,
+      fetcher: new HarmonyHttpFetcher(),
     });
   }
 
@@ -310,7 +301,7 @@ struct Index {
 }
 
 class OfflineFetcher implements FetchLike {
-  async fetch(_input: string, _init: FetchInit): Promise<FetchResponse> {
+  async fetch(_input: string, _init: Object): Promise<never> {
     throw new Error('offline');
   }
 }

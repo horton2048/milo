@@ -11,8 +11,8 @@ import { moodWord } from '../conversation/FallbackGuide';
 @Component
 export struct HomeScreen {
   @Prop entryCount: number = 0;
-  private onSelectMood: (moodId: MoodId) => void = () => {};
-  private onOpenTimeline: () => void = () => {};
+  onSelectMood: (moodId: MoodId) => void = () => {};
+  onOpenTimeline: () => void = () => {};
 
   build() {
     Stack() {

@@ -1,14 +1,28 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "/Users/hut/Projects/milo/apps/harmony/.signing/milo-release.p12",
+          "storePassword": "00000019760F0051E3F3CD6782986E093F8D7F4C6B136C2AEE348731442D23C8707AEF43C536C4B081",
+          "keyAlias": "milo",
+          "keyPassword": "000000198EF0AF63B82554247BA593CCDD0AA60C5A1B13D631655B528BBC2EDE3603C6509A35E44B3A",
+          "signAlg": "SHA256withECDSA",
+          "profile": "/Users/hut/Projects/milo/apps/harmony/.signing/com.milo.echoesRelease.p7b",
+          "certpath": "/Users/hut/Projects/milo/apps/harmony/.signing/milo.cer"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
         "signingConfig": "default",
-        "compileSdkVersion": 24,
-        "targetSdkVersion": 24,
-        "compatibleSdkVersion": 24,
-        "runtimeOS": "OpenHarmony",
+        "compileSdkVersion": "6.1.1(24)",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "6.1.1(24)",
+        "runtimeOS": "HarmonyOS",
         "buildOption": {
           "strictMode": {
             "caseSensitiveCheck": true,

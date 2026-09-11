@@ -8,9 +8,9 @@ import { MoodPlanet } from '../mood/MoodPlanet';
 @Component
 export struct NowNoteScreen {
   @State note: string = '';
-  private mood: MoodState = { valence: 0, labels: [] };
-  private onSave: (note: string) => void = () => {};
-  private onBack: () => void = () => {};
+  mood: MoodState = { valence: 0, labels: [] };
+  onSave: (note: string) => void = () => {};
+  onBack: () => void = () => {};
 
   build() {
     Column() {

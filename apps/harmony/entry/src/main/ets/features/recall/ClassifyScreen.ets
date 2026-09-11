@@ -4,9 +4,9 @@
  */
 @Component
 export struct ClassifyScreen {
-  private onNow: () => void = () => {};
-  private onPast: () => void = () => {};
-  private onBack: () => void = () => {};
+  onNow: () => void = () => {};
+  onPast: () => void = () => {};
+  onBack: () => void = () => {};
 
   build() {
     Column() {

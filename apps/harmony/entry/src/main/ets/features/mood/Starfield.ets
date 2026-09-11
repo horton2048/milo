@@ -49,7 +49,7 @@ export struct Starfield {
   @Prop seed: number = 0x5a17c0fe;
   @Prop color: string = '#ffffff';
 
-  private get stars(): Star[] {
+  private computeStars(): Star[] {
     if (this.count === DEFAULT_STARFIELD.length && this.seed === 0x5a17c0fe) {
       return DEFAULT_STARFIELD;
     }
@@ -58,7 +58,7 @@ export struct Starfield {
 
   build() {
     Stack() {
-      ForEach(this.stars, (star: Star) => {
+      ForEach(this.computeStars(), (star: Star) => {
         Circle({ width: star.radius * 2, height: star.radius * 2 })
           .fill(this.color)
           .opacity(star.opacity)

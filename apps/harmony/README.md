@@ -12,14 +12,14 @@ artifacts.
 ## Toolchain
 
 - DevEco Studio 6.1.1, build `DS-243.24978.46.36.611300`
-- OpenHarmony SDK API 24 Release `6.1.1.125`: ArkTS/Ets, Js, Native, Previewer, and Toolchains
+- HarmonyOS SDK `6.1.1.125` (API 24): OpenHarmony base components (ArkTS/Ets, Js, Native, Previewer, Toolchains) plus HMS components
 - Node.js `v18.20.1`
 - OHPM `6.1.2.285`
 - Hvigor `6.24.4`
 - HDC `3.2.0d`
 - JetBrains Runtime `21.0.8` (`JBR-21.0.8+9-1038.71-jcef`)
 
-The reproducible wrapper expects DevEco Studio at `/Applications/DevEco-Studio.app/Contents` unless `DEVECO_STUDIO_HOME` is set. It uses DevEco's bundled Node, Hvigor, JBR, HDC, and OpenHarmony SDK; no system Java is required. Because the app-bundled SDK stores API 24 components in a flat directory, the wrapper creates an ignored `.deveco-sdk/24` compatibility link and regenerates ignored `local.properties` before every invocation.
+The reproducible wrapper expects DevEco Studio at `/Applications/DevEco-Studio.app/Contents` unless `DEVECO_STUDIO_HOME` is set. It uses DevEco's bundled Node, Hvigor, JBR, HDC, and HarmonyOS SDK; no system Java is required. Hvigor resolves the all-in-one SDK through `sdk-pkg.json` inside `sdk/default`, so the wrapper points `sdk.dir`/`DEVECO_SDK_HOME` at the SDK root (the parent of `default`) and regenerates ignored `local.properties` before every invocation.
 
 ## Source layout
 

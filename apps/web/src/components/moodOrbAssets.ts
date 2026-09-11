@@ -23,27 +23,27 @@ function moodOrbAsset(
 }
 
 const VERY_LOW_LOW_HEAVY_SHEET = new URL(
-  '../../docs/superpowers/concepts/mood-orbs/01-very-low-low-heavy-transparent.png',
+  '../../../../docs/superpowers/concepts/mood-orbs/01-very-low-low-heavy-transparent.png',
   import.meta.url,
 ).href
 
 const CALM_OKAY_BRIGHT_SHEET = new URL(
-  '../../docs/superpowers/concepts/mood-orbs/02-calm-okay-bright-transparent.png',
+  '../../../../docs/superpowers/concepts/mood-orbs/02-calm-okay-bright-transparent.png',
   import.meta.url,
 ).href
 
 const JOYFUL_LONELY_SAD_SHEET = new URL(
-  '../../docs/superpowers/concepts/mood-orbs/03-joyful-lonely-sad-transparent.png',
+  '../../../../docs/superpowers/concepts/mood-orbs/03-joyful-lonely-sad-transparent.png',
   import.meta.url,
 ).href
 
 const ANGRY_AFRAID_DISAPPOINTED_SHEET = new URL(
-  '../../docs/superpowers/concepts/mood-orbs/04-angry-afraid-disappointed-transparent.png',
+  '../../../../docs/superpowers/concepts/mood-orbs/04-angry-afraid-disappointed-transparent.png',
   import.meta.url,
 ).href
 
 const ANXIOUS_AGGRIEVED_EMBARRASSED_SHEET = new URL(
-  '../../docs/superpowers/concepts/mood-orbs/05-anxious-aggrieved-embarrassed-transparent.png',
+  '../../../../docs/superpowers/concepts/mood-orbs/05-anxious-aggrieved-embarrassed-transparent.png',
   import.meta.url,
 ).href
 
