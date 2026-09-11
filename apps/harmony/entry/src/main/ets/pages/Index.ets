@@ -23,6 +23,7 @@ import { DiaryScreen } from '../features/diary/DiaryScreen';
 import { TimelineScreen } from '../features/timeline/TimelineScreen';
 import { DetailScreen } from '../features/timeline/DetailScreen';
 import { CardScreen } from '../features/timeline/CardScreen';
+import { StageBackdrop } from '../features/ui/MiloButtons';
 import {
   type AiGatewayClient,
   HttpAiGatewayClient,
@@ -114,8 +115,8 @@ struct Index {
     this.draftRepo.clearDraft();
   }
 
-  private pickMood(moodId: MoodId): void {
-    const next = transition(this.state, RecallEvents.selectMood(moodId));
+  private pickMood(moodId: MoodId, labels: string[]): void {
+    const next = transition(this.state, RecallEvents.selectMood(moodId, labels));
     if (next !== this.state) {
       this.state = next;
       this.persistDraft();
@@ -146,12 +147,14 @@ struct Index {
     }
   }
 
-  private sendMessage(text: string): void {
-    const next = transition(this.state, RecallEvents.appendMessage('user', text, Date.now()));
-    if (next !== this.state) {
-      this.state = next;
-      this.persistDraft();
-    }
+  /** Web behavior: after saving, jump straight to the share-card page. */
+  private saveAndShowCard(entry: DiaryEntry): void {
+    this.entryRepo.save(entry);
+    this.clearDraft();
+    const reset = transition(this.state, RecallEvents.reset());
+    this.state = { screen: Screen.card(entry.id), draft: reset.draft };
+    this.refreshEntries();
+    this.refreshEntryCaches();
   }
 
   private saveNowEntry(note: string): void {
@@ -165,10 +168,7 @@ struct Index {
     if (note.length > 0) {
       entry.note = note;
     }
-    this.entryRepo.save(entry);
-    this.clearDraft();
-    this.state = transition(this.state, RecallEvents.reset());
-    this.refreshEntries();
+    this.saveAndShowCard(entry);
   }
 
   private savePastEntry(diary: string | undefined, diaryEnabled: boolean): void {
@@ -187,10 +187,7 @@ struct Index {
     if (diary !== undefined) {
       entry.diary = diary;
     }
-    this.entryRepo.save(entry);
-    this.clearDraft();
-    this.state = transition(this.state, RecallEvents.reset());
-    this.refreshEntries();
+    this.saveAndShowCard(entry);
   }
 
   private openDetail(entryId: string): void {
@@ -212,10 +209,12 @@ struct Index {
 
   build() {
     Stack() {
+      StageBackdrop()
+
       if (this.state.screen.name === 'home') {
         HomeScreen({
           entryCount: this.entries.length,
-          onSelectMood: (id: MoodId) => this.pickMood(id),
+          onNext: (id: MoodId, labels: string[]) => this.pickMood(id, labels),
           onOpenTimeline: () => {
             this.state = transition(this.state, RecallEvents.openTimeline());
           },
@@ -241,13 +240,20 @@ struct Index {
         ChatScreen({
           draft: this.state.draft,
           controller: this.buildChatController(),
-          onFinish: (_transcript: ChatMessage[]) => {
-            const next = transition(this.state, RecallEvents.setDiary(' '));
+          onFinish: (transcript: ChatMessage[]) => {
+            let next = this.state;
+            for (let index = 0; index < transcript.length; index += 1) {
+              const message = transcript[index];
+              next = transition(
+                next,
+                RecallEvents.appendMessage(message.role, message.text, message.ts),
+              );
+            }
+            next = transition(next, RecallEvents.setDiary(' '));
             this.state = next;
             this.persistDraft();
           },
           onBack: () => this.back(),
-          onSend: (text: string) => this.sendMessage(text),
         })
       } else if (this.state.screen.name === 'diary') {
         DiaryScreen({
@@ -300,7 +306,6 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#050608')
   }
 }
 

@@ -7,6 +7,7 @@ import {
   initialConversationState,
   type ConversationState,
 } from '../conversation/ConversationController';
+import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
 
 /** Web `cubic-bezier(0.22, 1, 0.36, 1)`. */
 const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
@@ -79,10 +80,10 @@ export struct DiaryScreen {
     Scroll() {
       Column() {
         Row() {
-          Text('← 返回对话')
-            .fontSize(14)
-            .fontColor(INK_INTERACTIVE)
-            .onClick(() => this.onBack())
+          MiloBackLink({
+            label: '← 返回对话',
+            onTap: () => this.onBack(),
+          })
           Blank()
           Text(this.draft.timeMark ?? '')
             .fontSize(12)
@@ -221,25 +222,13 @@ export struct DiaryScreen {
           }
         }
 
-        Button('收进回忆')
-          .width('100%')
-          .height(52)
-          .borderRadius(999)
-          .backgroundColor(Color.Transparent)
-          .linearGradient({
-            angle: 135,
-            colors: [['rgba(139,124,246,0.85)', 0], ['rgba(240,166,202,0.72)', 1]],
-          })
-          .border({ width: 1, color: 'rgba(255,255,255,0.28)' })
-          .fontColor('#ffffff')
-          .fontSize(15)
-          .fontWeight(FontWeight.Medium)
-          .shadow({ radius: 32, color: 'rgba(139,124,246,0.4)', offsetY: 8 })
-          .enabled(!this.diaryOn || !this.generating)
-          .opacity((!this.diaryOn || !this.generating) ? 1 : 0.48)
-          .onClick(() => {
+        MiloPrimaryButton({
+          label: '收进回忆',
+          active: !this.diaryOn || !this.generating,
+          onTap: () => {
             this.onSave(this.diaryOn ? this.diary : undefined, this.diaryOn);
-          })
+          },
+        })
       }
       .width('100%')
       .padding({ left: 24, right: 24, top: 20, bottom: 24 })
@@ -247,7 +236,6 @@ export struct DiaryScreen {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#050608')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .transition(

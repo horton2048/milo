@@ -450,7 +450,6 @@ export struct CardScreen {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#050608')
     .transition(
       TransitionEffect.OPACITY
         .combine(TransitionEffect.translate({ y: 12 }))

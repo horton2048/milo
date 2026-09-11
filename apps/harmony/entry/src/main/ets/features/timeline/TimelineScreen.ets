@@ -1,5 +1,6 @@
 import { type DiaryEntry } from '../../core/model/Domain';
 import { moodWord } from '../conversation/FallbackGuide';
+import { MiloBackLink } from '../ui/MiloButtons';
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -43,11 +44,10 @@ export struct TimelineScreen {
   build() {
     Column() {
       Row() {
-        Button('← 此刻')
-          .backgroundColor(Color.Transparent)
-          .fontColor('#c9befc')
-          .fontSize(13)
-          .onClick(() => this.onBack())
+        MiloBackLink({
+          label: '← 此刻',
+          onTap: () => this.onBack(),
+        })
         Blank()
         Text('回忆长廊')
           .fontColor('#c9befc')
@@ -55,15 +55,18 @@ export struct TimelineScreen {
         Blank()
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 8 })
+      .padding({ left: 20, right: 16, top: 16, bottom: 8 })
 
       if (this.entries.length === 0) {
         Column() {
           Text('这里还很安静')
-            .fontSize(20)
+            .fontSize(22)
+            .fontFamily('serif')
+            .fontWeight(FontWeight.Medium)
             .fontColor('#ffffff')
           Text('当你收藏了第一段感受，\n它就会在这里亮起来。')
             .fontSize(13)
+            .lineHeight(23.4)
             .fontColor('#8b87a6')
             .margin({ top: 12 })
             .textAlign(TextAlign.Center)
@@ -98,20 +101,20 @@ export struct TimelineScreen {
                   .lineHeight(20)
               }
               .width('100%')
-              .padding(16)
-              .borderRadius(14)
+              .padding(18)
+              .borderRadius(24)
               .backgroundColor('rgba(255,255,255,0.04)')
+              .border({ width: 1, color: 'rgba(255,255,255,0.08)' })
               .onClick(() => this.onOpen(entry.id))
             }
           })
         }
         .layoutWeight(1)
         .width('100%')
-        .padding({ left: 16, right: 16, top: 8, bottom: 16 })
+        .padding({ left: 20, right: 20, top: 8, bottom: 16 })
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#050608')
   }
 }

@@ -1,6 +1,7 @@
 import { type ChatMessage, type DiaryEntry, type MoodId } from '../../core/model/Domain';
 import { moodWord } from '../conversation/FallbackGuide';
 import { MoodPlanet } from '../mood/MoodPlanet';
+import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -18,11 +19,10 @@ export struct DetailScreen {
   build() {
     Column() {
       Row() {
-        Button('← 回忆长廊')
-          .backgroundColor(Color.Transparent)
-          .fontColor('#c9befc')
-          .fontSize(13)
-          .onClick(() => this.onBack())
+        MiloBackLink({
+          label: '← 回忆长廊',
+          onTap: () => this.onBack(),
+        })
         Blank()
         if (this.entry !== undefined) {
           Text(formatDate(this.entry.createdAt))
@@ -30,10 +30,10 @@ export struct DetailScreen {
             .fontSize(12)
         }
         Blank()
-        Button('放下')
-          .backgroundColor(Color.Transparent)
-          .fontColor('#8b87a6')
+        Text('放下')
           .fontSize(13)
+          .fontColor('#8b87a6')
+          .padding({ left: 4, right: 4, top: 6, bottom: 6 })
           .onClick(() => {
             if (this.entry !== undefined) {
               this.onRemove(this.entry.id);
@@ -41,7 +41,7 @@ export struct DetailScreen {
           })
       }
       .width('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 8 })
+      .padding({ left: 20, right: 16, top: 16, bottom: 8 })
 
       if (this.entry === undefined) {
         Text('这段回忆已经飘走了。')
@@ -50,7 +50,9 @@ export struct DetailScreen {
       } else {
         Column() {
           Text(this.entry.kind === 'past' ? (this.entry.timeMark ?? '过去的某一天') : '此刻')
-            .fontSize(22)
+            .fontSize(24)
+            .fontFamily('serif')
+            .fontWeight(FontWeight.Medium)
             .fontColor('#ffffff')
           Text(
             `${moodWord(this.entry.mood.valence, this.entry.mood.emotionId)}` +
@@ -69,8 +71,10 @@ export struct DetailScreen {
         if (this.entry.diary !== undefined && this.entry.diary.length > 0) {
           Text(this.entry.diary)
             .width('90%')
-            .padding(16)
+            .padding(18)
+            .borderRadius(24)
             .backgroundColor('rgba(255,255,255,0.04)')
+            .border({ width: 1, color: 'rgba(255,255,255,0.08)' })
             .fontColor('#ffffff')
             .fontSize(14)
             .lineHeight(22)
@@ -78,8 +82,10 @@ export struct DetailScreen {
         } else if (this.entry.note !== undefined && this.entry.note.length > 0) {
           Text(this.entry.note)
             .width('90%')
-            .padding(16)
+            .padding(18)
+            .borderRadius(24)
             .backgroundColor('rgba(255,255,255,0.04)')
+            .border({ width: 1, color: 'rgba(255,255,255,0.08)' })
             .fontColor('#ffffff')
             .fontSize(14)
             .lineHeight(22)
@@ -114,18 +120,20 @@ export struct DetailScreen {
           }
         }
 
-        Button('生成回忆卡片')
-          .width('90%')
-          .height(48)
-          .backgroundColor('#8b7cf6')
-          .fontColor('#ffffff')
-          .onClick(() => {
-            this.onCard(this.entry!.id);
-          })
+        Blank()
+
+        MiloPrimaryButton({
+          label: '生成回忆卡片',
+          onTap: () => {
+            if (this.entry !== undefined) {
+              this.onCard(this.entry.id);
+            }
+          },
+        })
+          .margin({ left: 24, right: 24, bottom: 28 })
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#050608')
   }
 }

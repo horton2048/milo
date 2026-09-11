@@ -9,9 +9,11 @@ export interface RecallState {
 export class SelectMoodEvent {
   readonly type: 'SELECT_MOOD' = 'SELECT_MOOD';
   readonly moodId: MoodId;
+  readonly labels: string[] | undefined;
 
-  constructor(moodId: MoodId) {
+  constructor(moodId: MoodId, labels?: string[]) {
     this.moodId = moodId;
+    this.labels = labels;
   }
 }
 
@@ -104,8 +106,8 @@ export type RecallEvent =
   | ResetEvent;
 
 export class RecallEvents {
-  static selectMood(moodId: MoodId): SelectMoodEvent {
-    return new SelectMoodEvent(moodId);
+  static selectMood(moodId: MoodId, labels?: string[]): SelectMoodEvent {
+    return new SelectMoodEvent(moodId, labels);
   }
 
   static classify(kind: EntryKind): ClassifyEvent {
@@ -227,6 +229,9 @@ export function transition(state: RecallState, event: RecallEvent): RecallState 
     const mood = moodStateForId(event.moodId);
     if (mood === undefined) {
       return state;
+    }
+    if (event.labels !== undefined && event.labels.length > 0) {
+      mood.labels = event.labels.slice();
     }
     return withDraft(Screen.classify(), {
       mood: mood,

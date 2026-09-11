@@ -38,6 +38,7 @@ test('root page wires the complete recall flow on the dark background', () => {
   );
 
   for (const contract of [
+    'StageBackdrop',
     'HomeScreen({',
     'ClassifyScreen({',
     'NowNoteScreen({',
@@ -48,8 +49,7 @@ test('root page wires the complete recall flow on the dark background', () => {
     'DetailScreen({',
     'CardScreen({',
     ".width('100%')",
-    ".height('100%')",
-    ".backgroundColor('#050608')"
+    ".height('100%')"
   ]) {
     assert.ok(source.includes(contract), `Missing smoke-shell contract: ${contract}`);
   }

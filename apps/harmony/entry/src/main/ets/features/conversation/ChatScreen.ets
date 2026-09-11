@@ -1,4 +1,5 @@
 import { curves } from '@kit.ArkUI';
+import { common } from '@kit.AbilityKit';
 import { type ChatMessage, type Draft } from '../../core/model/Domain';
 import { FallbackGuide } from './FallbackGuide';
 import { TypingDots } from '../ui/TypingDots';
@@ -7,6 +8,9 @@ import {
   initialConversationState,
   type ConversationState,
 } from './ConversationController';
+import { SpeechInput, mergeRecognizedText, type SpeechResult } from '../../core/system/SpeechInput';
+import { HarmonySpeechPlatform } from '../../core/system/HarmonySpeechPlatform';
+import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
 
 /** AI-mode conversations stop after this many exchanges. */
 const MAX_AI_TURNS: number = 3;
@@ -34,9 +38,12 @@ export struct ChatScreen {
   @State aiMode: boolean = false;
   @State aiTurns: number = 0;
   @State conversationDone: boolean = false;
+  @State listening: boolean = false;
+  @State userSpoke: boolean = false;
   @State conversationState: ConversationState = initialConversationState();
   private guide: FallbackGuide | null = null;
   private scroller: Scroller = new Scroller();
+  private speech: SpeechInput | null = null;
   controller: ConversationController | null = null;
   draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
   onFinish: (transcript: ChatMessage[]) => void = () => {};
@@ -46,6 +53,9 @@ export struct ChatScreen {
   aboutToAppear(): void {
     const timeMark = this.draft.timeMark ?? '过去的某一天';
     this.guide = new FallbackGuide(timeMark);
+    this.speech = new SpeechInput({
+      platform: new HarmonySpeechPlatform(getContext(this) as common.UIAbilityContext),
+    });
     if (this.controller !== null) {
       this.controller.restoreState(this.conversationState);
     }
@@ -53,6 +63,13 @@ export struct ChatScreen {
     this.aiTurns = 0;
     this.conversationDone = false;
     this.pushMessage({ role: 'ai', text: this.guide.opening(), ts: Date.now() });
+  }
+
+  aboutToDisappear(): void {
+    if (this.speech !== null) {
+      void this.speech.dispose();
+      this.speech = null;
+    }
   }
 
   private async sendReply(text: string): Promise<void> {
@@ -109,10 +126,32 @@ export struct ChatScreen {
     if (this.conversationDone) {
       return true;
     }
-    if (this.aiMode) {
-      return false;
+    return this.userSpoke && !this.busy;
+  }
+
+  private toggleMic(): void {
+    const speech = this.speech;
+    if (speech === null) {
+      return;
     }
-    return this.guide !== null && this.guide.isWrappingUp();
+    if (this.listening) {
+      this.listening = false;
+      void speech.cancel();
+      return;
+    }
+    this.listening = true;
+    const prior = this.input;
+    speech
+      .begin()
+      .then((result: SpeechResult) => {
+        this.listening = false;
+        if (result.text.trim().length > 0) {
+          this.input = mergeRecognizedText(prior, result.text);
+        }
+      })
+      .catch(() => {
+        this.listening = false;
+      });
   }
 
   private sendCurrent(): void {
@@ -122,6 +161,7 @@ export struct ChatScreen {
     }
     this.input = '';
     this.busy = true;
+    this.userSpoke = true;
     this.pushMessage({ role: 'user', text: text, ts: Date.now() });
     this.onSend(text);
     void this.sendReply(text).then(() => {
@@ -143,10 +183,10 @@ export struct ChatScreen {
   build() {
     Column() {
       Row() {
-        Text('← 离开')
-          .fontSize(14)
-          .fontColor(INK_INTERACTIVE)
-          .onClick(() => this.onBack())
+        MiloBackLink({
+          label: '← 离开',
+          onTap: () => this.onBack(),
+        })
         Text(this.aiMode ? '✦ AI' : 'AI')
           .fontSize(11)
           .fontWeight(FontWeight.Medium)
@@ -232,29 +272,56 @@ export struct ChatScreen {
       }
 
       if (this.canFinish()) {
-        Button('✦ 沉淀这段回忆')
-          .width('100%')
-          .height(52)
-          .borderRadius(999)
-          .backgroundColor(Color.Transparent)
-          .linearGradient({
-            angle: 180,
-            colors: [
-              ['rgba(255,255,255,0.12)', 0],
-              ['rgba(255,255,255,0.04)', 0.45],
-              ['rgba(255,255,255,0.02)', 1],
-            ],
-          })
-          .border({ width: 1, color: 'rgba(139,124,246,0.5)' })
-          .fontColor('#c9befc')
-          .fontSize(15)
+        MiloPrimaryButton({
+          label: '✦ 沉淀这段回忆',
+          onTap: () => this.onFinish(this.messages),
+        })
           .margin({ bottom: 12 })
-          .onClick(() => this.onFinish(this.messages))
       }
 
       if (!this.conversationDone) {
         Row({ space: 10 }) {
-          TextInput({ placeholder: '说说那时的事…', text: this.input })
+          Column({ space: 1 }) {
+            Column()
+              .width(13)
+              .height(16)
+              .borderRadius(7)
+              .backgroundColor(this.listening ? '#050608' : INK_INTERACTIVE)
+            Column()
+              .width(16)
+              .height(9)
+              .borderRadius({ bottomLeft: 8, bottomRight: 8 })
+              .border({
+                width: { left: 1.5, right: 1.5, bottom: 1.5 },
+                color: this.listening ? '#050608' : INK_INTERACTIVE,
+              })
+            Column()
+              .width(1.5)
+              .height(3)
+              .backgroundColor(this.listening ? '#050608' : INK_INTERACTIVE)
+          }
+          .width(44)
+          .height(44)
+          .borderRadius(22)
+          .justifyContent(FlexAlign.Center)
+          .backgroundColor(this.listening ? '#8b7cf6' : GLASS_BG)
+          .border({
+            width: 1,
+            color: this.listening ? 'rgba(139,124,246,0.6)' : GLASS_BORDER,
+          })
+          .shadow(this.listening ? { radius: 22, color: 'rgba(139,124,246,0.55)' } : {
+            radius: 0,
+            color: 'rgba(0,0,0,0)',
+          })
+          .scale(this.listening ? { x: 1.06, y: 1.06 } : { x: 1, y: 1 })
+          .onClick(() => {
+            this.toggleMic();
+          })
+
+          TextInput({
+            placeholder: this.listening ? '正在聆听…' : '说说那时的事…',
+            text: this.input,
+          })
             .onChange((value: string) => {
               this.input = value;
             })
@@ -270,13 +337,18 @@ export struct ChatScreen {
             .placeholderColor('rgba(234,230,255,0.64)')
             .placeholderFont({ size: 15 })
             .caretColor('#c9befc')
+
           Button('↑')
             .width(44)
             .height(44)
             .borderRadius(22)
-            .backgroundColor(GLASS_BG)
+            .backgroundColor(
+              this.input.trim().length > 0 && !this.busy
+                ? 'rgba(139,124,246,0.92)'
+                : GLASS_BG,
+            )
             .border({ width: 1, color: GLASS_BORDER })
-            .fontColor(INK)
+            .fontColor(this.input.trim().length > 0 && !this.busy ? '#ffffff' : INK)
             .fontSize(18)
             .opacity(this.input.trim().length > 0 && !this.busy ? 1 : 0.48)
             .enabled(this.input.trim().length > 0 && !this.busy)
@@ -294,7 +366,6 @@ export struct ChatScreen {
     .width('100%')
     .height('100%')
     .padding({ left: 24, right: 24, top: 20, bottom: 24 })
-    .backgroundColor('#050608')
     .transition(
       TransitionEffect.OPACITY
         .combine(TransitionEffect.translate({ y: 12 }))

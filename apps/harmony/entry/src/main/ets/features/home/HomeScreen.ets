@@ -1,59 +1,158 @@
-import { ECHO_SELECTOR_MOODS, type MoodId } from '../../core/model/Moods';
+import { ECHO_SELECTOR_MOODS, getMoodDescriptorWords, type MoodDefinition, type MoodId } from '../../core/model/Moods';
 import { MILO_COLORS, MILO_TYPOGRAPHY } from '../../core/theme/MiloTheme';
 import { MoodOrbitCarousel } from '../mood/MoodOrbitCarousel';
-import { Starfield } from '../mood/Starfield';
-import { moodWord } from '../conversation/FallbackGuide';
+import { MoodPlanet } from '../mood/MoodPlanet';
+import { MiloBackLink, MiloPrimaryButton, MILO_EASE } from '../ui/MiloButtons';
+import { Haptics } from '../../core/system/Haptics';
+
+// Web word ring: 360px dial, 136px word radius — scaled to the 377vp screen.
+const RING_SIZE = 330;
+const RING_CENTER = RING_SIZE / 2;
+const WORD_RADIUS = 128;
+const PLANET_SIZE = 144;
+const MAX_PICKED_WORDS = 3;
+
+type HomeStep = 'feel' | 'word';
 
 /**
- * First stop in the recall flow. Echo-style orbit carousel sits at the
- * center of a deterministic starfield; tap any tick or label to pick a mood.
+ * Web `Home.tsx` two-step selector, 1:1. Step one is the echo orbit carousel
+ * with the「就是这种感觉」primary action; step two is the rotating word ring
+ * where up to three descriptor labels can be collected before continuing.
  */
 @Component
 export struct HomeScreen {
   @Prop entryCount: number = 0;
+  @State step: HomeStep = 'feel';
   @State activeMoodIndex: number = 3;
-  onSelectMood: (moodId: MoodId) => void = () => {};
+  @State ringAngle: number = 0;
+  @State smooth: boolean = false;
+  @State pickedWords: string[] = [];
+  onNext: (moodId: MoodId, labels: string[]) => void = () => {};
   onOpenTimeline: () => void = () => {};
+  private haptics: Haptics = new Haptics();
+  private lastDragAngle: number = 0;
 
-  private activeCaption(): string {
-    const mood = ECHO_SELECTOR_MOODS[this.activeMoodIndex];
-    return moodWord(mood.valence, mood.id);
+  private activeMood(): MoodDefinition {
+    return ECHO_SELECTOR_MOODS[this.activeMoodIndex];
+  }
+
+  private descriptorWords(): string[] {
+    const mood = this.activeMood();
+    return getMoodDescriptorWords(mood.id, mood.valence);
+  }
+
+  private wordStepAngle(): number {
+    const count = this.descriptorWords().length;
+    return count > 0 ? 360 / count : 360;
+  }
+
+  private focusIndex(): number {
+    const words = this.descriptorWords();
+    const step = this.wordStepAngle();
+    let best = 0;
+    let bestDiff = 361;
+    for (let index = 0; index < words.length; index += 1) {
+      let a = (index * step - 90 + this.ringAngle) % 360;
+      if (a < 0) {
+        a += 360;
+      }
+      const diff = Math.min(Math.abs(a - 270), 360 - Math.abs(a - 270));
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = index;
+      }
+    }
+    return best;
+  }
+
+  private isPicked(word: string): boolean {
+    for (let index = 0; index < this.pickedWords.length; index += 1) {
+      if (this.pickedWords[index] === word) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private toggleWord(word: string): void {
+    const next: string[] = [];
+    let removed = false;
+    for (let index = 0; index < this.pickedWords.length; index += 1) {
+      if (this.pickedWords[index] !== word) {
+        next.push(this.pickedWords[index]);
+      } else {
+        removed = true;
+      }
+    }
+    if (!removed && this.pickedWords.length < MAX_PICKED_WORDS) {
+      next.push(word);
+    }
+    if (next.length !== this.pickedWords.length || removed) {
+      this.haptics.selection();
+      this.pickedWords = next;
+    }
+  }
+
+  private dragAngle(event: GestureEvent): number {
+    if (event.fingerList.length === 0) {
+      return this.lastDragAngle;
+    }
+    const finger = event.fingerList[0];
+    return Math.atan2(finger.localY - RING_CENTER, finger.localX - RING_CENTER) * 180 / Math.PI;
+  }
+
+  private settleRing(): void {
+    const step = this.wordStepAngle();
+    const target = Math.round(this.ringAngle / step) * step;
+    this.smooth = true;
+    this.getUIContext().animateTo({ duration: 400, curve: MILO_EASE }, () => {
+      this.ringAngle = target;
+    });
+  }
+
+  private goStep(step: HomeStep): void {
+    this.getUIContext().animateTo({ duration: 420, curve: MILO_EASE }, () => {
+      this.step = step;
+    });
+    if (step === 'word') {
+      this.ringAngle = 0;
+      this.smooth = false;
+    }
   }
 
   build() {
-    Stack() {
-      Starfield({ count: 120, seed: 0x5a17c0fe, color: '#ffffff' })
+    Column() {
+      Row() {
+        Text('MILO-米洛')
+          .fontSize(MILO_TYPOGRAPHY.eyebrowSize)
+          .fontColor(MILO_COLORS.inkHint)
+          .letterSpacing(5)
+        Blank()
+        MiloBackLink({
+          label: this.entryCount > 0 ? `回忆 · ${this.entryCount}` : '回忆',
+          onTap: () => this.onOpenTimeline(),
+        })
+      }
+      .width('100%')
+      .padding({ left: 24, right: 24, top: 16, bottom: 8 })
 
-      Column() {
-        Row() {
-          Text('Milo-米洛')
-            .fontColor(MILO_COLORS.inkDim)
-            .fontSize(MILO_TYPOGRAPHY.eyebrowSize)
-          Blank()
-          Button(this.entryCount > 0 ? `回忆 · ${this.entryCount}` : '回忆')
-            .backgroundColor(Color.Transparent)
-            .fontColor(MILO_COLORS.inkDim)
-            .fontSize(MILO_TYPOGRAPHY.eyebrowSize)
-            .onClick(() => this.onOpenTimeline())
+      if (this.step === 'feel') {
+        Column() {
+          Text('此刻，你感受到的是？')
+            .fontSize(24)
+            .fontColor(MILO_COLORS.ink)
+            .margin({ top: 16, bottom: 4 })
+          Text('点选最贴近的一颗星，我们陪你继续')
+            .fontSize(MILO_TYPOGRAPHY.subtitleSize)
+            .fontColor(MILO_COLORS.inkHint)
         }
         .width('100%')
-        .padding({ left: 24, right: 24, top: 16, bottom: 8 })
-
-        Text('此刻，你感受到的是？')
-          .fontSize(MILO_TYPOGRAPHY.titleSize)
-          .fontColor(MILO_COLORS.ink)
-          .margin({ top: 16, bottom: 4 })
-        Text('点选最贴近的一颗星，我们陪你继续')
-          .fontSize(MILO_TYPOGRAPHY.subtitleSize)
-          .fontColor(MILO_COLORS.inkHint)
-          .margin({ bottom: 16 })
+        .alignItems(HorizontalAlign.Center)
 
         Blank()
         MoodOrbitCarousel({
           onSelect: (index: number) => {
-            const mood = ECHO_SELECTOR_MOODS[index];
             this.activeMoodIndex = index;
-            this.onSelectMood(mood.id);
           },
           onActiveChange: (index: number) => {
             this.activeMoodIndex = index;
@@ -61,19 +160,150 @@ export struct HomeScreen {
         })
         Blank()
 
-        Text(this.activeCaption())
-          .fontSize(MILO_TYPOGRAPHY.bodySize)
-          .fontColor(MILO_COLORS.inkDim)
-          .margin({ bottom: 24 })
+        Text(this.activeMood().labels[0])
+          .fontSize(22)
+          .fontFamily('serif')
+          .fontWeight(FontWeight.Medium)
+          .fontColor(MILO_COLORS.ink)
+          .margin({ bottom: 6 })
+        Text('沿圆环旋转，或点击任意情绪直接切换')
+          .fontSize(12)
+          .fontColor(MILO_COLORS.inkHint)
+          .margin({ bottom: 22 })
+
+        MiloPrimaryButton({
+          label: '就是这种感觉',
+          onTap: () => this.goStep('word'),
+        })
+          .margin({ left: 24, right: 24, bottom: 24 })
+      } else {
+        Column() {
+          MiloBackLink({
+            label: '← 重新感受',
+            onTap: () => this.goStep('feel'),
+          })
+            .alignSelf(ItemAlign.Start)
+            .margin({ top: 4 })
+          Text('如果要给它一个名字')
+            .fontSize(22)
+            .fontFamily('serif')
+            .fontWeight(FontWeight.Medium)
+            .fontColor(MILO_COLORS.ink)
+            .margin({ top: 2 })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+
+        Blank()
+
+        Stack() {
+          MoodPlanet({ moodId: this.activeMood().id, planetSize: PLANET_SIZE })
+
+          ForEach(this.descriptorWords(), (word: string, index: number) => {
+            Stack({ alignContent: Alignment.TopEnd }) {
+              Text(word)
+                .fontSize(index === this.focusIndex() ? 19 : 14)
+                .fontFamily(index === this.focusIndex() ? 'serif' : 'sans-serif')
+                .fontWeight(index === this.focusIndex() ? FontWeight.Medium : FontWeight.Normal)
+                .fontColor(this.wordColor(word, index))
+                .shadow(
+                  index === this.focusIndex()
+                    ? { radius: 18, color: 'rgba(255,255,255,0.45)' }
+                    : { radius: 0, color: 'rgba(0,0,0,0)' },
+                )
+                .letterSpacing(1)
+                .padding({ left: 10, right: 10, top: 6, bottom: 6 })
+              if (this.isPicked(word)) {
+                Circle({ width: 5, height: 5 })
+                  .fill('#b9aefc')
+                  .shadow({ radius: 8, color: '#b9aefc' })
+                  .offset({ x: -4, y: 4 })
+              }
+            }
+            .markAnchor({ x: '50%', y: '50%' })
+            .position({ x: this.wordX(index), y: this.wordY(index) })
+            .onClick(() => {
+              this.toggleWord(word);
+            })
+          }, (word: string) => word)
+        }
+        .width(RING_SIZE)
+        .height(RING_SIZE)
+        .gesture(
+          PanGesture({ fingers: 1 })
+            .onActionStart((event: GestureEvent) => {
+              this.smooth = false;
+              this.lastDragAngle = this.dragAngle(event);
+            })
+            .onActionUpdate((event: GestureEvent) => {
+              const angle = this.dragAngle(event);
+              let delta = angle - this.lastDragAngle;
+              if (delta > 180) {
+                delta -= 360;
+              }
+              if (delta < -180) {
+                delta += 360;
+              }
+              this.ringAngle += delta;
+              this.lastDragAngle = angle;
+            })
+            .onActionEnd(() => {
+              this.settleRing();
+            }),
+        )
+
+        Text('旋转词环，轻点收下最贴切的词（最多 3 个）')
+          .fontSize(12)
+          .fontColor(MILO_COLORS.inkHint)
+          .margin({ top: 18 })
+
+        Column() {
+          if (this.pickedWords.length > 0) {
+            Text(this.pickedWords.join(' · '))
+              .fontSize(15)
+              .fontColor('#c9befc')
+          }
+        }
+        .height(30)
+        .justifyContent(FlexAlign.Center)
+        .margin({ top: 12, bottom: 14 })
+
+        MiloPrimaryButton({
+          label: '继续',
+          onTap: () => {
+            this.onNext(this.activeMood().id, this.pickedWords.slice());
+          },
+        })
+          .margin({ left: 24, right: 24 })
+
+        Text('也可以不选任何词，感受不必都有名字')
+          .fontSize(12)
+          .fontColor(MILO_COLORS.inkHint)
+          .margin({ top: 12, bottom: 16 })
       }
-      .width('100%')
-      .height('100%')
-      // Let taps on empty areas fall through to the starfield backdrop,
-      // while controls inside still receive their own events.
-      .hitTestBehavior(HitTestMode.Transparent)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(MILO_COLORS.bg)
+    .hitTestBehavior(HitTestMode.Transparent)
+  }
+
+  private wordColor(word: string, index: number): string {
+    if (this.isPicked(word)) {
+      return '#c9befc';
+    }
+    if (index === this.focusIndex()) {
+      return '#ffffff';
+    }
+    return 'rgba(234,230,255,0.60)';
+  }
+
+  private wordX(index: number): number {
+    const angle = (index * this.wordStepAngle() - 90 + this.ringAngle) * Math.PI / 180;
+    return RING_CENTER + Math.cos(angle) * WORD_RADIUS;
+  }
+
+  private wordY(index: number): number {
+    const angle = (index * this.wordStepAngle() - 90 + this.ringAngle) * Math.PI / 180;
+    return RING_CENTER + Math.sin(angle) * WORD_RADIUS;
   }
 }
