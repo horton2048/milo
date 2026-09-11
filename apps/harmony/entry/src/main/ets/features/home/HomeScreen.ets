@@ -29,6 +29,8 @@ export struct HomeScreen {
   @State pickedWords: string[] = [];
   onNext: (moodId: MoodId, labels: string[]) => void = () => {};
   onOpenTimeline: () => void = () => {};
+  /** Owner affordance: long-press the wordmark to sign out of the login gate. */
+  onSignOut: () => void = () => {};
   private haptics: Haptics = new Haptics();
   private lastDragAngle: number = 0;
 
@@ -127,6 +129,13 @@ export struct HomeScreen {
           .fontSize(MILO_TYPOGRAPHY.eyebrowSize)
           .fontColor(MILO_COLORS.inkHint)
           .letterSpacing(5)
+          .gesture(
+            LongPressGesture()
+              .onAction(() => {
+                this.haptics.selection();
+                this.onSignOut();
+              }),
+          )
         Blank()
         MiloBackLink({
           label: this.entryCount > 0 ? `回忆 · ${this.entryCount}` : '回忆',

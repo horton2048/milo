@@ -33,6 +33,13 @@ import { ConversationController } from '../features/conversation/ConversationCon
 import { FallbackGuide } from '../features/conversation/FallbackGuide';
 import { isGatewayConfigured, readAppConfig } from '../core/config/AppConfig';
 import { HarmonyHttpFetcher } from '../core/network/HarmonyHttpFetcher';
+import { AuthSessionStore } from '../core/auth/AuthSessionStore';
+import { FakeAuthProvider } from '../core/auth/FakeAuthProvider';
+import { type AuthSession } from '../core/auth/AuthProvider';
+import { AuthController } from '../features/auth/AuthController';
+import { LoginScreen } from '../features/auth/LoginScreen';
+
+type AuthGate = 'checking' | 'signedOut' | 'signedIn';
 
 @Entry
 @Component
@@ -42,13 +49,20 @@ struct Index {
   @State entries: DiaryEntry[] = [];
   @State detailEntry: DiaryEntry | undefined = undefined;
   @State cardEntry: DiaryEntry | undefined = undefined;
+  @State authGate: AuthGate = 'checking';
   private storage: KVStorage = new PreferencesKVStorage(getContext(this));
   private entryRepo: EntryRepository = new EntryRepository(this.storage);
   private draftRepo: RecallSessionRepository = new RecallSessionRepository(this.storage);
+  private authController: AuthController = new AuthController({
+    provider: new FakeAuthProvider(),
+    store: new AuthSessionStore(this.storage),
+  });
   private gateway: AiGatewayClient | null = null;
   private hasRestored: boolean = false;
 
   aboutToAppear(): void {
+    const session = this.authController.restore();
+    this.authGate = session !== undefined ? 'signedIn' : 'signedOut';
     this.refreshEntries();
     if (!this.hasRestored) {
       this.hasRestored = true;
@@ -207,16 +221,43 @@ struct Index {
     }
   }
 
+  private async signOut(): Promise<void> {
+    await this.authController.signOut();
+    this.authGate = 'signedOut';
+  }
+
   build() {
     Stack() {
       StageBackdrop()
 
-      if (this.state.screen.name === 'home') {
+      if (this.authGate === 'checking') {
+        Column() {
+          Text('MILO')
+            .fontSize(34)
+            .fontFamily('serif')
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#ffffff')
+            .letterSpacing(6)
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else if (this.authGate === 'signedOut') {
+        LoginScreen({
+          controller: this.authController,
+          onSignedIn: (_session: AuthSession) => {
+            this.authGate = 'signedIn';
+          },
+        })
+      } else if (this.state.screen.name === 'home') {
         HomeScreen({
           entryCount: this.entries.length,
           onNext: (id: MoodId, labels: string[]) => this.pickMood(id, labels),
           onOpenTimeline: () => {
             this.state = transition(this.state, RecallEvents.openTimeline());
+          },
+          onSignOut: () => {
+            void this.signOut();
           },
         })
       } else if (this.state.screen.name === 'classify') {

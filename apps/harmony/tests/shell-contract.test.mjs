@@ -39,6 +39,7 @@ test('root page wires the complete recall flow on the dark background', () => {
 
   for (const contract of [
     'StageBackdrop',
+    'LoginScreen({',
     'HomeScreen({',
     'ClassifyScreen({',
     'NowNoteScreen({',
