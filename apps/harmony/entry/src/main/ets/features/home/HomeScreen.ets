@@ -11,8 +11,14 @@ import { moodWord } from '../conversation/FallbackGuide';
 @Component
 export struct HomeScreen {
   @Prop entryCount: number = 0;
+  @State activeMoodIndex: number = 3;
   onSelectMood: (moodId: MoodId) => void = () => {};
   onOpenTimeline: () => void = () => {};
+
+  private activeCaption(): string {
+    const mood = MOODS[this.activeMoodIndex];
+    return moodWord(mood.valence, mood.id);
+  }
 
   build() {
     Stack() {
@@ -46,12 +52,16 @@ export struct HomeScreen {
         MoodOrbitCarousel({
           onSelect: (index: number) => {
             const mood = MOODS[index];
+            this.activeMoodIndex = index;
             this.onSelectMood(mood.id);
+          },
+          onActiveChange: (index: number) => {
+            this.activeMoodIndex = index;
           },
         })
         Blank()
 
-        Text(moodWord(0, 'calm'))
+        Text(this.activeCaption())
           .fontSize(MILO_TYPOGRAPHY.bodySize)
           .fontColor(MILO_COLORS.inkDim)
           .margin({ bottom: 24 })

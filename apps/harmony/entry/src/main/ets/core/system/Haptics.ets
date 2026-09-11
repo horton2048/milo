@@ -1,3 +1,6 @@
+import { vibrator } from '@kit.SensorServiceKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+
 /**
  * Haptic feedback adapter. Mirrors the trigger points used by the web build's
  * `apps/web/src/lib/haptics.ts`: selection changes, important confirmations,
@@ -55,12 +58,39 @@ export class Haptics {
 }
 
 function defaultHapticPlatform(): HapticPlatform {
-  // The real device implementation would call `vibrator.startVibration` with
-  // a `VibratorPattern` shaped from the event name. In unit tests we rely on
-  // injected fakes instead.
-  return new NoopHapticPlatform();
+  return new VibratorHapticPlatform();
 }
 
-class NoopHapticPlatform implements HapticPlatform {
-  vibrate(_event: HapticEvent): void {}
+function durationForEvent(event: HapticEvent): number {
+  switch (event) {
+    case 'confirmation':
+      return 10;
+    case 'reminder':
+      return 24;
+    case 'error':
+      return 32;
+    default:
+      return 8;
+  }
+}
+
+/**
+ * Real device platform. Durations mirror the web build's `navigator.vibrate`
+ * patterns (8ms selection ticks, 10ms confirm taps). Devices without a motor
+ * (e.g. emulators) reject the call; that failure is expected and ignored.
+ */
+class VibratorHapticPlatform implements HapticPlatform {
+  vibrate(event: HapticEvent): void {
+    const effect: vibrator.VibrateTime = {
+      type: 'time',
+      duration: durationForEvent(event),
+    };
+    const attribute: vibrator.VibrateAttribute = {
+      id: 0,
+      usage: 'touch',
+    };
+    vibrator.startVibration(effect, attribute).catch((_error: BusinessError) => {
+      // No vibrator hardware on this device; haptics degrade silently.
+    });
+  }
 }
