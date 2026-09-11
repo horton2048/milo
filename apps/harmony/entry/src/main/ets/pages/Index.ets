@@ -2,6 +2,7 @@ import {
   type DiaryEntry,
   type MoodId,
   type ChatMessage,
+  type StickerTemplateId,
   Screen,
 } from '../core/model/Domain';
 import {
@@ -279,8 +280,11 @@ struct Index {
       } else if (this.state.screen.name === 'card') {
         CardScreen({
           entry: this.cardEntry,
-          onSelect: (_template) => {
-            // 模板选择落地到 entry 字段，留待 Task 6 的 CardRenderer 接入
+          onSelect: (template: StickerTemplateId) => {
+            if (this.cardEntry !== undefined) {
+              this.entryRepo.update(this.cardEntry.id, { stickerTemplate: template });
+              this.refreshEntryCaches();
+            }
           },
           onDone: () => this.back(),
           onHome: () => {

@@ -1,16 +1,28 @@
+import { curves } from '@kit.ArkUI';
 import { type Draft } from '../../core/model/Domain';
 import { fallbackDiary } from '../conversation/FallbackGuide';
+import { TypingDots } from '../ui/TypingDots';
 import {
   ConversationController,
   initialConversationState,
   type ConversationState,
 } from '../conversation/ConversationController';
 
+/** Web `cubic-bezier(0.22, 1, 0.36, 1)`. */
+const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
+
+const INK: string = '#eae6ff';
+const INK_DIM: string = 'rgba(234,230,255,0.72)';
+const INK_FAINT: string = 'rgba(234,230,255,0.60)';
+const INK_INTERACTIVE: string = 'rgba(238,234,255,0.78)';
+const GLASS_BG: string = 'rgba(255,255,255,0.06)';
+const GLASS_BORDER: string = 'rgba(255,255,255,0.12)';
+const PAPER_TEXT: string = 'rgba(240,236,255,0.92)';
+
 /**
- * First-person diary generated from the past-branch transcript. Prefers the AI
- * gateway via `ConversationController.createDiary`; on any failure the local
- * `fallbackDiary` runs so the user always sees a draft. The user can edit
- * before save.
+ * First-person diary screen, styled 1:1 after the Web `Diary.tsx` page.
+ * Prefers the AI gateway via `ConversationController.createDiary`; on any
+ * failure the local `fallbackDiary` runs so the user always sees a draft.
  */
 @Component
 export struct DiaryScreen {
@@ -46,6 +58,16 @@ export struct DiaryScreen {
     this.generating = false;
   }
 
+  private toggleDiary(): void {
+    this.getUIContext().animateTo({ duration: 300, curve: MILO_EASE }, () => {
+      this.diaryOn = !this.diaryOn;
+    });
+    if (this.diaryOn && this.diary.length === 0) {
+      this.generating = true;
+      void this.generateDiary();
+    }
+  }
+
   private fallbackNotice(): string {
     if (this.conversationState.lastError === undefined) {
       return '';
@@ -54,126 +76,184 @@ export struct DiaryScreen {
   }
 
   build() {
-    Column() {
-      Row() {
-        Button('← 返回对话')
-          .backgroundColor(Color.Transparent)
-          .fontColor('#c9befc')
-          .fontSize(13)
-          .onClick(() => this.onBack())
-        Blank()
-        Text(this.draft.timeMark ?? '')
-          .fontColor('#c9befc')
-          .fontSize(12)
-        Blank()
-      }
-      .width('100%')
-      .padding({ left: 16, right: 16, top: 16, bottom: 8 })
-
+    Scroll() {
       Column() {
-        Text('显影这段回忆')
-          .fontSize(22)
-          .fontColor('#ffffff')
-        Text('我们把刚才的对话，写成了一篇属于你的日记。')
-          .fontSize(13)
-          .fontColor('#8b87a6')
-          .margin({ top: 8 })
-      }
-      .margin({ top: 16, bottom: 20 })
-
-      if (this.fallbackNotice().length > 0) {
-        Text(this.fallbackNotice())
-          .fontSize(12)
-          .fontColor('#c9befc')
-          .backgroundColor('rgba(139,124,246,0.12)')
-          .padding(8)
-          .borderRadius(10)
-          .margin({ left: 16, right: 16, bottom: 8 })
-          .width('90%')
-      }
-
-      Row() {
-        Column() {
-          Text('沉淀为日记')
+        Row() {
+          Text('← 返回对话')
             .fontSize(14)
-            .fontColor('#ffffff')
-          Text('以你的视角书写；关闭则只保留对话记录')
-            .fontSize(11)
-            .fontColor('#8b87a6')
-            .margin({ top: 4 })
+            .fontColor(INK_INTERACTIVE)
+            .onClick(() => this.onBack())
+          Blank()
+          Text(this.draft.timeMark ?? '')
+            .fontSize(12)
+            .fontColor(INK_FAINT)
+            .letterSpacing(5)
+          Blank()
+            .width(68)
         }
-        .layoutWeight(1)
-        Button(this.diaryOn ? '●' : '○')
-          .width(48)
-          .height(28)
-          .backgroundColor(this.diaryOn ? '#8b7cf6' : 'rgba(255,255,255,0.10)')
-          .fontColor('#ffffff')
-          .onClick(() => {
-            this.diaryOn = !this.diaryOn;
-            if (this.diaryOn && this.diary.length === 0) {
-              this.generating = true;
-              void this.generateDiary();
+        .width('100%')
+        .padding({ bottom: 14 })
+
+        Column() {
+          Text('显影这段回忆')
+            .fontSize(27)
+            .fontFamily('serif')
+            .fontWeight(500)
+            .fontColor(INK)
+            .lineHeight(40)
+            .letterSpacing(1)
+          Text('我们把刚才的对话，写成了一篇属于你的日记。')
+            .fontSize(14.5)
+            .fontColor(INK_DIM)
+            .lineHeight(28)
+            .margin({ top: 8 })
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .margin({ top: 16, bottom: 20 })
+
+        if (this.fallbackNotice().length > 0) {
+          Text(this.fallbackNotice())
+            .fontSize(12)
+            .fontColor('#c9befc')
+            .backgroundColor('rgba(139,124,246,0.12)')
+            .padding(8)
+            .borderRadius(10)
+            .margin({ bottom: 10 })
+            .width('100%')
+        }
+
+        Row() {
+          Column() {
+            Text('沉淀为日记')
+              .fontSize(14.5)
+              .fontColor(INK)
+            Text('以你的视角书写；关闭则只保留对话记录')
+              .fontSize(12)
+              .fontColor(INK_FAINT)
+              .lineHeight(22)
+              .margin({ top: 4 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+
+          Row() {
+            Column()
+              .width(22)
+              .height(22)
+              .borderRadius(11)
+              .backgroundColor('#ffffff')
+              .margin({ left: this.diaryOn ? 23 : 3 })
+          }
+          .width(50)
+          .height(30)
+          .borderRadius(15)
+          .linearGradient({
+            angle: 135,
+            colors: this.diaryOn
+              ? [['#8b7cf6', 0], ['#f0a6ca', 1]]
+              : [['rgba(255,255,255,0.12)', 0], ['rgba(255,255,255,0.12)', 1]],
+          })
+          .border({ width: 1, color: GLASS_BORDER })
+          .alignItems(VerticalAlign.Center)
+          .onClick(() => this.toggleDiary())
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, top: 16, bottom: 16 })
+        .borderRadius(28)
+        .backgroundColor(GLASS_BG)
+        .border({ width: 1, color: GLASS_BORDER })
+        .margin({ bottom: 18 })
+
+        if (this.diaryOn) {
+          Column() {
+            if (this.generating && this.diary.length === 0) {
+              Row({ space: 8 }) {
+                Text('回忆正在显影')
+                  .fontSize(12)
+                  .fontColor(INK_FAINT)
+                  .letterSpacing(1)
+                TypingDots()
+              }
+            } else if (this.editing) {
+              TextArea({ text: this.diary })
+                .onChange((value: string) => {
+                  this.diary = value;
+                })
+                .width('100%')
+                .constraintSize({ minHeight: 260 })
+                .backgroundColor(Color.Transparent)
+                .fontColor(PAPER_TEXT)
+                .fontSize(15.5)
+                .lineHeight(33)
+                .fontFamily('serif')
+                .caretColor('#c9befc')
+            } else {
+              Text(this.diary)
+                .fontSize(15.5)
+                .lineHeight(33)
+                .letterSpacing(1)
+                .fontFamily('serif')
+                .fontColor(PAPER_TEXT)
+                .width('100%')
             }
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+          .padding({ left: 24, right: 24, top: 26, bottom: 26 })
+          .borderRadius(28)
+          .linearGradient({
+            angle: 180,
+            colors: [['rgba(255,255,255,0.07)', 0], ['rgba(255,255,255,0.03)', 1]],
+          })
+          .border({ width: 1, color: GLASS_BORDER })
+          .margin({ bottom: 20 })
+
+          if (!this.generating) {
+            Button(this.editing ? '完成编辑' : '修改一下措辞')
+              .backgroundColor(Color.Transparent)
+              .fontColor(INK_DIM)
+              .fontSize(15)
+              .margin({ bottom: 12 })
+              .onClick(() => {
+                this.editing = !this.editing;
+              })
+          }
+        }
+
+        Button('收进回忆')
+          .width('100%')
+          .height(52)
+          .borderRadius(999)
+          .backgroundColor(Color.Transparent)
+          .linearGradient({
+            angle: 135,
+            colors: [['rgba(139,124,246,0.85)', 0], ['rgba(240,166,202,0.72)', 1]],
+          })
+          .border({ width: 1, color: 'rgba(255,255,255,0.28)' })
+          .fontColor('#ffffff')
+          .fontSize(15)
+          .fontWeight(FontWeight.Medium)
+          .shadow({ radius: 32, color: 'rgba(139,124,246,0.4)', offsetY: 8 })
+          .enabled(!this.diaryOn || !this.generating)
+          .opacity((!this.diaryOn || !this.generating) ? 1 : 0.48)
+          .onClick(() => {
+            this.onSave(this.diaryOn ? this.diary : undefined, this.diaryOn);
           })
       }
-      .width('90%')
-      .padding(16)
-      .borderRadius(14)
-      .backgroundColor('rgba(255,255,255,0.04)')
-      .margin({ bottom: 18 })
-
-      if (this.diaryOn) {
-        if (this.editing) {
-          TextArea({ text: this.diary })
-            .onChange((value: string) => {
-              this.diary = value;
-            })
-            .width('90%')
-            .height(220)
-            .padding(12)
-            .backgroundColor('rgba(255,255,255,0.05)')
-            .fontColor('#ffffff')
-            .margin({ bottom: 12 })
-        } else if (this.generating && this.diary.length === 0) {
-          Text('回忆正在显影…')
-            .fontColor('#8b87a6')
-            .margin({ bottom: 12 })
-        } else {
-          Text(this.diary)
-            .width('90%')
-            .padding(16)
-            .backgroundColor('rgba(255,255,255,0.04)')
-            .fontColor('#ffffff')
-            .fontSize(14)
-            .lineHeight(22)
-            .margin({ bottom: 12 })
-        }
-
-        if (!this.generating) {
-          Button(this.editing ? '完成编辑' : '修改一下措辞')
-            .backgroundColor(Color.Transparent)
-            .fontColor('#c9befc')
-            .fontSize(14)
-            .margin({ bottom: 12 })
-            .onClick(() => {
-              this.editing = !this.editing;
-            })
-        }
-      }
-
-      Button('收进回忆')
-        .width('90%')
-        .height(48)
-        .backgroundColor('#8b7cf6')
-        .fontColor('#ffffff')
-        .enabled(!this.diaryOn || !this.generating)
-        .opacity((!this.diaryOn || !this.generating) ? 1.0 : 0.5)
-        .onClick(() => {
-          this.onSave(this.diaryOn ? this.diary : undefined, this.diaryOn);
-        })
+      .width('100%')
+      .padding({ left: 24, right: 24, top: 20, bottom: 24 })
+      .alignItems(HorizontalAlign.Start)
     }
     .width('100%')
     .height('100%')
     .backgroundColor('#050608')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
+    .transition(
+      TransitionEffect.OPACITY
+        .combine(TransitionEffect.translate({ y: 12 }))
+        .animation({ duration: 900, curve: MILO_EASE }),
+    )
   }
 }

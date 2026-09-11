@@ -1,57 +1,57 @@
 {
-  "app": {
-    "signingConfigs": [
+  app: {
+    signingConfigs: [
       {
-        "name": "default",
-        "type": "HarmonyOS",
-        "material": {
-          "storeFile": "/Users/hut/Projects/milo/apps/harmony/.signing/milo-release.p12",
-          "storePassword": "00000019760F0051E3F3CD6782986E093F8D7F4C6B136C2AEE348731442D23C8707AEF43C536C4B081",
-          "keyAlias": "milo",
-          "keyPassword": "000000198EF0AF63B82554247BA593CCDD0AA60C5A1B13D631655B528BBC2EDE3603C6509A35E44B3A",
-          "signAlg": "SHA256withECDSA",
-          "profile": "/Users/hut/Projects/milo/apps/harmony/.signing/com.milo.echoesRelease.p7b",
-          "certpath": "/Users/hut/Projects/milo/apps/harmony/.signing/milo.cer"
-        }
-      }
+        name: 'default',
+        type: 'HarmonyOS',
+        material: {
+          certpath: '/Users/hut/.ohos/config/default_harmony_tpGXj4zAP0OJN9PO0cNs96xtkes7qnzuUqox2zHo0E=.cer',
+          keyAlias: 'debugKey',
+          keyPassword: '0000001b2ce10e383d9f3c012db3f1dd9f0d1317ae6e86f096eae5780b914cd8235241a20fd47eeebeb769',
+          profile: '/Users/hut/.ohos/config/default_harmony_tpGXj4zAP0OJN9PO0cNs96xtkes7qnzuUqox2zHo0E=.p7b',
+          signAlg: 'SHA256withECDSA',
+          storeFile: '/Users/hut/.ohos/config/default_harmony_tpGXj4zAP0OJN9PO0cNs96xtkes7qnzuUqox2zHo0E=.p12',
+          storePassword: '0000001b2ce10e383d9f3c012db3f1dd9f0d1317ae6e86f096eae5780b914cd8235241a20fd47eeebeb769',
+        },
+      },
     ],
-    "products": [
+    products: [
       {
-        "name": "default",
-        "signingConfig": "default",
-        "compileSdkVersion": "6.1.1(24)",
-        "targetSdkVersion": "6.1.1(24)",
-        "compatibleSdkVersion": "6.1.1(24)",
-        "runtimeOS": "HarmonyOS",
-        "buildOption": {
-          "strictMode": {
-            "caseSensitiveCheck": true,
-            "useNormalizedOHMUrl": true
-          }
-        }
-      }
+        name: 'default',
+        signingConfig: 'default',
+        compileSdkVersion: '6.1.1(24)',
+        targetSdkVersion: '6.1.1(24)',
+        compatibleSdkVersion: '6.1.1(24)',
+        runtimeOS: 'HarmonyOS',
+        buildOption: {
+          strictMode: {
+            caseSensitiveCheck: true,
+            useNormalizedOHMUrl: true,
+          },
+        },
+      },
     ],
-    "buildModeSet": [
+    buildModeSet: [
       {
-        "name": "debug"
+        name: 'debug',
       },
       {
-        "name": "release"
-      }
-    ]
+        name: 'release',
+      },
+    ],
   },
-  "modules": [
+  modules: [
     {
-      "name": "entry",
-      "srcPath": "./entry",
-      "targets": [
+      name: 'entry',
+      srcPath: './entry',
+      targets: [
         {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    }
-  ]
+          name: 'default',
+          applyToProducts: [
+            'default',
+          ],
+        },
+      ],
+    },
+  ],
 }
