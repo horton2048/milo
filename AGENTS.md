@@ -43,6 +43,7 @@ Separate toolchain — do not build it with npm. See `apps/harmony/README.md` fo
 - Build/test: `./hvigorw test`, `./hvigorw assembleHap` (unsigned HAP at `entry/build/default/outputs/default/`). Signing stays local and is never committed.
 - Shell contract test uses DevEco's bundled Node: `/Applications/DevEco-Studio.app/Contents/tools/node/bin/node --test tests/shell-contract.test.mjs`.
 - `entry/src/main/ets/core/config/AppConfig.ets` `GATEWAY_BASE_URL` is deliberately empty (offline-first); never set it to a loopback address. Bundle name must stay `com.milo.echoes` (matches AGC).
+- First launch requires AGC 认证服务 login (`@hw-agconnect/auth`, config in `entry/src/main/resources/rawfile/agconnect-services.json`): email+code registers, email+password logs in returning users. The only offline escape is the owner backdoor email `milo`. After a successful login everything works offline; don't "fix" the gate by removing it.
 
 ## CI / release
 

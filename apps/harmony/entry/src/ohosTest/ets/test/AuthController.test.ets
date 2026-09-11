@@ -269,8 +269,139 @@ function emailValidationSuite() {
   });
 }
 
+function passwordFlowSuite() {
+  describe('passwordFlowTest', () => {
+    it('registration with a password stores it for later password login', 0, async () => {
+      const storage = new MapKVStorage();
+      const provider = new FakeAuthProvider();
+      const controller = new AuthController({
+        provider: provider,
+        store: new AuthSessionStore(storage),
+      });
+      controller.restore();
+
+      await controller.submitEmail('owner@milo.app');
+      const session = await controller.submitCode(FAKE_AUTH_CODE, 'hunter22');
+      expect(session !== undefined).assertTrue();
+      expect(provider.passwordFor('owner@milo.app')).assertEqual('hunter22');
+    });
+
+    it('registration rejects a weak password client-side', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+      await controller.submitEmail('owner@milo.app');
+
+      const session = await controller.submitCode(FAKE_AUTH_CODE, '123');
+      expect(session).assertEqual(undefined);
+      expect(controller.getError()!.reason).assertEqual('invalid-password');
+      expect(controller.getPhase()).assertEqual('awaitingCode');
+    });
+
+    it('password login happy path persists the session', 0, async () => {
+      const storage = new MapKVStorage();
+      const provider = new FakeAuthProvider();
+      const controller = new AuthController({
+        provider: provider,
+        store: new AuthSessionStore(storage),
+      });
+      controller.restore();
+      await provider.signIn('owner@milo.app', FAKE_AUTH_CODE, 'hunter22');
+
+      const session = await controller.submitPassword('owner@milo.app', 'hunter22');
+      expect(session !== undefined).assertTrue();
+      expect(controller.getPhase()).assertEqual('signedIn');
+      expect(new AuthSessionStore(storage).load()!.email).assertEqual('owner@milo.app');
+    });
+
+    it('wrong password keeps the user signed out with a typed error', 0, async () => {
+      const provider = new FakeAuthProvider();
+      const controller = new AuthController({
+        provider: provider,
+        store: new AuthSessionStore(new MapKVStorage()),
+      });
+      controller.restore();
+      await provider.signIn('owner@milo.app', FAKE_AUTH_CODE, 'hunter22');
+
+      const session = await controller.submitPassword('owner@milo.app', 'wrong-password');
+      expect(session).assertEqual(undefined);
+      expect(controller.getPhase()).assertEqual('signedOut');
+      expect(controller.getError()!.reason).assertEqual('wrong-password');
+    });
+
+    it('password login without a stored password explains the code fallback', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+
+      const session = await controller.submitPassword('owner@milo.app', 'hunter22');
+      expect(session).assertEqual(undefined);
+      expect(controller.getError()!.reason).assertEqual('password-not-set');
+    });
+
+    it('the backdoor works in password mode too', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+
+      const session = await controller.submitPassword(BACKDOOR_EMAIL, 'anything');
+      expect(session).assertEqual(BACKDOOR_SESSION);
+      expect(controller.getPhase()).assertEqual('signedIn');
+    });
+
+    it('password login validates format before hitting the provider', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+
+      const session = await controller.submitPassword('owner@milo.app', '123');
+      expect(session).assertEqual(undefined);
+      expect(controller.getError()!.reason).assertEqual('invalid-password');
+    });
+
+    it('forgot-password flow: reset code → new password → auto sign-in', 0, async () => {
+      const storage = new MapKVStorage();
+      const provider = new FakeAuthProvider();
+      const controller = new AuthController({
+        provider: provider,
+        store: new AuthSessionStore(storage),
+      });
+      controller.restore();
+      await provider.signIn('owner@milo.app', FAKE_AUTH_CODE, 'old-pass-1');
+
+      const pending = await controller.submitEmail('owner@milo.app', 'reset-password');
+      expect(pending).assertEqual(undefined);
+      expect(controller.getPhase()).assertEqual('awaitingCode');
+      expect(provider.lastPurpose()).assertEqual('reset-password');
+
+      const session = await controller.submitReset(FAKE_AUTH_CODE, 'new-pass-22');
+      expect(session !== undefined).assertTrue();
+      expect(controller.getPhase()).assertEqual('signedIn');
+      expect(provider.passwordFor('owner@milo.app')).assertEqual('new-pass-22');
+      expect(new AuthSessionStore(storage).load()!.email).assertEqual('owner@milo.app');
+    });
+
+    it('submitReset is refused outside the reset flow', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+      await controller.submitEmail('owner@milo.app');
+
+      const session = await controller.submitReset(FAKE_AUTH_CODE, 'new-pass-22');
+      expect(session).assertEqual(undefined);
+    });
+
+    it('reset with a wrong code stays on the reset step', 0, async () => {
+      const controller = newController(new MapKVStorage());
+      controller.restore();
+      await controller.submitEmail('owner@milo.app', 'reset-password');
+
+      const session = await controller.submitReset('999999', 'new-pass-22');
+      expect(session).assertEqual(undefined);
+      expect(controller.getError()!.reason).assertEqual('invalid-code');
+      expect(controller.getPhase()).assertEqual('awaitingCode');
+    });
+  });
+}
+
 export default function authControllerTest() {
   authControllerSuite();
   authSessionStoreSuite();
   emailValidationSuite();
+  passwordFlowSuite();
 }

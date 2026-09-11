@@ -6,6 +6,9 @@
 export type AuthFailureReason =
   | 'invalid-email'
   | 'invalid-code'
+  | 'invalid-password'
+  | 'wrong-password'
+  | 'password-not-set'
   | 'network'
   | 'rate-limited'
   | 'unknown';
@@ -47,6 +50,20 @@ export interface SignInFailure {
 
 export type SignInResult = SignInSuccess | SignInFailure;
 
+export interface ResetPasswordSuccess {
+  ok: true;
+}
+
+export interface ResetPasswordFailure {
+  ok: false;
+  error: AuthError;
+}
+
+export type ResetPasswordResult = ResetPasswordSuccess | ResetPasswordFailure;
+
+/** What the requested verification code will be used for. */
+export type CodePurpose = 'sign-in' | 'reset-password';
+
 export function isSendCodeFailure(result: SendCodeResult): boolean {
   return result.ok === false;
 }
@@ -55,11 +72,46 @@ export function isSignInFailure(result: SignInResult): boolean {
   return result.ok === false;
 }
 
+export function isResetPasswordFailure(result: ResetPasswordResult): boolean {
+  return result.ok === false;
+}
+
+/**
+ * Password policy (mirrors AGC): 6-32 characters, no other constraints so
+ * passphrases stay welcome.
+ */
+export const PASSWORD_MIN_LENGTH = 6;
+export const PASSWORD_MAX_LENGTH = 32;
+
+export function isValidPassword(password: string): boolean {
+  const trimmed = password.trim();
+  return trimmed.length >= PASSWORD_MIN_LENGTH && trimmed.length <= PASSWORD_MAX_LENGTH;
+}
+
+export function invalidPasswordError(): AuthError {
+  return { reason: 'invalid-password', message: '密码需要 6-32 位，中间不能有空格。' };
+}
+
+export function wrongPasswordError(): AuthError {
+  return { reason: 'wrong-password', message: '邮箱或密码不对，再试一次？' };
+}
+
+export function passwordNotSetError(): AuthError {
+  return { reason: 'password-not-set', message: '这个邮箱还没设置过密码，先用验证码登录吧。' };
+}
+
 export interface AuthProvider {
-  /** Request a verification code for the given email. */
-  sendCode(email: string): Promise<SendCodeResult>;
-  /** Exchange email + code for a session. */
-  signIn(email: string, code: string): Promise<SignInResult>;
+  /** Request a verification code for the given email and purpose. */
+  sendCode(email: string, purpose: CodePurpose): Promise<SendCodeResult>;
+  /**
+   * Exchange email + code for a session. The optional password registers a
+   * password alongside the code login (first-time setup).
+   */
+  signIn(email: string, code: string, password?: string): Promise<SignInResult>;
+  /** Sign in with email + password (no email round-trip). */
+  signInWithPassword(email: string, password: string): Promise<SignInResult>;
+  /** Reset the account password with an emailed reset code. */
+  resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResult>;
   /** Sign out from the remote provider; local state is cleared by the caller. */
   signOut(): Promise<void>;
 }

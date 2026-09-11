@@ -2,34 +2,42 @@ import {
   type AuthProvider,
   type AuthError,
   type AuthSession,
+  type CodePurpose,
+  type ResetPasswordResult,
   type SendCodeResult,
   type SignInResult,
   isValidEmail,
   invalidEmailError,
+  invalidPasswordError,
+  passwordNotSetError,
+  wrongPasswordError,
 } from './AuthProvider';
 
 /** Fixed code accepted by the fake provider; documented for dev/testing. */
 export const FAKE_AUTH_CODE = '000000';
 
 /**
- * In-memory stand-in for the AGC auth service. Powers unit tests and Phase-1
- * device walkthroughs without any network or AGC console setup. Swap for
- * AgcAuthProvider in Phase 2.
+ * In-memory stand-in for the AGC auth service. Powers unit tests without any
+ * network or AGC console setup. Implements the full password surface: code
+ * login, code+password registration, password login, and reset.
  */
 export class FakeAuthProvider implements AuthProvider {
   private sentEmails: string[] = [];
+  private sentPurposes: CodePurpose[] = [];
+  private passwords: Map<string, string> = new Map();
   private signOutCalls: number = 0;
 
-  async sendCode(email: string): Promise<SendCodeResult> {
+  async sendCode(email: string, purpose: CodePurpose): Promise<SendCodeResult> {
     if (!isValidEmail(email)) {
       const failure: SendCodeResult = { ok: false, error: invalidEmailError() };
       return failure;
     }
     this.sentEmails.push(email.trim());
+    this.sentPurposes.push(purpose);
     return { ok: true };
   }
 
-  async signIn(email: string, code: string): Promise<SignInResult> {
+  async signIn(email: string, code: string, password?: string): Promise<SignInResult> {
     if (!isValidEmail(email)) {
       const failure: SignInResult = { ok: false, error: invalidEmailError() };
       return failure;
@@ -42,12 +50,62 @@ export class FakeAuthProvider implements AuthProvider {
       const failure: SignInResult = { ok: false, error: error };
       return failure;
     }
+    if (password !== undefined && password.length > 0) {
+      if (password.trim() !== password) {
+        const failure: SignInResult = { ok: false, error: invalidPasswordError() };
+        return failure;
+      }
+      this.passwords.set(email.trim(), password);
+    }
     const session: AuthSession = {
       uid: `agc-${email.trim()}`,
       email: email.trim(),
       provider: 'agc',
     };
     return { ok: true, session: session };
+  }
+
+  async signInWithPassword(email: string, password: string): Promise<SignInResult> {
+    if (!isValidEmail(email)) {
+      const failure: SignInResult = { ok: false, error: invalidEmailError() };
+      return failure;
+    }
+    const stored = this.passwords.get(email.trim());
+    if (stored === undefined) {
+      const failure: SignInResult = { ok: false, error: passwordNotSetError() };
+      return failure;
+    }
+    if (password !== stored) {
+      const failure: SignInResult = { ok: false, error: wrongPasswordError() };
+      return failure;
+    }
+    const session: AuthSession = {
+      uid: `agc-${email.trim()}`,
+      email: email.trim(),
+      provider: 'agc',
+    };
+    return { ok: true, session: session };
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResult> {
+    if (!isValidEmail(email)) {
+      const failure: ResetPasswordResult = { ok: false, error: invalidEmailError() };
+      return failure;
+    }
+    if (code.trim() !== FAKE_AUTH_CODE) {
+      const error: AuthError = {
+        reason: 'invalid-code',
+        message: '验证码不对，再检查一下邮件里的数字。',
+      };
+      const failure: ResetPasswordResult = { ok: false, error: error };
+      return failure;
+    }
+    if (newPassword.trim() !== newPassword || newPassword.length < 6 || newPassword.length > 32) {
+      const failure: ResetPasswordResult = { ok: false, error: invalidPasswordError() };
+      return failure;
+    }
+    this.passwords.set(email.trim(), newPassword);
+    return { ok: true };
   }
 
   async signOut(): Promise<void> {
@@ -63,6 +121,16 @@ export class FakeAuthProvider implements AuthProvider {
       }
     }
     return count;
+  }
+
+  lastPurpose(): CodePurpose | undefined {
+    return this.sentPurposes.length > 0
+      ? this.sentPurposes[this.sentPurposes.length - 1]
+      : undefined;
+  }
+
+  passwordFor(email: string): string | undefined {
+    return this.passwords.get(email.trim());
   }
 
   signOutCallCount(): number {

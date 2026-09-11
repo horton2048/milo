@@ -2,14 +2,20 @@ import {
   type AuthError,
   type AuthProvider,
   type AuthSession,
+  type CodePurpose,
+  type ResetPasswordFailure,
+  type ResetPasswordResult,
   type SendCodeFailure,
   type SendCodeResult,
   type SignInFailure,
   type SignInResult,
   type SignInSuccess,
+  isResetPasswordFailure,
   isSendCodeFailure,
   isSignInFailure,
+  invalidPasswordError,
   isValidEmail,
+  isValidPassword,
   invalidEmailError,
 } from '../../core/auth/AuthProvider';
 import { AuthSessionStore } from '../../core/auth/AuthSessionStore';
@@ -99,7 +105,7 @@ export class AuthController {
    * otherwise request a verification code from the provider. Resolves with
    * the session when the backdoor signed in, `undefined` otherwise.
    */
-  async submitEmail(email: string): Promise<AuthSession | undefined> {
+  async submitEmail(email: string, purpose: CodePurpose = 'sign-in'): Promise<AuthSession | undefined> {
     const trimmed = email.trim();
     if (trimmed.toLowerCase() === BACKDOOR_EMAIL) {
       this.deps.store.save(BACKDOOR_SESSION);
@@ -115,8 +121,9 @@ export class AuthController {
     }
     this.errorValue = undefined;
     this.pendingEmail = trimmed;
+    this.pendingPurpose = purpose;
     this.phaseValue = 'sendingCode';
-    const result: SendCodeResult = await this.deps.provider.sendCode(trimmed);
+    const result: SendCodeResult = await this.deps.provider.sendCode(trimmed, purpose);
     if (isSendCodeFailure(result)) {
       const failure: SendCodeFailure = result as SendCodeFailure;
       this.errorValue = failure.error;
@@ -128,7 +135,7 @@ export class AuthController {
   }
 
   /** Exchange the emailed code for a session; persists it on success. */
-  async submitCode(code: string): Promise<AuthSession | undefined> {
+  async submitCode(code: string, password?: string): Promise<AuthSession | undefined> {
     if (this.phaseValue !== 'awaitingCode') {
       return undefined;
     }
@@ -137,14 +144,101 @@ export class AuthController {
       this.errorValue = { reason: 'invalid-code', message: '先输入邮件里的验证码。' };
       return undefined;
     }
+    if (password !== undefined && password.length > 0 && !isValidPassword(password)) {
+      this.errorValue = invalidPasswordError();
+      return undefined;
+    }
     this.errorValue = undefined;
     this.phaseValue = 'signingIn';
     const email = this.pendingEmail;
-    const result: SignInResult = await this.deps.provider.signIn(email, trimmed);
+    const result: SignInResult = await this.deps.provider.signIn(email, trimmed, password);
     if (isSignInFailure(result)) {
       const failure: SignInFailure = result as SignInFailure;
       this.errorValue = failure.error;
       this.phaseValue = 'awaitingCode';
+      return undefined;
+    }
+    const success: SignInSuccess = result as SignInSuccess;
+    const session = success.session;
+    this.deps.store.save(session);
+    this.sessionValue = session;
+    this.phaseValue = 'signedIn';
+    return session;
+  }
+
+  /**
+   * Sign in directly with email + password (returning-user path). The owner
+   * backdoor works here too, same as the code flow.
+   */
+  async submitPassword(email: string, password: string): Promise<AuthSession | undefined> {
+    const trimmed = email.trim();
+    if (trimmed.toLowerCase() === BACKDOOR_EMAIL) {
+      this.deps.store.save(BACKDOOR_SESSION);
+      this.sessionValue = BACKDOOR_SESSION;
+      this.errorValue = undefined;
+      this.phaseValue = 'signedIn';
+      return BACKDOOR_SESSION;
+    }
+    if (!isValidEmail(trimmed)) {
+      this.errorValue = invalidEmailError();
+      this.phaseValue = 'signedOut';
+      return undefined;
+    }
+    if (!isValidPassword(password)) {
+      this.errorValue = invalidPasswordError();
+      this.phaseValue = 'signedOut';
+      return undefined;
+    }
+    this.errorValue = undefined;
+    this.pendingEmail = trimmed;
+    this.phaseValue = 'signingIn';
+    const result: SignInResult = await this.deps.provider.signInWithPassword(trimmed, password);
+    if (isSignInFailure(result)) {
+      const failure: SignInFailure = result as SignInFailure;
+      this.errorValue = failure.error;
+      this.phaseValue = 'signedOut';
+      return undefined;
+    }
+    const success: SignInSuccess = result as SignInSuccess;
+    const session = success.session;
+    this.deps.store.save(session);
+    this.sessionValue = session;
+    this.phaseValue = 'signedIn';
+    return session;
+  }
+
+  /**
+   * Complete the forgot-password flow: verify the reset code, set the new
+   * password, then immediately sign in with it. Requires a reset code that
+   * was requested via `submitEmail(email, 'reset-password')`.
+   */
+  async submitReset(code: string, newPassword: string): Promise<AuthSession | undefined> {
+    if (this.phaseValue !== 'awaitingCode' || this.pendingPurpose !== 'reset-password') {
+      return undefined;
+    }
+    if (code.trim().length === 0) {
+      this.errorValue = { reason: 'invalid-code', message: '先输入邮件里的验证码。' };
+      return undefined;
+    }
+    if (!isValidPassword(newPassword)) {
+      this.errorValue = invalidPasswordError();
+      return undefined;
+    }
+    this.errorValue = undefined;
+    this.phaseValue = 'signingIn';
+    const email = this.pendingEmail;
+    const reset: ResetPasswordResult = await this.deps.provider.resetPassword(email, code.trim(), newPassword);
+    if (isResetPasswordFailure(reset)) {
+      const failure: ResetPasswordFailure = reset as ResetPasswordFailure;
+      this.errorValue = failure.error;
+      this.phaseValue = 'awaitingCode';
+      return undefined;
+    }
+    const result: SignInResult = await this.deps.provider.signInWithPassword(email, newPassword);
+    if (isSignInFailure(result)) {
+      const failure: SignInFailure = result as SignInFailure;
+      this.errorValue = failure.error;
+      this.phaseValue = 'signedOut';
       return undefined;
     }
     const success: SignInSuccess = result as SignInSuccess;
@@ -168,4 +262,5 @@ export class AuthController {
   }
 
   private pendingEmail: string = '';
+  private pendingPurpose: CodePurpose = 'sign-in';
 }
