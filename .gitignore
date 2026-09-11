@@ -31,3 +31,8 @@ apps/harmony/**/build/
 apps/harmony/oh_modules/
 apps/harmony/.harmony-sdk-bridge/
 apps/harmony/.harmony-sdk-bridge-v2/
+
+# Local secrets — never commit
+.env
+.env.*
+!.env.example
