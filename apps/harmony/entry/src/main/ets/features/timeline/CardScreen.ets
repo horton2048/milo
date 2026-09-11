@@ -405,7 +405,6 @@ export struct CardScreen {
       Row({ space: 12 }) {
         Column() {
           SaveButton({ text: SaveDescription.SAVE_IMAGE, buttonType: ButtonType.Capsule })
-            .setText('保存图片')
             .width('100%')
             .height(48)
             .borderRadius(999)
