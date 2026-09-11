@@ -36,7 +36,7 @@ export function loadConfig(): GatewayConfig {
   readDotenv();
   const apiKey = process.env.MINIMAX_API_KEY ?? '';
   const baseUrl = process.env.MINIMAX_BASE_URL ?? 'https://api.minimaxi.com/v1';
-  const model = process.env.MINIMAX_MODEL ?? 'MiniMax-M2.7';
+  const model = process.env.MINIMAX_MODEL ?? 'MiniMax-M3';
   const port = Number(process.env.PORT ?? 8788);
   const timeoutMs = Number(process.env.AI_TIMEOUT_MS ?? 20000);
   if (apiKey.trim().length === 0) {

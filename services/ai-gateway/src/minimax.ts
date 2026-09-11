@@ -48,6 +48,7 @@ export function createMiniMaxTransport(deps: TransportDeps): MiniMaxTransport {
           body: JSON.stringify({
             model: deps.model,
             temperature: request.temperature,
+            thinking: { type: 'disabled' },
             messages: [
               { role: 'system', content: request.system, name: 'Milo' },
               ...request.messages.map((m) => ({ role: m.role, content: m.text, name: m.role === 'user' ? 'user' : 'assistant' })),
