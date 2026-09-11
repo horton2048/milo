@@ -6,19 +6,27 @@ import {
   type ConversationState,
 } from './ConversationController';
 
+/** AI-mode conversations stop after this many exchanges. */
+const MAX_AI_TURNS: number = 3;
+
 /**
- * Past-branch guided conversation. Opens with the AI greeting when the gateway
- * is reachable; otherwise falls back to the scripted `FallbackGuide` opening.
- * When the user has spoken and the guide is wrapping up, the
- * "沉淀这段回忆" button appears.
+ * Past-branch guided conversation. The top-left "AI" pill toggles AI mode
+ * (default off → scripted guide only). AI conversations are capped at
+ * MAX_AI_TURNS exchanges, after which the closing line and the
+ * "沉淀这段回忆" button appear and the input is retired. The message list
+ * scrolls to the newest entry on every update.
  */
 @Component
 export struct ChatScreen {
   @State messages: ChatMessage[] = [];
   @State input: string = '';
-  @State busy: boolean = true;
+  @State busy: boolean = false;
+  @State aiMode: boolean = false;
+  @State aiTurns: number = 0;
+  @State conversationDone: boolean = false;
   @State conversationState: ConversationState = initialConversationState();
   private guide: FallbackGuide | null = null;
+  private scroller: Scroller = new Scroller();
   controller: ConversationController | null = null;
   draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
   onFinish: (transcript: ChatMessage[]) => void = () => {};
@@ -27,38 +35,48 @@ export struct ChatScreen {
 
   aboutToAppear(): void {
     const timeMark = this.draft.timeMark ?? '过去的某一天';
+    this.guide = new FallbackGuide(timeMark);
     if (this.controller !== null) {
       this.controller.restoreState(this.conversationState);
-    } else {
-      this.guide = new FallbackGuide(timeMark);
     }
     this.messages = [];
-    this.busy = true;
-    this.openConversation();
-  }
-
-  private async openConversation(): Promise<void> {
-    if (this.controller === null) {
-      const scripted = this.guide!.opening();
-      this.pushMessage({ role: 'ai', text: scripted, ts: Date.now() });
-      this.busy = false;
-      return;
-    }
-    const result = await this.controller.open(this.draft);
-    this.conversationState = result.state;
-    this.pushMessage(result.message);
-    this.busy = false;
+    this.aiTurns = 0;
+    this.conversationDone = false;
+    this.pushMessage({ role: 'ai', text: this.guide.opening(), ts: Date.now() });
   }
 
   private async sendReply(text: string): Promise<void> {
-    if (this.controller === null) {
-      if (this.guide === null) return;
-      this.pushMessage({ role: 'ai', text: this.guide.next(), ts: Date.now() });
+    if (this.conversationDone) {
       return;
     }
-    const result = await this.controller.respond(this.draft, text, Date.now());
-    this.conversationState = result.state;
-    this.pushMessage(result.message);
+    if (this.aiMode) {
+      if (this.controller === null || this.aiTurns >= MAX_AI_TURNS) {
+        this.finishConversation();
+        return;
+      }
+      const result = await this.controller.respond(this.draft, text, Date.now());
+      this.conversationState = result.state;
+      this.pushMessage(result.message);
+      this.aiTurns += 1;
+      if (this.aiTurns >= MAX_AI_TURNS) {
+        this.finishConversation();
+      }
+      return;
+    }
+    if (this.guide === null) {
+      return;
+    }
+    this.pushMessage({ role: 'ai', text: this.guide.next(), ts: Date.now() });
+  }
+
+  private finishConversation(): void {
+    if (this.conversationDone) {
+      return;
+    }
+    this.conversationDone = true;
+    if (this.guide !== null) {
+      this.pushMessage({ role: 'ai', text: this.guide.closing(), ts: Date.now() });
+    }
   }
 
   private pushMessage(message: ChatMessage): void {
@@ -68,28 +86,23 @@ export struct ChatScreen {
     }
     next.push(message);
     this.messages = next;
+    this.scrollToEnd();
   }
 
-  private userSpoke(): boolean {
-    for (let index = 0; index < this.messages.length; index += 1) {
-      if (this.messages[index].role === 'user') {
-        return true;
-      }
-    }
-    return false;
+  private scrollToEnd(): void {
+    setTimeout(() => {
+      this.scroller.scrollEdge(Edge.Bottom);
+    }, 60);
   }
 
   private canFinish(): boolean {
-    if (!this.userSpoke()) {
+    if (this.conversationDone) {
+      return true;
+    }
+    if (this.aiMode) {
       return false;
     }
-    if (this.controller !== null) {
-      return this.controller.isScriptComplete();
-    }
-    if (this.guide === null) {
-      return false;
-    }
-    return this.guide.isWrappingUp();
+    return this.guide !== null && this.guide.isWrappingUp();
   }
 
   private fallbackNotice(): string {
@@ -111,12 +124,24 @@ export struct ChatScreen {
           .fontColor('#c9befc')
           .fontSize(13)
           .onClick(() => this.onBack())
+        Button(this.aiMode ? '✦ AI' : 'AI')
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.aiMode ? '#050608' : '#8b87a6')
+          .backgroundColor(this.aiMode ? '#8b7cf6' : 'rgba(139,124,246,0.14)')
+          .borderRadius(13)
+          .height(26)
+          .padding({ left: 10, right: 10 })
+          .margin({ left: 8 })
+          .onClick(() => {
+            this.aiMode = !this.aiMode;
+          })
         Blank()
         Text(this.draft.timeMark ?? '')
           .fontColor('#c9befc')
           .fontSize(12)
         Blank()
-        Text(this.conversationState.source === 'ai' ? '回响' : '引导')
+        Text(this.aiMode ? '回响' : '引导')
           .fontColor('#8b87a6')
           .fontSize(12)
       }
@@ -134,7 +159,7 @@ export struct ChatScreen {
           .width('90%')
       }
 
-      List({ space: 12 }) {
+      List({ space: 12, scroller: this.scroller }) {
         ForEach(this.messages, (message: ChatMessage) => {
           ListItem() {
             Text(message.text)
@@ -154,6 +179,13 @@ export struct ChatScreen {
       .width('100%')
       .padding({ left: 16, right: 16 })
 
+      if (this.busy) {
+        Text('回响正在倾听…')
+          .fontSize(12)
+          .fontColor('#8b87a6')
+          .padding({ top: 4, bottom: 6 })
+      }
+
       if (this.canFinish()) {
         Button('✦ 沉淀这段回忆')
           .width('90%')
@@ -164,38 +196,40 @@ export struct ChatScreen {
           .onClick(() => this.onFinish(this.messages))
       }
 
-      Row({ space: 8 }) {
-        TextInput({ placeholder: '说说那时的事…', text: this.input })
-          .onChange((value: string) => {
-            this.input = value;
-          })
-          .layoutWeight(1)
-          .height(44)
-          .padding(12)
-          .backgroundColor('rgba(255,255,255,0.05)')
-          .fontColor('#ffffff')
-        Button('↑')
-          .width(44)
-          .height(44)
-          .backgroundColor('#8b7cf6')
-          .fontColor('#ffffff')
-          .enabled(this.input.trim().length > 0 && !this.busy)
-          .onClick(() => {
-            const text = this.input.trim();
-            if (text.length === 0 || this.busy) {
-              return;
-            }
-            this.input = '';
-            this.busy = true;
-            this.pushMessage({ role: 'user', text: text, ts: Date.now() });
-            this.onSend(text);
-            void this.sendReply(text).then(() => {
-              this.busy = false;
-            });
-          })
+      if (!this.conversationDone) {
+        Row({ space: 8 }) {
+          TextInput({ placeholder: '说说那时的事…', text: this.input })
+            .onChange((value: string) => {
+              this.input = value;
+            })
+            .layoutWeight(1)
+            .height(44)
+            .padding(12)
+            .backgroundColor('rgba(255,255,255,0.05)')
+            .fontColor('#ffffff')
+          Button('↑')
+            .width(44)
+            .height(44)
+            .backgroundColor('#8b7cf6')
+            .fontColor('#ffffff')
+            .enabled(this.input.trim().length > 0 && !this.busy)
+            .onClick(() => {
+              const text = this.input.trim();
+              if (text.length === 0 || this.busy) {
+                return;
+              }
+              this.input = '';
+              this.busy = true;
+              this.pushMessage({ role: 'user', text: text, ts: Date.now() });
+              this.onSend(text);
+              void this.sendReply(text).then(() => {
+                this.busy = false;
+              });
+            })
+        }
+        .width('90%')
+        .padding({ left: 0, right: 0, top: 8, bottom: 12 })
       }
-      .width('90%')
-      .padding({ left: 0, right: 0, top: 8, bottom: 12 })
     }
     .width('100%')
     .height('100%')

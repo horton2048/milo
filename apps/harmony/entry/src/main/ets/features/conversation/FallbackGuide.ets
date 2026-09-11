@@ -24,6 +24,14 @@ export function moodWord(valence: number, emotionId?: MoodId): string {
   return '平静';
 }
 
+const GUIDE_STEPS: string[] = [
+  '嗯，我听到了。在那个画面里，你正在经历什么？是一段困难的时刻，还是一段开心的日子？',
+  '为什么会是那样呢？当时的你，处在怎样的背景里——身边有谁，生活正发生着什么？',
+  '如果回到那一天，你觉得它对今天的你来说，有什么特别的意义？',
+  '现在的你，还走在当时选择的那条路上吗？如果是，是什么让你坚持了下来；如果不是，中间发生了什么样的改变？',
+  '谢谢你愿意说出这些。关于那段时光，还有什么想补充的吗？如果没有了，可以点击下方「沉淀这段回忆」，我们把它写成一篇属于你的日记。',
+];
+
 /**
  * Scripted fallback guide used when the AI gateway is unavailable.
  * Verbatim port of `apps/web/src/lib/guide.ts` so the offline tone matches
@@ -42,16 +50,14 @@ export class FallbackGuide {
   }
 
   next(): string {
-    const steps: string[] = [
-      '嗯，我听到了。在那个画面里，你正在经历什么？是一段困难的时刻，还是一段开心的日子？',
-      '为什么会是那样呢？当时的你，处在怎样的背景里——身边有谁，生活正发生着什么？',
-      '如果回到那一天，你觉得它对今天的你来说，有什么特别的意义？',
-      '现在的你，还走在当时选择的那条路上吗？如果是，是什么让你坚持了下来；如果不是，中间发生了什么样的改变？',
-      '谢谢你愿意说出这些。关于那段时光，还有什么想补充的吗？如果没有了，可以点击下方「沉淀这段回忆」，我们把它写成一篇属于你的日记。',
-    ];
-    const reply = steps[Math.min(this.step, steps.length - 1)];
+    const reply = GUIDE_STEPS[Math.min(this.step, GUIDE_STEPS.length - 1)];
     this.step += 1;
     return reply;
+  }
+
+  /** Closing line used when an AI-mode conversation reaches its turn cap. */
+  closing(): string {
+    return GUIDE_STEPS[GUIDE_STEPS.length - 1];
   }
 
   isWrappingUp(): boolean {
