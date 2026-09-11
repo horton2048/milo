@@ -333,18 +333,41 @@ function drawMoodArtwork(
   const sourceY: number = artworkImage.pixelHeight * source.sourceYRatio;
   const sourceHeight: number = artworkImage.pixelHeight * source.sourceHeightRatio;
   ctx.save();
-  ctx.shadowColor = hexAlpha(contract.palette[0], 0.24);
-  ctx.shadowBlur = Math.max(16, destination.width * 0.2);
+  // Soft glow behind the artwork (the clipped draw below cannot cast shadows).
+  const glowRadius: number = Math.max(destination.width, height) * 0.72;
+  const glow: CanvasGradient = ctx.createRadialGradient(
+    destination.x + destination.width / 2,
+    destination.y + height / 2,
+    glowRadius * 0.35,
+    destination.x + destination.width / 2,
+    destination.y + height / 2,
+    glowRadius,
+  );
+  glow.addColorStop(0, hexAlpha(contract.palette[0], 0.24));
+  glow.addColorStop(1, hexAlpha(contract.palette[0], 0));
+  ctx.fillStyle = glow;
+  ctx.fillRect(
+    destination.x - glowRadius,
+    destination.y - glowRadius,
+    destination.width + glowRadius * 2,
+    height + glowRadius * 2,
+  );
+  // NOTE: the 9-arg drawImage(pixelMap, sx, sy, sw, sh, dx, dy, dw, dh) samples
+  // incorrectly on some devices (wrong source rect); emulate it with the
+  // verified 5-arg overload + clip/translate/scale.
+  const scaleX: number = destination.width / sourceWidth;
+  const scaleY: number = height / sourceHeight;
+  ctx.beginPath();
+  ctx.rect(destination.x, destination.y, destination.width, height);
+  ctx.clip();
+  ctx.translate(destination.x - sourceX * scaleX, destination.y - sourceY * scaleY);
+  ctx.scale(scaleX, scaleY);
   ctx.drawImage(
     artworkImage.pixelMap,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    destination.x,
-    destination.y,
-    destination.width,
-    height,
+    0,
+    0,
+    artworkImage.pixelWidth,
+    artworkImage.pixelHeight,
   );
   ctx.restore();
 }

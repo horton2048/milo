@@ -2,7 +2,7 @@ import { ECHO_SELECTOR_MOODS, getMoodDescriptorWords, type MoodDefinition, type 
 import { MILO_COLORS, MILO_TYPOGRAPHY } from '../../core/theme/MiloTheme';
 import { MoodOrbitCarousel } from '../mood/MoodOrbitCarousel';
 import { MoodPlanet } from '../mood/MoodPlanet';
-import { MiloBackLink, MiloPrimaryButton, MILO_EASE } from '../ui/MiloButtons';
+import { MiloBackLink, MiloBackNode, MiloPrimaryButton, MILO_EASE } from '../ui/MiloButtons';
 import { Haptics } from '../../core/system/Haptics';
 
 // Web word ring: 360px dial, 136px word radius — scaled to the 377vp screen.
@@ -178,12 +178,11 @@ export struct HomeScreen {
           .margin({ left: 24, right: 24, bottom: 24 })
       } else {
         Column() {
-          MiloBackLink({
-            label: '← 重新感受',
+          MiloBackNode({
             onTap: () => this.goStep('feel'),
           })
             .alignSelf(ItemAlign.Start)
-            .margin({ top: 4 })
+            .margin({ left: 4, top: 4 })
           Text('如果要给它一个名字')
             .fontSize(22)
             .fontFamily('serif')

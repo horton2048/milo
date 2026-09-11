@@ -7,7 +7,7 @@ import {
   initialConversationState,
   type ConversationState,
 } from '../conversation/ConversationController';
-import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
 
 /** Web `cubic-bezier(0.22, 1, 0.36, 1)`. */
 const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
@@ -80,8 +80,7 @@ export struct DiaryScreen {
     Scroll() {
       Column() {
         Row() {
-          MiloBackLink({
-            label: '← 返回对话',
+          MiloBackNode({
             onTap: () => this.onBack(),
           })
           Blank()

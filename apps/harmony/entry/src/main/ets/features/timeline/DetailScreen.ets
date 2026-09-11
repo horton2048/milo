@@ -1,7 +1,7 @@
 import { type ChatMessage, type DiaryEntry, type MoodId } from '../../core/model/Domain';
 import { moodWord } from '../conversation/FallbackGuide';
 import { MoodPlanet } from '../mood/MoodPlanet';
-import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -19,8 +19,7 @@ export struct DetailScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 回忆长廊',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
         Blank()

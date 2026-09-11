@@ -1,5 +1,5 @@
 import { MILO_COLORS } from '../../core/theme/MiloTheme';
-import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
 import { Haptics } from '../../core/system/Haptics';
 
 const PRESETS: string[] = [
@@ -40,8 +40,7 @@ export struct PastTimeScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 返回',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
       }

@@ -1,5 +1,6 @@
 import { componentSnapshot, curves, display } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { image } from '@kit.ImageKit';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
@@ -80,18 +81,25 @@ export struct CardScreen {
   private async loadArtwork(): Promise<void> {
     const entry = this.entry;
     if (entry === undefined || entry.mood.emotionId === undefined) {
+      console.info(`milo-card: artwork skipped (entry=${entry !== undefined}, emotionId=${entry !== undefined ? entry.mood.emotionId : 'none'})`);
       return;
     }
     const asset = getMoodAsset(entry.mood.emotionId);
     if (asset === undefined) {
+      console.info('milo-card: artwork skipped (no asset)');
       return;
     }
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const content: Uint8Array = context.resourceManager.getMediaContentSync(SHEET_RESOURCES[asset.sheet]);
-      const source: image.ImageSource = image.createImageSource(content.buffer as ArrayBuffer);
+      const raw: Uint8Array = context.resourceManager.getMediaContentSync(SHEET_RESOURCES[asset.sheet]);
+      console.info(`milo-card: sheet=${asset.sheet} bytes=${raw.byteLength} offset=${raw.byteOffset}`);
+      // getMediaContentSync may return a view into a larger buffer; hand the
+      // decoder an exact copy so a non-zero byteOffset cannot corrupt the PNG.
+      const bytes: ArrayBuffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+      const source: image.ImageSource = image.createImageSource(bytes);
       const pixelMap: image.PixelMap = await source.createPixelMap();
       const info: image.ImageInfo = await pixelMap.getImageInfo();
+      console.info(`milo-card: pixelMap ${info.size.width}x${info.size.height}`);
       this.artworkImage = {
         pixelMap: pixelMap,
         pixelWidth: info.size.width,
@@ -102,6 +110,7 @@ export struct CardScreen {
       this.drawThumb(1);
     } catch (e) {
       // Keep the gradient-orb fallback; the card still renders without art.
+      console.info(`milo-card: artwork load failed: ${(e as BusinessError).message}`);
     }
   }
 

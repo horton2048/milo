@@ -1,6 +1,6 @@
 import { type DiaryEntry } from '../../core/model/Domain';
 import { moodWord } from '../conversation/FallbackGuide';
-import { MiloBackLink } from '../ui/MiloButtons';
+import { MiloBackNode } from '../ui/MiloButtons';
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -44,8 +44,7 @@ export struct TimelineScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 此刻',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
         Blank()

@@ -10,7 +10,7 @@ import {
 } from './ConversationController';
 import { SpeechInput, mergeRecognizedText, type SpeechResult } from '../../core/system/SpeechInput';
 import { HarmonySpeechPlatform } from '../../core/system/HarmonySpeechPlatform';
-import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
 
 /** AI-mode conversations stop after this many exchanges. */
 const MAX_AI_TURNS: number = 3;
@@ -154,6 +154,10 @@ export struct ChatScreen {
       });
   }
 
+  private canSend(): boolean {
+    return this.input.trim().length > 0 && !this.busy && !this.listening && !this.conversationDone;
+  }
+
   private sendCurrent(): void {
     const text = this.input.trim();
     if (text.length === 0 || this.busy || this.conversationDone) {
@@ -183,8 +187,7 @@ export struct ChatScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 离开',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
         Text(this.aiMode ? '✦ AI' : 'AI')
@@ -338,23 +341,42 @@ export struct ChatScreen {
             .placeholderFont({ size: 15 })
             .caretColor('#c9befc')
 
-          Button('↑')
-            .width(44)
-            .height(44)
-            .borderRadius(22)
-            .backgroundColor(
-              this.input.trim().length > 0 && !this.busy
-                ? 'rgba(139,124,246,0.92)'
-                : GLASS_BG,
-            )
-            .border({ width: 1, color: GLASS_BORDER })
-            .fontColor(this.input.trim().length > 0 && !this.busy ? '#ffffff' : INK)
-            .fontSize(18)
-            .opacity(this.input.trim().length > 0 && !this.busy ? 1 : 0.48)
-            .enabled(this.input.trim().length > 0 && !this.busy)
-            .onClick(() => {
-              this.sendCurrent();
-            })
+          Stack() {
+            if (this.canSend()) {
+              Column()
+                .width('100%')
+                .height('100%')
+                .linearGradient({
+                  angle: 135,
+                  colors: [['rgba(139,124,246,0.92)', 0], ['rgba(240,166,202,0.78)', 1]],
+                })
+            } else {
+              Column()
+                .width('100%')
+                .height('100%')
+                .backgroundColor(GLASS_BG)
+            }
+            Path({ width: 44, height: 44 })
+              .commands('M22 11.5 L22 32.5 M13.5 21 L22 12.5 L30.5 21')
+              .fillOpacity(0)
+              .stroke(this.canSend() ? '#ffffff' : 'rgba(234,230,255,0.55)')
+              .strokeWidth(2.4)
+              .strokeLineCap(LineCapStyle.Round)
+              .strokeLineJoin(LineJoinStyle.Round)
+          }
+          .width(44)
+          .height(44)
+          .borderRadius(22)
+          .border({ width: 1, color: this.canSend() ? 'rgba(255,255,255,0.25)' : GLASS_BORDER })
+          .shadow(this.canSend() ? { radius: 20, color: 'rgba(139,124,246,0.45)', offsetY: 4 } : {
+            radius: 0,
+            color: 'rgba(0,0,0,0)',
+          })
+          .scale(this.canSend() ? { x: 1, y: 1 } : { x: 0.92, y: 0.92 })
+          .opacity(this.canSend() ? 1 : 0.7)
+          .onClick(() => {
+            this.sendCurrent();
+          })
         }
         .width('100%')
         .padding(10)

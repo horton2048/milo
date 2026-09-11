@@ -1,7 +1,7 @@
 import { type MoodState } from '../../core/model/Domain';
 import { MILO_COLORS } from '../../core/theme/MiloTheme';
 import { MoodPlanet } from '../mood/MoodPlanet';
-import { MiloBackLink, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
 
 /**
  * Note input for the "now" branch. A planet echoes the picked mood; the note
@@ -17,8 +17,7 @@ export struct NowNoteScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 返回',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
       }

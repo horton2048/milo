@@ -1,5 +1,5 @@
 import { MILO_COLORS } from '../../core/theme/MiloTheme';
-import { MiloBackLink } from '../ui/MiloButtons';
+import { MiloBackNode } from '../ui/MiloButtons';
 
 /**
  * Web `Classify.tsx` 1:1 — the two fork cards (now vs. past) with the serif
@@ -14,8 +14,7 @@ export struct ClassifyScreen {
   build() {
     Column() {
       Row() {
-        MiloBackLink({
-          label: '← 返回',
+        MiloBackNode({
           onTap: () => this.onBack(),
         })
       }

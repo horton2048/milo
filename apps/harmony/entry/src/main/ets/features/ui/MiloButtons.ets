@@ -165,6 +165,33 @@ export struct MiloBackLink {
 }
 
 /**
+ * Circular glass back node with a "<" chevron — the iOS-style navigation
+ * back control used in every topbar.
+ */
+@Component
+export struct MiloBackNode {
+  onTap: () => void = () => {};
+
+  build() {
+    Stack() {
+      Path({ width: 38, height: 38 })
+        .commands('M23.5 12 L15.5 19 L23.5 26')
+        .fillOpacity(0)
+        .stroke(INK_INTERACTIVE)
+        .strokeWidth(2.2)
+        .strokeLineCap(LineCapStyle.Round)
+        .strokeLineJoin(LineJoinStyle.Round)
+    }
+    .width(38)
+    .height(38)
+    .borderRadius(19)
+    .backgroundColor('rgba(255,255,255,0.07)')
+    .border({ width: 1, color: 'rgba(255,255,255,0.12)' })
+    .onClick(() => this.onTap())
+  }
+}
+
+/**
  * Global stage backdrop from `App.tsx`: deep indigo gradient, two blurred
  * aurora blobs and the seeded starfield, shared by every screen.
  */
