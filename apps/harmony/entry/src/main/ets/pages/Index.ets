@@ -34,7 +34,7 @@ import { FallbackGuide } from '../features/conversation/FallbackGuide';
 import { isGatewayConfigured, readAppConfig } from '../core/config/AppConfig';
 import { HarmonyHttpFetcher } from '../core/network/HarmonyHttpFetcher';
 import { AuthSessionStore } from '../core/auth/AuthSessionStore';
-import { FakeAuthProvider } from '../core/auth/FakeAuthProvider';
+import { AgcAuthProvider } from '../core/auth/AgcAuthProvider';
 import { type AuthSession } from '../core/auth/AuthProvider';
 import { AuthController } from '../features/auth/AuthController';
 import { LoginScreen } from '../features/auth/LoginScreen';
@@ -54,7 +54,7 @@ struct Index {
   private entryRepo: EntryRepository = new EntryRepository(this.storage);
   private draftRepo: RecallSessionRepository = new RecallSessionRepository(this.storage);
   private authController: AuthController = new AuthController({
-    provider: new FakeAuthProvider(),
+    provider: new AgcAuthProvider(getContext(this)),
     store: new AuthSessionStore(this.storage),
   });
   private gateway: AiGatewayClient | null = null;
