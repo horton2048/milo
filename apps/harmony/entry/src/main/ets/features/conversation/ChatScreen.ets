@@ -10,7 +10,7 @@ import {
 } from './ConversationController';
 import { SpeechInput, mergeRecognizedText, type SpeechResult } from '../../core/system/SpeechInput';
 import { HarmonySpeechPlatform } from '../../core/system/HarmonySpeechPlatform';
-import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
+import { MiloBackNode, MiloPrimaryButton, pathPx } from '../ui/MiloButtons';
 
 /** AI-mode conversations stop after this many exchanges. */
 const MAX_AI_TURNS: number = 3;
@@ -41,6 +41,7 @@ export struct ChatScreen {
   @State listening: boolean = false;
   @State userSpoke: boolean = false;
   @State conversationState: ConversationState = initialConversationState();
+  @State sendPressScale: number = 1;
   private guide: FallbackGuide | null = null;
   private scroller: Scroller = new Scroller();
   private speech: SpeechInput | null = null;
@@ -156,6 +157,22 @@ export struct ChatScreen {
 
   private canSend(): boolean {
     return this.input.trim().length > 0 && !this.busy && !this.listening && !this.conversationDone;
+  }
+
+  private sendGradientStops(): Array<[ResourceColor, number]> {
+    if (this.canSend()) {
+      return [['rgba(139,124,246,1)', 0], ['rgba(240,166,202,0.9)', 1]];
+    }
+    return [['rgba(255,255,255,0.06)', 0], ['rgba(255,255,255,0.06)', 1]];
+  }
+
+  private animateSendPress(pressed: boolean): void {
+    this.getUIContext().animateTo(
+      { duration: 180, curve: curves.springMotion(0.38, 0.7) },
+      () => {
+        this.sendPressScale = pressed ? 0.94 : 1;
+      },
+    );
   }
 
   private sendCurrent(): void {
@@ -342,40 +359,45 @@ export struct ChatScreen {
             .caretColor('#c9befc')
 
           Stack() {
-            if (this.canSend()) {
-              Column()
-                .width('100%')
-                .height('100%')
-                .linearGradient({
-                  angle: 135,
-                  colors: [['rgba(139,124,246,0.92)', 0], ['rgba(240,166,202,0.78)', 1]],
-                })
-            } else {
-              Column()
-                .width('100%')
-                .height('100%')
-                .backgroundColor(GLASS_BG)
-            }
+            Column()
+              .width('100%')
+              .height('100%')
+              .linearGradient({
+                angle: 135,
+                colors: this.sendGradientStops(),
+              })
             Path({ width: 44, height: 44 })
-              .commands('M22 11.5 L22 32.5 M13.5 21 L22 12.5 L30.5 21')
+              .commands(`M${pathPx(12)} ${pathPx(12.5)} L${pathPx(31.5)} ${pathPx(21)} L${pathPx(12)} ${pathPx(29.5)} Z`)
+              .fill(this.canSend() ? '#ffffff' : 'rgba(234,230,255,0.55)')
+            Path({ width: 44, height: 44 })
+              .commands(`M${pathPx(12)} ${pathPx(19.2)} L${pathPx(25.5)} ${pathPx(21)} L${pathPx(12)} ${pathPx(22.8)}`)
               .fillOpacity(0)
-              .stroke(this.canSend() ? '#ffffff' : 'rgba(234,230,255,0.55)')
-              .strokeWidth(2.4)
+              .stroke(this.canSend() ? 'rgba(139,124,246,0.55)' : 'rgba(18,15,36,0.5)')
+              .strokeWidth(1.2)
               .strokeLineCap(LineCapStyle.Round)
               .strokeLineJoin(LineJoinStyle.Round)
           }
           .width(44)
           .height(44)
           .borderRadius(22)
-          .border({ width: 1, color: this.canSend() ? 'rgba(255,255,255,0.25)' : GLASS_BORDER })
+          .border({ width: 1, color: this.canSend() ? 'rgba(255,255,255,0)' : GLASS_BORDER })
           .shadow(this.canSend() ? { radius: 20, color: 'rgba(139,124,246,0.45)', offsetY: 4 } : {
             radius: 0,
             color: 'rgba(0,0,0,0)',
           })
-          .scale(this.canSend() ? { x: 1, y: 1 } : { x: 0.92, y: 0.92 })
-          .opacity(this.canSend() ? 1 : 0.7)
+          .scale({ x: this.sendPressScale, y: this.sendPressScale })
           .onClick(() => {
             this.sendCurrent();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (!this.canSend()) {
+              return;
+            }
+            if (event.type === TouchType.Down) {
+              this.animateSendPress(true);
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              this.animateSendPress(false);
+            }
           })
         }
         .width('100%')

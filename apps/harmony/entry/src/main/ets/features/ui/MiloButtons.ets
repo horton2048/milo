@@ -1,8 +1,22 @@
-import { curves } from '@kit.ArkUI';
+import { curves, display } from '@kit.ArkUI';
 import { Starfield } from '../mood/Starfield';
 
 /** Web `cubic-bezier(0.22, 1, 0.36, 1)` — the signature Milo ease. */
 export const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
+
+let cachedDensity: number = 0;
+
+/**
+ * Path `commands` render at physical px scale, unlike every other length in
+ * ArkUI (which is vp). Convert vp design coordinates to px so vector glyphs
+ * keep their intended size on any density.
+ */
+export function pathPx(vp: number): number {
+  if (cachedDensity <= 0) {
+    cachedDensity = display.getDefaultDisplaySync().densityPixels;
+  }
+  return vp * cachedDensity;
+}
 
 const INK: string = '#eae6ff';
 const INK_INTERACTIVE: string = 'rgba(238,234,255,0.78)';
@@ -165,29 +179,51 @@ export struct MiloBackLink {
 }
 
 /**
- * Circular glass back node with a "<" chevron — the iOS-style navigation
- * back control used in every topbar.
+ * Circular glass back node with a bold "<" chevron — the iOS-style navigation
+ * back control used in every topbar. Frosted-glass container with springy
+ * press feedback (scale 0.9 + brighter glass).
  */
 @Component
 export struct MiloBackNode {
   onTap: () => void = () => {};
+  @State pressed: boolean = false;
+  @State pressScale: number = 1;
+
+  private animatePress(isPressed: boolean): void {
+    this.getUIContext().animateTo(
+      { duration: 180, curve: curves.springMotion(0.38, 0.7) },
+      () => {
+        this.pressed = isPressed;
+        this.pressScale = isPressed ? 0.9 : 1;
+      },
+    );
+  }
 
   build() {
     Stack() {
       Path({ width: 38, height: 38 })
-        .commands('M23.5 12 L15.5 19 L23.5 26')
+        .commands(`M${pathPx(25.5)} ${pathPx(11.5)} L${pathPx(14.5)} ${pathPx(19)} L${pathPx(25.5)} ${pathPx(26.5)}`)
         .fillOpacity(0)
         .stroke(INK_INTERACTIVE)
-        .strokeWidth(2.2)
+        .strokeWidth(3)
         .strokeLineCap(LineCapStyle.Round)
         .strokeLineJoin(LineJoinStyle.Round)
     }
     .width(38)
     .height(38)
     .borderRadius(19)
-    .backgroundColor('rgba(255,255,255,0.07)')
-    .border({ width: 1, color: 'rgba(255,255,255,0.12)' })
+    .backgroundColor(this.pressed ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.11)')
+    .backgroundBlurStyle(BlurStyle.Thin)
+    .border({ width: 1, color: 'rgba(255,255,255,0.14)' })
+    .scale({ x: this.pressScale, y: this.pressScale })
     .onClick(() => this.onTap())
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.animatePress(true);
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.animatePress(false);
+      }
+    })
   }
 }
 
