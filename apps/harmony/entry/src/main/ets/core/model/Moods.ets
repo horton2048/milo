@@ -40,3 +40,31 @@ export function moodStateForId(id: MoodId): MoodState | undefined {
   }
   return undefined;
 }
+
+/**
+ * Home dial order, mirroring the web build's `ECHO_SELECTOR_MOOD_IDS`:
+ * calm in the middle, each side progressing outward by intensity.
+ */
+const ECHO_SELECTOR_MOOD_IDS: ReadonlyArray<MoodId> = [
+  'joyful',
+  'bright',
+  'okay',
+  'calm',
+  'heavy',
+  'low',
+  'very-low',
+];
+
+function selectorMood(id: MoodId): MoodDefinition {
+  for (let index = 0; index < MOODS.length; index += 1) {
+    const mood = MOODS[index];
+    if (mood.id === id) {
+      return mood;
+    }
+  }
+  return MOODS[3];
+}
+
+export const ECHO_SELECTOR_MOODS: ReadonlyArray<MoodDefinition> = ECHO_SELECTOR_MOOD_IDS.map(
+  (id: MoodId): MoodDefinition => selectorMood(id),
+);

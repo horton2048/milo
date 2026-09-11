@@ -1,4 +1,4 @@
-import { MOODS, type MoodId } from '../../core/model/Moods';
+import { ECHO_SELECTOR_MOODS, type MoodId } from '../../core/model/Moods';
 import { MILO_COLORS, MILO_TYPOGRAPHY } from '../../core/theme/MiloTheme';
 import { MoodOrbitCarousel } from '../mood/MoodOrbitCarousel';
 import { Starfield } from '../mood/Starfield';
@@ -16,7 +16,7 @@ export struct HomeScreen {
   onOpenTimeline: () => void = () => {};
 
   private activeCaption(): string {
-    const mood = MOODS[this.activeMoodIndex];
+    const mood = ECHO_SELECTOR_MOODS[this.activeMoodIndex];
     return moodWord(mood.valence, mood.id);
   }
 
@@ -51,7 +51,7 @@ export struct HomeScreen {
         Blank()
         MoodOrbitCarousel({
           onSelect: (index: number) => {
-            const mood = MOODS[index];
+            const mood = ECHO_SELECTOR_MOODS[index];
             this.activeMoodIndex = index;
             this.onSelectMood(mood.id);
           },
@@ -68,6 +68,9 @@ export struct HomeScreen {
       }
       .width('100%')
       .height('100%')
+      // Let taps on empty areas fall through to the starfield backdrop,
+      // while controls inside still receive their own events.
+      .hitTestBehavior(HitTestMode.Transparent)
     }
     .width('100%')
     .height('100%')

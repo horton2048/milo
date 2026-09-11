@@ -1,6 +1,11 @@
+import { curves } from '@kit.ArkUI';
+
 /**
  * Deterministic starfield used as the home / empty-state backdrop.
  * Positions are seeded so screenshots stay stable across runs.
+ *
+ * Tapping empty background scatters nearby stars outward like grains of
+ * sand (spring burst), then they drift back home along the settle curve.
  */
 export interface Star {
   x: number; // 0..1 horizontal fraction
@@ -8,6 +13,41 @@ export interface Star {
   radius: number; // px radius
   opacity: number; // 0..1
 }
+
+/** A star plus its current scatter displacement; mutated in place so
+ *  @ObjectLink children animate attribute changes. */
+@Observed
+export class StarView {
+  star: Star;
+  dx: number;
+  dy: number;
+  dim: number;
+
+  constructor(star: Star, dx: number, dy: number, dim: number) {
+    this.star = star;
+    this.dx = dx;
+    this.dy = dy;
+    this.dim = dim;
+  }
+}
+
+@Component
+struct StarItem {
+  @ObjectLink view: StarView;
+  color: string = '#ffffff';
+
+  build() {
+    Circle({ width: this.view.star.radius * 2, height: this.view.star.radius * 2 })
+      .fill(this.color)
+      .opacity(this.view.star.opacity * (1 - this.view.dim))
+      .position({ x: `${this.view.star.x * 100}%`, y: `${this.view.star.y * 100}%` })
+      .translate({ x: this.view.dx, y: this.view.dy })
+  }
+}
+
+const SCATTER_RADIUS_VP = 170;
+const SCATTER_MAG_VP = 36;
+const SCATTER_BURST_DELAY_MS = 420;
 
 function seedFrom(seed: number): () => number {
   let state = seed >>> 0;
@@ -48,6 +88,10 @@ export struct Starfield {
   @Prop count: number = 120;
   @Prop seed: number = 0x5a17c0fe;
   @Prop color: string = '#ffffff';
+  @State views: Array<StarView> = [];
+  private fieldWidth: number = 0;
+  private fieldHeight: number = 0;
+  private settleTimer: number = -1;
 
   private computeStars(): Star[] {
     if (this.count === DEFAULT_STARFIELD.length && this.seed === 0x5a17c0fe) {
@@ -56,16 +100,95 @@ export struct Starfield {
     return generateStars(this.count, this.seed);
   }
 
+  private zeroedViews(): Array<StarView> {
+    const stars = this.computeStars();
+    const out: Array<StarView> = [];
+    for (let index = 0; index < stars.length; index += 1) {
+      out.push(new StarView(stars[index], 0, 0, 0));
+    }
+    return out;
+  }
+
+  aboutToAppear(): void {
+    this.views = this.zeroedViews();
+  }
+
+  aboutToDisappear(): void {
+    if (this.settleTimer >= 0) {
+      clearTimeout(this.settleTimer);
+      this.settleTimer = -1;
+    }
+  }
+
+  /** Sand burst: stars near the tap point are pushed radially outward. */
+  private handleTap(event: ClickEvent): void {
+    if (this.fieldWidth <= 0 || this.fieldHeight <= 0) {
+      return;
+    }
+    this.getUIContext().animateTo(
+      { curve: curves.springMotion(0.3, 0.55) },
+      () => {
+        this.applyScatter(event.x, event.y);
+      },
+    );
+    if (this.settleTimer >= 0) {
+      clearTimeout(this.settleTimer);
+    }
+    this.settleTimer = setTimeout(() => {
+      this.getUIContext().animateTo(
+        { duration: 640, curve: curves.cubicBezierCurve(0.22, 0.72, 0.18, 1) },
+        () => {
+          this.clearScatter();
+        },
+      );
+      this.settleTimer = -1;
+    }, SCATTER_BURST_DELAY_MS);
+  }
+
+  /** Mutates star views in place so @ObjectLink items animate the change. */
+  private applyScatter(tapX: number, tapY: number): void {
+    for (let index = 0; index < this.views.length; index += 1) {
+      const view = this.views[index];
+      const ddx = view.star.x * this.fieldWidth - tapX;
+      const ddy = view.star.y * this.fieldHeight - tapY;
+      const dist = Math.hypot(ddx, ddy);
+      if (dist > 0.001 && dist < SCATTER_RADIUS_VP) {
+        const falloff = 1 - dist / SCATTER_RADIUS_VP;
+        const mag = SCATTER_MAG_VP * falloff * falloff;
+        view.dx = (ddx / dist) * mag;
+        view.dy = (ddy / dist) * mag;
+        view.dim = 0.45 * falloff;
+      } else {
+        view.dx = 0;
+        view.dy = 0;
+        view.dim = 0;
+      }
+    }
+  }
+
+  private clearScatter(): void {
+    for (let index = 0; index < this.views.length; index += 1) {
+      const view = this.views[index];
+      view.dx = 0;
+      view.dy = 0;
+      view.dim = 0;
+    }
+  }
+
   build() {
     Stack() {
-      ForEach(this.computeStars(), (star: Star) => {
-        Circle({ width: star.radius * 2, height: star.radius * 2 })
-          .fill(this.color)
-          .opacity(star.opacity)
-          .position({ x: `${star.x * 100}%`, y: `${star.y * 100}%` })
-      })
+      ForEach(this.views, (view: StarView, index: number) => {
+        StarItem({ view: view, color: this.color })
+      }, (view: StarView, index: number) => index.toString())
     }
     .width('100%')
     .height('100%')
+    .onClick((event: ClickEvent) => {
+      this.handleTap(event);
+    })
+    .onAreaChange((_oldArea: Area, newArea: Area) => {
+      this.fieldWidth = Number(newArea.width);
+      this.fieldHeight = Number(newArea.height);
+    })
   }
 }
