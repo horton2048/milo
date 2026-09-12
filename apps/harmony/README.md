@@ -61,12 +61,18 @@ The generated `oh-package-lock.json5` pins `@ohos/hypium` 1.0.28 and `@ohos/hamo
 
 ```bash
 ./hvigorw clean
-./hvigorw assembleHap
+./hvigorw assembleHap                       # debug HAP (default product)
+./hvigorw assembleHap --mode module -p product=release -p buildMode=release   # release HAP for AGC
 ./hvigorw test
 /Applications/DevEco-Studio.app/Contents/tools/node/bin/node --test tests/shell-contract.test.mjs
 ```
 
-The unsigned debug HAP is generated at `entry/build/default/outputs/default/entry-default-unsigned.hap`. Signing must remain local and is intentionally not committed.
+The unsigned debug HAP is generated at `entry/build/default/outputs/default/entry-default-unsigned.hap`; the signed release HAP at `entry/build/release/outputs/default/entry-default-signed.hap`. Signing must remain local and is intentionally not committed.
+
+Signing materials (all local, never committed):
+
+- debug: `~/.ohos/config/default_harmony_*.p12/.cer/.p7b` (auto-generated via `devecocli signature generate`)
+- release: `~/.ohos/config/release_harmony_milo.cer` + `release_harmony_milo.p7b` (AGC 发布证书 `milo_release.cer` + 发布 Profile `milo_release`, both valid to 2029-09-12), signing with the same debug p12 keypair; wired as the `release` product/signingConfig in `build-profile.json5`
 
 ## Verification matrix
 
@@ -77,7 +83,7 @@ npm test                       # 133 web tests
 npm run build                  # web build to apps/web/dist
 npm -w services/ai-gateway test
 npm -w services/ai-gateway run build
-cd apps/harmony && ./hvigorw clean && ./hvigorw test && ./hvigorw assembleHap
+cd apps/harmony && ./hvigorw clean && ./hvigorw test && ./hvigorw assembleHap && ./hvigorw assembleHap --mode module -p product=release -p buildMode=release
 ```
 
 Last verified locally:
