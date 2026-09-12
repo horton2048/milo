@@ -62,7 +62,8 @@ The generated `oh-package-lock.json5` pins `@ohos/hypium` 1.0.28 and `@ohos/hamo
 ```bash
 ./hvigorw clean
 ./hvigorw assembleHap                       # debug HAP (default product)
-./hvigorw assembleHap --mode module -p product=release -p buildMode=release   # release HAP for AGC
+./hvigorw assembleHap --mode module -p product=release -p buildMode=release   # release HAP
+./hvigorw assembleApp --mode project -p product=release -p buildMode=release  # .app for AGC upload
 ./hvigorw test
 /Applications/DevEco-Studio.app/Contents/tools/node/bin/node --test tests/shell-contract.test.mjs
 ```

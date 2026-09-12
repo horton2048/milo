@@ -47,9 +47,10 @@ MILO 的本地引导会一步步陪你说出当时的情景、困难或快乐、
 
 | Field | Value |
 | --- | --- |
-| HAP 文件 | `apps/harmony/entry/build/release/outputs/default/entry-default-signed.hap` |
-| 构建命令 | `cd apps/harmony && ./hvigorw assembleHap --mode module -p product=release -p buildMode=release` |
-| HAP 大小 | 约 6.8 MB（signed，2026-09-12） |
+| 上传文件 | `apps/harmony/build/outputs/release/harmony-release-signed.app`（AGC 软件包管理要求 `.app` 格式；2026-09-12 已上传，合法性"已达标"） |
+| 构建命令 | `cd apps/harmony && ./hvigorw assembleApp --mode project -p product=release -p buildMode=release` |
+| 包内 HAP | `entry-default.hap`（≈6.8 MB，type=release） |
+| 版本 | 1.0.0（versionCode 1000000） |
 | Bundle ID | `com.milo.echoes` |
 | 签名 Profile | AGC 发布 Profile `milo_release`（2026-09-12 创建，有效期至 2029-09-12） |
 | 签名证书 | AGC 发布证书 `milo_release.cer`（certId 2037718107778208512，有效期至 2029-09-12，SHA1 指纹 `431c22413571fc3304f47f9801f458ceebb271e7`） |
@@ -94,6 +95,30 @@ node scripts/device-checklist.mjs https://<your-gateway-url>
   - AGC 提交记录 URL
   - 提交时间戳
   - 审核结果
+
+## 7.5 Submission draft status (2026-09-12 盘点)
+
+AGC 草稿地址：`#/myApp/6917615962315597189/v2035850932872307584`（版本信息 → 准备提交）。
+
+已完成（无需再动）：
+
+- 应用信息步骤全部就绪：名称 MILO-米洛、图标、分类（应用/工具）、标签（AI 主标签 + 健康/笔记/专注/健康管理）、客服邮箱/QQ
+- 软件包已上传并通过合法性校验（"已达标"），上架自检任务已启动（报告在 软件包管理 → 上架自检 → 报告）
+
+剩余必填项（表单里的顺序）：
+
+| # | 字段 | 状态 | 说明 |
+| --- | --- | --- | --- |
+| 1 | 应用介绍（≤8000字）+ 一句话简介（≤17字） | 可抄本文档 §2 | 直接粘贴 |
+| 2 | 应用介绍截图 3~10 张 | ⚠️ 尺寸待核 | 表单要求最低 1920×1080（16:9）；现有截图 1080×2340 竖向，上传时若被拒需补横版或确认竖向最低 1080×1920 |
+| 3 | 内容分级问卷 | 可填 | "设置"按钮进入问卷 |
+| 4 | 隐私政策 | 🔴 需用户决策 | 选"隐私托管"（AGC 协议服务生成）或"自定义隐私政策"（需 URL） |
+| 5 | 隐私标签：是否涉及个人信息收集 | 可答"是" | App 有 AGC 邮箱登录 |
+| 6 | AI 功能声明 | 🔴 需用户决策 | App 含可选 AI 对话；"涉及"可能触发深度合成备案要求 |
+| 7 | 备案信息：APP类型/主办单位类型/名称/证件号 | 🔴 需用户输入 | 需工信部 App 备案；单机 APP 选项可能简化流程 |
+| 8 | 应用审核信息 | 可填 | 勾"需要登录进行审核"，备注：邮箱输 `milo` 直接进入 |
+| 9 | 联系方式：手机号+短信验证码 | 🔴 仅用户 | 需接收短信并"提交验证" |
+| 10 | 上架时间 | 可选"审核通过立即上架" | |
 
 ## 8. Update path (after first release)
 
