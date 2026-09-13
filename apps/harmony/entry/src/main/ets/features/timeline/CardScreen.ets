@@ -19,6 +19,7 @@ import {
   measureCardDesignHeight,
   CARD_DESIGN_WIDTH,
   CARD_DESIGN_HEIGHT,
+  ORBIT_THEATRE_DESIGN_HEIGHT,
   type CardArtworkImage,
 } from '../../core/system/CardArt';
 import { getMoodAsset, type MoodAssetSheetName } from '../../core/model/MoodAssets';
@@ -71,7 +72,7 @@ export struct CardScreen {
   aboutToAppear(): void {
     const win: display.Display = display.getDefaultDisplaySync();
     const winVp: number = win.width / win.densityPixels;
-    this.previewWidth = Math.min(winVp * 0.76, 320);
+    this.previewWidth = Math.min(winVp * 0.92, 460);
     this.thumbWidth = Math.floor((winVp - 48 - 10) / 2) - 14;
     this.selected = normalizeStickerTemplate(
       this.entry !== undefined ? this.entry.stickerTemplate : undefined,
@@ -132,7 +133,7 @@ export struct CardScreen {
     ctx.clearRect(0, 0, this.previewWidth, this.previewHeight);
     ctx.save();
     ctx.scale(scale, scale);
-    drawCardArt(ctx, designHeight, entry, this.selected, this.artworkImage);
+    drawCardArt(ctx, designHeight, entry, this.selected, this.artworkImage, scale);
     ctx.restore();
   }
 
@@ -151,13 +152,16 @@ export struct CardScreen {
     const templateId: StickerTemplateId = index === 0
       ? STICKER_TEMPLATES[0].id
       : STICKER_TEMPLATES[1].id;
+    const baseHeight: number = templateId === 'planet-letter'
+      ? CARD_DESIGN_HEIGHT
+      : ORBIT_THEATRE_DESIGN_HEIGHT;
     const width: number = this.thumbWidth;
     const height: number = width * 5 / 8;
     const scale: number = width / CARD_DESIGN_WIDTH;
     ctx.clearRect(0, 0, width, height);
     ctx.save();
     ctx.scale(scale, scale);
-    drawCardArt(ctx, CARD_DESIGN_HEIGHT, entry, templateId, this.artworkImage);
+    drawCardArt(ctx, baseHeight, entry, templateId, this.artworkImage, scale);
     ctx.restore();
   }
 

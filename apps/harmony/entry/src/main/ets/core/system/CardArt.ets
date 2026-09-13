@@ -29,7 +29,10 @@ import {
  */
 
 export const CARD_DESIGN_WIDTH: number = 1080;
+/** Base design height of the "planet-letter" memory ticket template. */
 export const CARD_DESIGN_HEIGHT: number = 1434;
+/** Base design height of the "orbit-theatre" template (taller playback panel). */
+export const ORBIT_THEATRE_DESIGN_HEIGHT: number = 1530;
 
 /** Artwork crop ratios for the 3-panel mood sheet, mirroring web `cardMoodArtwork`. */
 export interface CardArtworkSource {
@@ -137,7 +140,7 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
 }
 
 /** Character-wrap in design units; call on an UNSCALED context. */
-function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, ctxScale: number = 1): string[] {
   const lines: string[] = [];
   const paragraphs: string[] = text.split('\n');
   for (let p = 0; p < paragraphs.length; p += 1) {
@@ -149,7 +152,7 @@ function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: n
     let line: string = '';
     for (let index = 0; index < para.length; index += 1) {
       const ch: string = para.charAt(index);
-      if (line.length > 0 && ctx.measureText(line + ch).width > maxWidth) {
+      if (line.length > 0 && ctx.measureText(line + ch).width / ctxScale > maxWidth) {
         lines.push(line);
         line = ch;
       } else {
@@ -385,11 +388,11 @@ export function measureCardDesignHeight(
   const copy = getStickerCopy(entry);
   const normalized: StickerTemplateId = normalizeStickerTemplate(templateId);
   if (normalized === 'planet-letter') {
-    ctx.font = '48px serif';
-    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 4) * 68;
+    ctx.font = '64px serif';
+    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 3) * 88;
   }
-  ctx.font = '48px serif';
-  return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * 68;
+  ctx.font = '64px serif';
+  return ORBIT_THEATRE_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * 88;
 }
 
 function drawMemoryTicket(
@@ -399,6 +402,7 @@ function drawMemoryTicket(
   contract: CardArtContract,
   artworkImage: CardArtworkImage | null,
   random: () => number,
+  ctxScale: number,
 ): void {
   const copy = getStickerCopy(entry);
   const primary: string = contract.palette[0];
@@ -547,10 +551,10 @@ function drawMemoryTicket(
   ctx.font = 'bold 17px monospace';
   drawSpacedText(ctx, 'MEMORY NOTE / 025', 142, 766, 4, false);
   ctx.fillStyle = '#17151d';
-  ctx.font = '48px serif';
-  const lines: string[] = wrapTextDesign(ctx, copy.body, 796);
+  ctx.font = '64px serif';
+  const lines: string[] = wrapTextDesign(ctx, copy.body, 796, ctxScale);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 142, 838 + index * 68);
+    ctx.fillText(lines[index], 142, 860 + index * 88);
   }
 
   ctx.save();
@@ -625,9 +629,10 @@ function drawOrbitTheatre(
   contract: CardArtContract,
   artworkImage: CardArtworkImage | null,
   random: () => number,
+  ctxScale: number,
 ): void {
   const copy = getStickerCopy(entry);
-  const heightExtension: number = canvasH - CARD_DESIGN_HEIGHT;
+  const heightExtension: number = canvasH - ORBIT_THEATRE_DESIGN_HEIGHT;
   const bg: CanvasGradient = ctx.createLinearGradient(0, 0, CARD_DESIGN_WIDTH, CARD_DESIGN_HEIGHT);
   bg.addColorStop(0, '#332a59');
   bg.addColorStop(0.55, '#171831');
@@ -658,7 +663,7 @@ function drawOrbitTheatre(
 
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 72px sans-serif';
-  const headingLines: string[] = fitLines(wrapTextDesign(ctx, copy.heading, 440), 3);
+  const headingLines: string[] = fitLines(wrapTextDesign(ctx, copy.heading, 440, ctxScale), 3);
   for (let index = 0; index < headingLines.length; index += 1) {
     ctx.fillText(headingLines[index], 566, 224 + index * 78);
   }
@@ -673,11 +678,11 @@ function drawOrbitTheatre(
   }
 
   ctx.fillStyle = 'rgba(7,8,22,0.58)';
-  roundRectPath(ctx, 92, 634, 896, 546 + heightExtension, 34);
+  roundRectPath(ctx, 92, 634, 896, 640 + heightExtension, 34);
   ctx.fill();
   ctx.strokeStyle = 'rgba(202,187,239,0.48)';
   ctx.lineWidth = 2;
-  roundRectPath(ctx, 92, 634, 896, 546 + heightExtension, 34);
+  roundRectPath(ctx, 92, 634, 896, 640 + heightExtension, 34);
   ctx.stroke();
 
   ctx.fillStyle = '#c6b4ed';
@@ -685,14 +690,14 @@ function drawOrbitTheatre(
   drawSpacedText(ctx, 'PLAYBACK / MEMORY 07', 140, 694, 5, false);
 
   ctx.fillStyle = 'rgba(246,244,252,0.9)';
-  ctx.font = '48px serif';
-  const lines: string[] = wrapTextDesign(ctx, copy.body, 790);
+  ctx.font = '64px serif';
+  const lines: string[] = wrapTextDesign(ctx, copy.body, 790, ctxScale);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 140, 770 + index * 68);
+    ctx.fillText(lines[index], 140, 784 + index * 88);
   }
 
   ctx.save();
-  ctx.translate(843, 1256 + heightExtension);
+  ctx.translate(843, 1350 + heightExtension);
   ctx.rotate(-0.07);
   ctx.strokeStyle = 'rgba(205,191,239,0.8)';
   ctx.lineWidth = 2;
@@ -714,12 +719,13 @@ export function drawCardArt(
   entry: DiaryEntry,
   templateId: StickerTemplateId,
   artworkImage: CardArtworkImage | null,
+  ctxScale: number = 1,
 ): void {
   const contract: CardArtContract = cardArtContract(entry, templateId);
   const random: () => number = createSeededRandom(stableHash(entry.id) ^ TEMPLATE_SEEDS[contract.templateId]);
   if (contract.templateId === 'planet-letter') {
-    drawMemoryTicket(ctx, canvasH, entry, contract, artworkImage, random);
+    drawMemoryTicket(ctx, canvasH, entry, contract, artworkImage, random, ctxScale);
     return;
   }
-  drawOrbitTheatre(ctx, canvasH, entry, contract, artworkImage, random);
+  drawOrbitTheatre(ctx, canvasH, entry, contract, artworkImage, random, ctxScale);
 }
