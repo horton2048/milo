@@ -59,6 +59,7 @@ export struct ShareCardScreen {
       Row() {
         Button('← 返回')
           .backgroundColor(Color.Transparent)
+          .borderRadius(999)
           .fontColor('#c9befc')
           .fontSize(13)
           .onClick(() => this.onBack())
@@ -121,6 +122,7 @@ export struct ShareCardScreen {
         .width('90%')
         .height(48)
         .backgroundColor('#8b7cf6')
+        .borderRadius(999)
         .fontColor('#ffffff')
         .enabled(this.status !== 'sharing' && this.layout !== null)
         .opacity(this.status !== 'sharing' && this.layout !== null ? 1.0 : 0.5)

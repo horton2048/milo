@@ -94,6 +94,7 @@ export struct DetailScreen {
         if (this.entry.transcript !== undefined && this.entry.transcript.length > 0) {
           Button(this.showChat ? '收起当时的对话' : '看看当时的对话')
             .backgroundColor(Color.Transparent)
+            .borderRadius(999)
             .fontColor('#c9befc')
             .fontSize(14)
             .margin({ top: 12, bottom: 12 })

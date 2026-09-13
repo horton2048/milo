@@ -212,6 +212,7 @@ export struct DiaryScreen {
           if (!this.generating) {
             Button(this.editing ? '完成编辑' : '修改一下措辞')
               .backgroundColor(Color.Transparent)
+              .borderRadius(999)
               .fontColor(INK_DIM)
               .fontSize(15)
               .margin({ bottom: 12 })

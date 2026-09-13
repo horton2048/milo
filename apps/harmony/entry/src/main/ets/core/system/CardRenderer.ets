@@ -221,8 +221,86 @@ export interface CardCopy {
 export function getStickerCopy(entry: DiaryEntry): CardCopy {
   const heading: string = entry.kind === 'past' ? entry.timeMark ?? '过去的某一天' : '此刻';
   const labels: string = entry.mood.labels.join(' · ');
-  const bodySource: string = entry.diary ?? entry.note ?? '这一刻，被安静地收藏了。';
-  return { heading: heading, labels: labels, body: bodySource };
+  const body: string = cardSummary(entry);
+  return { heading: heading, labels: labels, body: body };
+}
+
+const CARD_SUMMARY_LIMIT = 48;
+const SENTENCE_ENDS: string[] = ['。', '！', '？', '…', '!', '?', '；', ';'];
+
+function isSpace(ch: string): boolean {
+  return ch === ' ' || ch === '\n' || ch === '\r' || ch === '\t';
+}
+
+/** Extract the leading sentence from a text, trimmed and capped at `limit` chars. */
+function firstSentence(text: string, limit: number): string {
+  let start = 0;
+  while (start < text.length && isSpace(text.charAt(start))) {
+    start += 1;
+  }
+  if (start >= text.length) {
+    return '';
+  }
+  let end = start;
+  while (end < text.length) {
+    const ch = text.charAt(end);
+    end += 1;
+    if (SENTENCE_ENDS.indexOf(ch) >= 0) {
+      break;
+    }
+  }
+  let sentence = text.slice(start, end);
+  if (sentence.length > limit) {
+    sentence = `${sentence.slice(0, limit)}…`;
+  }
+  return sentence;
+}
+
+function longestUserLine(entry: DiaryEntry): string {
+  if (entry.transcript === undefined) {
+    return '';
+  }
+  let longest = '';
+  for (let index = 0; index < entry.transcript.length; index += 1) {
+    const message = entry.transcript[index];
+    if (message.role !== 'user') {
+      continue;
+    }
+    const text = message.text.trim();
+    if (text.length > longest.length) {
+      longest = text;
+    }
+  }
+  return longest;
+}
+
+/**
+ * One-sentence summary for the share card, built fully offline from the
+ * diary/note text, the user's spoken answers, and the picked mood words.
+ */
+export function cardSummary(entry: DiaryEntry): string {
+  const sources: string[] = [];
+  if (entry.diary !== undefined && entry.diary.trim().length > 0) {
+    sources.push(entry.diary);
+  }
+  if (entry.note !== undefined && entry.note.trim().length > 0) {
+    sources.push(entry.note);
+  }
+  const spoken = longestUserLine(entry);
+  if (spoken.length > 0) {
+    sources.push(spoken);
+  }
+  for (let index = 0; index < sources.length; index += 1) {
+    const sentence = firstSentence(sources[index], CARD_SUMMARY_LIMIT);
+    if (sentence.length > 0) {
+      return sentence;
+    }
+  }
+  const labels = entry.mood.labels.slice(0, 3);
+  if (labels.length > 0) {
+    return `带着${labels.join('、')}的心情，这一刻被安静地收藏。`;
+  }
+  return '这一刻，被安静地收藏了。';
 }
 
 export function memoryTicketId(entry: DiaryEntry): string {

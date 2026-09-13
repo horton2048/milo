@@ -4,6 +4,7 @@ import {
   STICKER_TEMPLATES,
   cardMoodArtwork,
   cardRenderContract,
+  cardSummary,
   fitLines,
   getStickerCopy,
   memoryTicketId,
@@ -84,6 +85,59 @@ function cardSuite() {
       entry.note = undefined;
       const copy = getStickerCopy(entry);
       expect(copy.body.indexOf('收藏') >= 0).assertTrue();
+    });
+
+    it('getStickerCopy summarises the diary into its first sentence', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = '那一天，我在海边坐了很久。后来风把云吹开了，我也就放下了。';
+      const copy = getStickerCopy(entry);
+      expect(copy.body).assertEqual('那一天，我在海边坐了很久。');
+    });
+
+    it('cardSummary summarises the note when the diary is missing', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = undefined;
+      entry.note = '今天把旧照片整理了一遍，突然很想她。';
+      expect(cardSummary(entry)).assertEqual('今天把旧照片整理了一遍，突然很想她。');
+    });
+
+    it('cardSummary falls back to the longest spoken answer', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = undefined;
+      entry.note = undefined;
+      entry.transcript = [
+        { role: 'ai', text: '那段时间里，最先浮现在你眼前的，是怎样的一个画面？', ts: 1 },
+        { role: 'user', text: '嗯。', ts: 2 },
+        { role: 'user', text: '我看见了那年夏天的海边，傍晚有风，我们光着脚追浪花。', ts: 3 },
+      ];
+      expect(cardSummary(entry)).assertEqual('我看见了那年夏天的海边，傍晚有风，我们光着脚追浪花。');
+    });
+
+    it('cardSummary truncates overlong sources with an ellipsis', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = undefined;
+      entry.note = undefined;
+      entry.transcript = [
+        {
+          role: 'user',
+          text: '那是一个特别漫长的下午我在老家的院子里坐着看云一朵一朵慢慢地飘过去整个人放空了什么都不想做就只是安安静静地待着听风的声音',
+          ts: 1,
+        },
+      ];
+      const summary = cardSummary(entry);
+      expect(summary.length <= 49).assertTrue();
+      expect(summary.charAt(summary.length - 1)).assertEqual('…');
+    });
+
+    it('cardSummary composes from mood labels when nothing else exists', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = undefined;
+      entry.note = undefined;
+      entry.transcript = [];
+      const summary = cardSummary(entry);
+      expect(summary.indexOf('平静') >= 0).assertTrue();
+      expect(summary.indexOf('释然') >= 0).assertTrue();
+      expect(summary.indexOf('收藏') >= 0).assertTrue();
     });
 
     it('memoryTicketId has the expected stable format', 0, () => {
