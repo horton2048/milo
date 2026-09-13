@@ -18,6 +18,7 @@ import {
   drawCardArt,
   measureCardDesignHeight,
   CARD_DESIGN_WIDTH,
+  CARD_DESIGN_HEIGHT,
   type CardArtworkImage,
 } from '../../core/system/CardArt';
 import { getMoodAsset, type MoodAssetSheetName } from '../../core/model/MoodAssets';
@@ -156,7 +157,7 @@ export struct CardScreen {
     ctx.clearRect(0, 0, width, height);
     ctx.save();
     ctx.scale(scale, scale);
-    drawCardArt(ctx, 1350, entry, templateId, this.artworkImage);
+    drawCardArt(ctx, CARD_DESIGN_HEIGHT, entry, templateId, this.artworkImage);
     ctx.restore();
   }
 

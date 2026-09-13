@@ -22,14 +22,14 @@ import {
 /**
  * Pixel-faithful port of `apps/web/src/lib/card.ts`. Both sticker templates
  * ("planet-letter" memory ticket and "orbit-theatre" poster) are drawn with
- * the exact same design coordinates (1080 x 1350 design units) so the output
+ * the exact same design coordinates (1080 x 1434 design units) so the output
  * matches the Web canvas card 1:1. The caller is responsible for scaling the
  * context (`ctx.scale(w / 1080, h / 1080)`) before `drawCardArt` and for
  * measuring the (possibly extended) design height first.
  */
 
 export const CARD_DESIGN_WIDTH: number = 1080;
-export const CARD_DESIGN_HEIGHT: number = 1350;
+export const CARD_DESIGN_HEIGHT: number = 1434;
 
 /** Artwork crop ratios for the 3-panel mood sheet, mirroring web `cardMoodArtwork`. */
 export interface CardArtworkSource {
@@ -385,11 +385,11 @@ export function measureCardDesignHeight(
   const copy = getStickerCopy(entry);
   const normalized: StickerTemplateId = normalizeStickerTemplate(templateId);
   if (normalized === 'planet-letter') {
-    ctx.font = '31px serif';
-    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 4) * 48;
+    ctx.font = '48px serif';
+    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 4) * 68;
   }
-  ctx.font = '34px serif';
-  return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * 58;
+  ctx.font = '48px serif';
+  return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * 68;
 }
 
 function drawMemoryTicket(
@@ -418,9 +418,9 @@ function drawMemoryTicket(
   const ticketX: number = 88;
   const ticketY: number = 44;
   const ticketW: number = 904;
-  const ticketH: number = 1262 + heightExtension;
+  const ticketH: number = 1346 + heightExtension;
   const ticketRadius: number = 58;
-  const tearY: number = 1008 + heightExtension;
+  const tearY: number = 1092 + heightExtension;
 
   ctx.save();
   roundRectPath(ctx, ticketX, ticketY, ticketW, ticketH, ticketRadius);
@@ -545,12 +545,12 @@ function drawMemoryTicket(
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(23,21,29,0.62)';
   ctx.font = 'bold 17px monospace';
-  drawSpacedText(ctx, 'MEMORY NOTE / 025', 142, 778, 4, false);
+  drawSpacedText(ctx, 'MEMORY NOTE / 025', 142, 766, 4, false);
   ctx.fillStyle = '#17151d';
-  ctx.font = '31px serif';
+  ctx.font = '48px serif';
   const lines: string[] = wrapTextDesign(ctx, copy.body, 796);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 142, 835 + index * 48);
+    ctx.fillText(lines[index], 142, 838 + index * 68);
   }
 
   ctx.save();
@@ -574,32 +574,32 @@ function drawMemoryTicket(
   ctx.fillStyle = '#c5b5ee';
   ctx.strokeStyle = '#17151d';
   ctx.lineWidth = 4;
-  drawBurst(ctx, 196, 1145 + heightExtension, 63, 48);
+  drawBurst(ctx, 196, 1229 + heightExtension, 63, 48);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#17151d';
   ctx.textAlign = 'center';
   ctx.font = 'bold 21px sans-serif';
-  ctx.fillText('HEY~', 196, 1153 + heightExtension);
+  ctx.fillText('HEY~', 196, 1237 + heightExtension);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#17151d';
   ctx.font = 'bold 43px sans-serif';
-  ctx.fillText('收下这颗星', 284, 1125 + heightExtension);
+  ctx.fillText('收下这颗星', 284, 1209 + heightExtension);
   ctx.font = 'normal 21px sans-serif';
   ctx.fillStyle = 'rgba(23,21,29,0.7)';
-  ctx.fillText('记忆编号已与这颗星绑定。', 286, 1166 + heightExtension);
+  ctx.fillText('记忆编号已与这颗星绑定。', 286, 1250 + heightExtension);
 
   ctx.font = 'bold 17px monospace';
   ctx.fillStyle = '#17151d';
-  ctx.fillText('MEMORY CODE', 720, 1080 + heightExtension);
+  ctx.fillText('MEMORY CODE', 720, 1164 + heightExtension);
   ctx.strokeStyle = 'rgba(23,21,29,0.48)';
   ctx.lineWidth = 2;
-  roundRectPath(ctx, 720, 1096 + heightExtension, 224, 58, 14);
+  roundRectPath(ctx, 720, 1180 + heightExtension, 224, 58, 14);
   ctx.stroke();
   ctx.font = 'bold 17px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(memoryTicketId(entry), 832, 1132 + heightExtension);
+  ctx.fillText(memoryTicketId(entry), 832, 1216 + heightExtension);
 
   const date: Date = new Date(entry.createdAt);
   const month: string = String(date.getMonth() + 1).padStart(2, '0');
@@ -608,7 +608,7 @@ function drawMemoryTicket(
   ctx.textAlign = 'center';
   ctx.font = 'bold 17px monospace';
   ctx.fillStyle = 'rgba(23,21,29,0.45)';
-  ctx.fillText(dateText, CARD_DESIGN_WIDTH / 2, 1272 + heightExtension);
+  ctx.fillText(dateText, CARD_DESIGN_WIDTH / 2, 1356 + heightExtension);
 
   const edgeGlow: CanvasGradient = ctx.createLinearGradient(ticketX, tearY, ticketX + ticketW, tearY);
   edgeGlow.addColorStop(0, hexAlpha(deep, 0));
@@ -673,11 +673,11 @@ function drawOrbitTheatre(
   }
 
   ctx.fillStyle = 'rgba(7,8,22,0.58)';
-  roundRectPath(ctx, 92, 634, 896, 462 + heightExtension, 34);
+  roundRectPath(ctx, 92, 634, 896, 546 + heightExtension, 34);
   ctx.fill();
   ctx.strokeStyle = 'rgba(202,187,239,0.48)';
   ctx.lineWidth = 2;
-  roundRectPath(ctx, 92, 634, 896, 462 + heightExtension, 34);
+  roundRectPath(ctx, 92, 634, 896, 546 + heightExtension, 34);
   ctx.stroke();
 
   ctx.fillStyle = '#c6b4ed';
@@ -685,14 +685,14 @@ function drawOrbitTheatre(
   drawSpacedText(ctx, 'PLAYBACK / MEMORY 07', 140, 694, 5, false);
 
   ctx.fillStyle = 'rgba(246,244,252,0.9)';
-  ctx.font = '34px serif';
+  ctx.font = '48px serif';
   const lines: string[] = wrapTextDesign(ctx, copy.body, 790);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 140, 770 + index * 58);
+    ctx.fillText(lines[index], 140, 770 + index * 68);
   }
 
   ctx.save();
-  ctx.translate(843, 1172 + heightExtension);
+  ctx.translate(843, 1256 + heightExtension);
   ctx.rotate(-0.07);
   ctx.strokeStyle = 'rgba(205,191,239,0.8)';
   ctx.lineWidth = 2;
