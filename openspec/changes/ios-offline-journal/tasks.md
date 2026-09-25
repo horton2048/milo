@@ -12,7 +12,7 @@
 
 ## 3. Native iPhone app
 
-- [ ] 3.1 Implement capture, history and detail with accessible identifiers and failure recovery; build the iPhone simulator target successfully.
+- [x] 3.1 Implement capture, history and detail with accessible identifiers and failure recovery; build the iPhone simulator target successfully.
 - [ ] 3.2 Add UI tests for mood/note save and relaunch, blank note, empty history and write/read failures; run on an iPhone simulator and retain xcresult.
 - [ ] 3.3 Verify keyboard/save reachability, long Chinese text and accessibility text sizing in light/dark appearance using simulator screenshots and review evidence.
 

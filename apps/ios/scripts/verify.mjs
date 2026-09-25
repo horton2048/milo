@@ -60,6 +60,18 @@ function native(action) {
   const bundle = path.join(evidence, `${action}-${stamp}.xcresult`);
   const args = ['-project', 'Milo.xcodeproj', '-scheme', 'Milo', '-configuration', 'Debug', '-destination', `platform=iOS Simulator,id=${metadata.device.udid}`, '-derivedDataPath', 'DerivedData', '-resultBundlePath', bundle, 'CODE_SIGNING_ALLOWED=NO'];
   const env = { ...toolEnvironment(), ...(metadata.developerDir ? { DEVELOPER_DIR: metadata.developerDir } : {}) };
+  if (action === 'ui-test') {
+    // Finish simulator initialization before XCTest connects to accessibility services.
+    // Use this recorded device, rather than a separately booted parallel-test clone.
+    try {
+      execute('xcrun', ['simctl', 'bootstatus', metadata.device.udid, '-b'], { env, timeout: 120000 });
+      const developerDir = env.DEVELOPER_DIR ?? execute('xcode-select', ['-p'], { env }).trim();
+      execute('open', ['-a', path.join(developerDir, 'Applications/Simulator.app'), '--args', '-CurrentDeviceUDID', metadata.device.udid], { env, timeout: 30000 });
+    } catch (error) {
+      blocked(`The selected simulator did not become ready for UI testing. ${error.message}`);
+    }
+    args.push('-parallel-testing-enabled', 'NO');
+  }
   execute('xcodebuild', [...args, action === 'ui-test' ? 'test' : 'build'], { env });
   fs.writeFileSync(path.join(evidence, `${action}.json`), JSON.stringify({ bundle, environment: metadata, sourceHash: sourceHash(), finishedAt: new Date().toISOString() }, null, 2) + '\n');
 }

@@ -53,4 +53,6 @@
 
 第一轮云端证据：[run 36153565983](https://github.com/horton2048/milo/actions/runs/36153565983)，源提交 `111f74b07ceba00c4e63568f2fbb8bf4d0ba844c`。已通过的四条 UI 路径是保存后重启、空记录与空历史、写入失败保留输入、损坏文件重启后继续阻断；失败项是最大字号长中文与深浅模式检查。原始 artifact 在 Actions 保留 14 天，本次下载副本位于 `/tmp/milo-ci-36153565983/`。
 
+第二轮 [run 36155819644](https://github.com/horton2048/milo/actions/runs/36155819644)，源提交 `e531bf74649be6bee3d8b01891905ae08831f1fd`，前五项（含真正 iOS 编译）通过，但苹果 UI 测试运行器初始化返回 `AXDisableAccessibilityOnTermination: kAXErrorCannotComplete`，未执行任何测试、未产生截图。因此本轮不能证明大字号修复成功。保留该轮证据后，在下一轮显式等候所选模拟器启动、打开 Simulator 并关闭测试克隆并行。该处理参考了 [GitHub runner-images 中的同类报告及维护者验证步骤](https://github.com/actions/runner-images/issues/11874)；属于待实测的环境缓解措施，不保证消除所有云端波动。
+
 Specdrive 已证明能组织实际开发、捕获问题和拒绝过早验收。它仍是编排技能与检查执行器：没有后台模型服务、自动唤醒、模型费用硬限制，也不是防篡改证据系统。

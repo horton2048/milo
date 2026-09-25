@@ -18,7 +18,7 @@
     "apps/ios/MiloCore/Sources/MiloCore/Mood.swift": "b0a62e1f6f926a3f3802ee75f0c4462c8797b6f1c6aaafe29d6420a3a35617de",
     "apps/ios/MiloCore/Tests/MiloCoreTests/JournalRepositoryTests.swift": "a09e635cd3b61f3e804531c4e9b4443277af8e0b011227773a49197c10fa4d89",
     "apps/ios/UITests/MiloUITests.swift": "8ab1913cef1fb1b6714fd37f01790862248bac48235d0ca725e8caa061f82962",
-    "apps/ios/scripts/verify.mjs": "b773df2b2a05526c1d2120aae025ba6f9b81a2e24db99c46704ec2a8c1ea4b1e",
+    "apps/ios/scripts/verify.mjs": "afa8408a0f7e3857d7fe1c1ee39af872ea52087b513da523341549f9892c6093",
     ".github/workflows/ios-specdrive.yml": "cb5fa63d9f24e6c07734166e827e20fe1473a3325191ac0513f9ea54fb14cb5f",
     "apps/ios/scripts/await-review.mjs": "cd6357657a2a228dfc3f2987aec8d953e49fc3d54a67a9295cb4c3114e47c3f5",
     "apps/ios/scripts/await-review.test.mjs": "543f45922937aeec73318611ee3075cfbf8788a2ef59bc99df8327ce6b50833f"
@@ -37,5 +37,10 @@
       "apps/ios/scripts/await-review.mjs",
       "apps/ios/scripts/await-review.test.mjs"
     ]
+  },
+  "environmentRecoveryReview": {
+    "reviewer": "independent specdrive_runtime agent",
+    "verdict": "pass",
+    "scope": "Bounded boot readiness and same-Xcode Simulator launch after a zero-test XCTest initialization failure; runtime effectiveness still pending"
   }
 }
