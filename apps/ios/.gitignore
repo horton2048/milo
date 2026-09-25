@@ -1,0 +1,9 @@
+.build/
+.DS_Store
+DerivedData/
+build/
+*.xcresult
+xcuserdata/
+.specdrive/
+node_modules/
+evidence/

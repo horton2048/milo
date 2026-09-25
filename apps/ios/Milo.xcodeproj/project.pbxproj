@@ -1,0 +1,482 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01E96800A651D705FC555C2C /* JournalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6292C7B1EAF5220A936506E9 /* JournalModel.swift */; };
+		0BF202F187DE9BA084D02594 /* MiloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF94CE44DC17EA4A9C83FC9 /* MiloApp.swift */; };
+		3CC0AE502091733F3FEEC5E5 /* MiloCore in Frameworks */ = {isa = PBXBuildFile; productRef = 28C02AC18D2A4E6B55F1E514 /* MiloCore */; };
+		3E3B0681333BCED7CE3C682F /* JournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316B819C5B3CF4480F91D7A2 /* JournalView.swift */; };
+		4096FFB016B611F6E1DF0A3B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 451EE8691B7C6F8D16860831 /* PrivacyInfo.xcprivacy */; };
+		DCBDCCD363F7D8795998AA41 /* MiloUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FC4A7B64148FA83865CA00 /* MiloUITests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		93DCE65062FB6FE1176521EE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3377B5FA48C1E1A8049276DC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8561F94BC87E22B38E1C6CCC;
+			remoteInfo = Milo;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		20FC4A7B64148FA83865CA00 /* MiloUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloUITests.swift; sourceTree = "<group>"; };
+		2889EDD519451AB3AC17FAA5 /* Milo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Milo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		316B819C5B3CF4480F91D7A2 /* JournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalView.swift; sourceTree = "<group>"; };
+		451EE8691B7C6F8D16860831 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		6292C7B1EAF5220A936506E9 /* JournalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalModel.swift; sourceTree = "<group>"; };
+		7BF94CE44DC17EA4A9C83FC9 /* MiloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloApp.swift; sourceTree = "<group>"; };
+		AEE93223F5A00BD7F17AD8F4 /* MiloCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MiloCore; path = MiloCore; sourceTree = SOURCE_ROOT; };
+		F2FA649EF431F434F06AFBD4 /* MiloUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MiloUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		106D0CA66C7E81BC4266D103 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3CC0AE502091733F3FEEC5E5 /* MiloCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1C8DF115D6A7EB1A1B29F01B /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				20FC4A7B64148FA83865CA00 /* MiloUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		6526C7249AAAFEFECBA5A333 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2889EDD519451AB3AC17FAA5 /* Milo.app */,
+				F2FA649EF431F434F06AFBD4 /* MiloUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A9B3521FED6E58D41EAC77AB = {
+			isa = PBXGroup;
+			children = (
+				FBBF50BC6DC362F708A667D9 /* App */,
+				F0ECD4098185910FB11C8A44 /* Packages */,
+				AC30BAB2FDB063B2F5F1A5CC /* Resources */,
+				1C8DF115D6A7EB1A1B29F01B /* UITests */,
+				6526C7249AAAFEFECBA5A333 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AC30BAB2FDB063B2F5F1A5CC /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				451EE8691B7C6F8D16860831 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		F0ECD4098185910FB11C8A44 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				AEE93223F5A00BD7F17AD8F4 /* MiloCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		FBBF50BC6DC362F708A667D9 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				6292C7B1EAF5220A936506E9 /* JournalModel.swift */,
+				316B819C5B3CF4480F91D7A2 /* JournalView.swift */,
+				7BF94CE44DC17EA4A9C83FC9 /* MiloApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8561F94BC87E22B38E1C6CCC /* Milo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DD8D5033639ADDB67101FA63 /* Build configuration list for PBXNativeTarget "Milo" */;
+			buildPhases = (
+				F93A834DD7F917580C201DF4 /* Sources */,
+				449C904C435DEA040972E6D1 /* Resources */,
+				106D0CA66C7E81BC4266D103 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Milo;
+			packageProductDependencies = (
+				28C02AC18D2A4E6B55F1E514 /* MiloCore */,
+			);
+			productName = Milo;
+			productReference = 2889EDD519451AB3AC17FAA5 /* Milo.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B7B6F86B693B13F146106F9F /* MiloUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C4D1D77C8029F0D68FF86BF4 /* Build configuration list for PBXNativeTarget "MiloUITests" */;
+			buildPhases = (
+				946AED36EF4F218E0200F6B1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9CC409F1D5C832A19872C8E2 /* PBXTargetDependency */,
+			);
+			name = MiloUITests;
+			packageProductDependencies = (
+			);
+			productName = MiloUITests;
+			productReference = F2FA649EF431F434F06AFBD4 /* MiloUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3377B5FA48C1E1A8049276DC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					8561F94BC87E22B38E1C6CCC = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					B7B6F86B693B13F146106F9F = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+						TestTargetID = 8561F94BC87E22B38E1C6CCC;
+					};
+				};
+			};
+			buildConfigurationList = 86AC46D9BED0151821C0F729 /* Build configuration list for PBXProject "Milo" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A9B3521FED6E58D41EAC77AB;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				AC6D4FA2A8AB8AECABD2DFD5 /* XCLocalSwiftPackageReference "MiloCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 6526C7249AAAFEFECBA5A333 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8561F94BC87E22B38E1C6CCC /* Milo */,
+				B7B6F86B693B13F146106F9F /* MiloUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		449C904C435DEA040972E6D1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4096FFB016B611F6E1DF0A3B /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		946AED36EF4F218E0200F6B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DCBDCCD363F7D8795998AA41 /* MiloUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F93A834DD7F917580C201DF4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01E96800A651D705FC555C2C /* JournalModel.swift in Sources */,
+				3E3B0681333BCED7CE3C682F /* JournalView.swift in Sources */,
+				0BF202F187DE9BA084D02594 /* MiloApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		9CC409F1D5C832A19872C8E2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8561F94BC87E22B38E1C6CCC /* Milo */;
+			targetProxy = 93DCE65062FB6FE1176521EE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0319167C4C15E0DED5432177 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		42EA03C08DFBB53176194128 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		48DB076757C2D2D24FA9DB08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.milo.echoes.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Milo;
+			};
+			name = Release;
+		};
+		995C5A4D054D5E4182C34868 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MILO;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.milo.echoes.ios;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CDE2F1597E9F3FD4546DA0E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.milo.echoes.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Milo;
+			};
+			name = Debug;
+		};
+		EB7792CBEE671D64BF8C47C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = MILO;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.milo.echoes.ios;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		86AC46D9BED0151821C0F729 /* Build configuration list for PBXProject "Milo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0319167C4C15E0DED5432177 /* Debug */,
+				42EA03C08DFBB53176194128 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C4D1D77C8029F0D68FF86BF4 /* Build configuration list for PBXNativeTarget "MiloUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDE2F1597E9F3FD4546DA0E2 /* Debug */,
+				48DB076757C2D2D24FA9DB08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DD8D5033639ADDB67101FA63 /* Build configuration list for PBXNativeTarget "Milo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				995C5A4D054D5E4182C34868 /* Debug */,
+				EB7792CBEE671D64BF8C47C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AC6D4FA2A8AB8AECABD2DFD5 /* XCLocalSwiftPackageReference "MiloCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = MiloCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		28C02AC18D2A4E6B55F1E514 /* MiloCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MiloCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3377B5FA48C1E1A8049276DC /* Project object */;
+}

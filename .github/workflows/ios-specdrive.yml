@@ -1,0 +1,61 @@
+name: iOS Specdrive pilot
+
+on:
+  push:
+    branches: ['codex/ios-specdrive-pilot']
+    paths: ['apps/ios/**', 'openspec/**', '.agents/skills/specdrive/**', '.github/workflows/ios-specdrive.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-specdrive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-verification:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned planning CLI
+        run: npm ci --prefix apps/ios --ignore-scripts
+      - name: Record environment
+        run: |
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcodebuild -version
+          swift --version
+          xcrun simctl list devices available
+      - name: Verify through Specdrive
+        id: verify
+        continue-on-error: true
+        run: |
+          node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.config.json --project . --state apps/ios/.specdrive/ci
+          node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci
+      - name: Export simulator screenshots
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          root = Path('apps/ios/evidence')
+          for result in root.glob('ui-test-*.xcresult'):
+              subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result), '--output-path', str(root / 'screenshots')], check=False)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-specdrive-evidence
+          path: |
+            apps/ios/.specdrive/ci
+            apps/ios/evidence
+          include-hidden-files: true
+          retention-days: 14
+      - name: Enforce native behavior checks
+        if: always()
+        run: |
+          node -e 'const r=require("./apps/ios/.specdrive/ci/report.json"); const required=["specification","framework-tests","portable-core","xcode-environment","ios-build","ios-ui"]; for (const id of required) { const c=r.checks.find(c=>c.id===id); if(c?.status!=="passed") throw Error(id+": "+c?.reason); } console.log("Native behavior checks passed. Visual review remains separately required; this is not the final archive gate.");'
