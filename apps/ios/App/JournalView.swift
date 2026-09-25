@@ -6,9 +6,12 @@ struct JournalView: View {
     @State private var showHistory = false
     @FocusState private var writing: Bool
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .subheadline) private var moodMinimumWidth = 96.0
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -23,13 +26,14 @@ struct JournalView: View {
                         .accessibilityElement(children: .ignore)
                         .accessibilityLabel("当前心情：\(model.mood.title)")
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: moodMinimumWidth), spacing: 10)], spacing: 10) {
                         ForEach(Mood.allCases) { mood in
                             Button {
                                 model.mood = mood
                             } label: {
                                 Text(mood.title).font(.subheadline.weight(.medium))
-                                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(maxWidth: .infinity).padding(.vertical, 12).padding(.horizontal, 8)
                                     .foregroundStyle(model.mood == mood ? Color.white : primaryInk)
                                     .background(model.mood == mood ? Color.purple.opacity(0.8) : cardFill, in: Capsule())
                             }
@@ -40,10 +44,15 @@ struct JournalView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        HStack {
+                        if dynamicTypeSize.isAccessibilitySize {
                             Text("记下此刻").font(.headline)
-                            Spacer()
                             Text("写一句，或留空").font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            HStack {
+                                Text("记下此刻").font(.headline)
+                                Spacer()
+                                Text("写一句，或留空").font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                         TextEditor(text: $model.note)
                             .frame(minHeight: 150)
@@ -53,6 +62,7 @@ struct JournalView: View {
                             .focused($writing)
                             .accessibilityLabel("此刻的记录")
                             .accessibilityIdentifier("note-input")
+                            .id("note-editor-anchor")
                     }
 
                     if let error = model.errorMessage {
@@ -72,18 +82,35 @@ struct JournalView: View {
                 }
                 .padding(.horizontal, 24).padding(.bottom, 20)
             }
+            .accessibilityIdentifier("capture-scroll")
             .scrollDismissesKeyboard(.interactively)
+            .onChange(of: writing) { _, isWriting in
+                if isWriting {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        scrollProxy.scrollTo("note-editor-anchor", anchor: .bottom)
+                    }
+                }
+            }
             .background(CosmicBackground())
             .safeAreaInset(edge: .bottom) {
                 Button {
                     if model.save() { writing = false; showHistory = true }
                 } label: {
-                    Label("收藏这一刻", systemImage: "sparkle")
-                        .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 17)
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            // A short label leaves room for the editor and keyboard
+                            // while preserving the user's full preferred font size.
+                            Text("收藏")
+                        } else {
+                            Label("收藏这一刻", systemImage: "sparkle")
+                        }
+                    }
+                    .font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent).tint(.purple)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .disabled(!model.isLoaded || model.isSaving)
+                .accessibilityLabel("收藏这一刻")
                 .accessibilityIdentifier("save-entry")
                 .padding(.horizontal, 24).padding(.vertical, 10)
                 .background(.ultraThinMaterial)
@@ -104,6 +131,7 @@ struct JournalView: View {
             }
             .navigationDestination(isPresented: $showHistory) {
                 HistoryView(model: model)
+            }
             }
         }
         .tint(.purple)

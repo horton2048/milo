@@ -54,6 +54,38 @@ A reset launch argument may clear fixtures at the beginning of a test, but must 
 removed before the relaunch assertion. Otherwise a restart-persistence test can falsely
 exercise a fresh seeded state. Keep test-only controls out of the ordinary product flow.
 
+## Cloud simulator and independent visual-review handoff
+
+When local Xcode is unavailable, an authorized cloud macOS runner can perform a
+separate native verification run. Preserve its environment and provenance. Do not move
+its runner state into the local run or rewrite a local blocked check as passed; report
+cloud results as cloud evidence for the exact revision tested.
+
+Use two stages: first build and run native scenarios, retaining `.xcresult` and actual
+simulator screenshots; then give those images and the acceptance scenarios to an
+independent reviewer. The reviewer must inspect the images themselves, including large
+text, keyboard obstruction, and appearance modes, rather than approve an implementation
+summary or the existence of screenshot files.
+
+Bind the review receipt to the cloud job/run ID, exact commit, relevant source/input
+hashes, and each reviewed screenshot's content hash. Preserve its original Specdrive run. Record the
+reviewer, verdict, findings, and limitations. A project-specific verification command
+must reject missing, mismatched, or stale receipts; Specdrive does not authenticate a
+reviewer merely because a receipt file exists. Include that receipt and its verification
+command in the declared check inputs.
+
+Keep the same cloud runner environment alive for a bounded handoff window, for example
+10 minutes within the configured timeout and run budget. Read-only CI may consume and
+verify an independently supplied receipt; it must not manufacture its own approval.
+After receipt validation, resume with `run` and then `gate` against the **original state
+directory**, retaining prior attempts, failures, and logs. Do not reset state or start
+fresh just to bypass a failure limit. If the receipt does not arrive in time, retain
+the blocked outcome and evidence for an explicit later continuation.
+
+Independent agent review checks the stated engineering and presentation requirements.
+It does not replace design confirmation the user has reserved, or authorize product
+scope changes, distribution, or release.
+
 ## Final native gate
 
 Each required native scenario needs current automated results or specifically identified

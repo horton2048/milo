@@ -24,6 +24,8 @@ jobs:
           node-version: '22'
       - name: Install pinned planning CLI
         run: npm ci --prefix apps/ios --ignore-scripts
+      - name: Test visual review receipt validation
+        run: node --test apps/ios/scripts/await-review.test.mjs
       - name: Record environment
         run: |
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
@@ -36,6 +38,11 @@ jobs:
         run: |
           node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.config.json --project . --state apps/ios/.specdrive/ci
           node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci
+      - name: Determine native check outcome
+        id: native
+        if: always()
+        run: |
+          node -e 'const fs=require("node:fs"); const file="apps/ios/.specdrive/ci/report.json"; const r=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):null; const required=["specification","framework-tests","portable-core","xcode-environment","ios-build","ios-ui"]; console.log("passed="+required.every(id=>r?.checks?.find(c=>c.id===id)?.status==="passed"));' >> "$GITHUB_OUTPUT"
       - name: Export simulator screenshots
         if: always()
         run: |
@@ -44,6 +51,8 @@ jobs:
           import subprocess
           root = Path('apps/ios/evidence')
           for result in root.glob('ui-test-*.xcresult'):
+              # Export all retained attachments, including successful .keepAlways screenshots.
+              # Do not add --only-failures: the reviewer needs the passing accessibility views.
               subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result), '--output-path', str(root / 'screenshots')], check=False)
           PY
       - uses: actions/upload-artifact@v4
@@ -55,7 +64,24 @@ jobs:
             apps/ios/evidence
           include-hidden-files: true
           retention-days: 14
-      - name: Enforce native behavior checks
+      - name: Wait for this run's independent screenshot review
+        id: review
+        if: steps.native.outputs.passed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node apps/ios/scripts/await-review.mjs
+      - name: Resume the same Specdrive run with reviewed evidence
+        if: steps.review.outcome == 'success'
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci
+      - name: Enforce the complete Specdrive gate
         if: always()
-        run: |
-          node -e 'const r=require("./apps/ios/.specdrive/ci/report.json"); const required=["specification","framework-tests","portable-core","xcode-environment","ios-build","ios-ui"]; for (const id of required) { const c=r.checks.find(c=>c.id===id); if(c?.status!=="passed") throw Error(id+": "+c?.reason); } console.log("Native behavior checks passed. Visual review remains separately required; this is not the final archive gate.");'
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-specdrive-final-evidence
+          path: |
+            apps/ios/.specdrive/ci
+            apps/ios/evidence
+          include-hidden-files: true
+          retention-days: 14

@@ -88,8 +88,17 @@ function visualReview() {
   for (const key of ['keyboardReachable', 'longChineseText', 'accessibilityText', 'lightAppearance', 'darkAppearance']) {
     if (value.checks?.[key] !== true) blocked(`Visual review incomplete: ${key}`);
   }
-  if (!Array.isArray(value.screenshots) || value.screenshots.length < 2 || value.screenshots.some(file => !path.isAbsolute(file) || !fs.existsSync(file))) blocked('Actual exported screenshots are required.');
-  if (!fs.existsSync(ui.bundle)) blocked('UI result bundle is missing.');
+  const evidenceRoot = fs.realpathSync(evidence) + path.sep;
+  const recordedFile = (file, isDirectory = false) => {
+    try {
+      if (typeof file !== 'string' || !path.isAbsolute(file)) return false;
+      const real = fs.realpathSync(file);
+      if (!real.startsWith(evidenceRoot)) return false;
+      return isDirectory ? fs.statSync(real).isDirectory() : fs.statSync(real).isFile();
+    } catch { return false; }
+  };
+  if (!Array.isArray(value.screenshots) || value.screenshots.length < 2 || value.screenshots.some(file => !recordedFile(file))) blocked('Actual exported screenshot files must be inside the fingerprinted evidence directory.');
+  if (!recordedFile(ui.bundle, true)) blocked('UI result bundle must be inside the fingerprinted evidence directory.');
   console.log(`Visual review passed by ${value.reviewer}; ${value.screenshots.length} images, ${ui.bundle}`);
 }
 

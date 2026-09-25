@@ -168,3 +168,7 @@ Claude Code 可放在 `~/.claude/skills/specdrive`。选择中文时，在安装
 
 Built on [OpenSpec](https://github.com/Fission-AI/OpenSpec) by Fission-AI.
 Specdrive adds coordination, review gates, and a local evidence runner. [MIT](LICENSE).
+
+## Pilot evidence / 实测记录
+
+See [the 2026-09-25 Codex and MILO validation report](docs/validation-2026-09-25.md) for executed checks, discovered defects, fixes, and platform limitations.
