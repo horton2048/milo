@@ -10,14 +10,14 @@
   ],
   "nativeAcceptance": "pending actual CI and screenshot review",
   "sha256": {
-    "apps/ios/App/MiloApp.swift": "142d844459d3642b17ebc1a0f830cf4400abdacea31488973a69b2f05f8108eb",
+    "apps/ios/App/MiloApp.swift": "d28e273517bcced7002a509f5c7058256390935c3fb3ea382c17325b6a94fa42",
     "apps/ios/App/JournalView.swift": "c4548852faa75d268123b2dd27f6fa6b2bba3f921001b2d915d3fb25b65a4e08",
     "apps/ios/App/JournalModel.swift": "e890c450978f0b7f61ba351e9ad4f9800b6a7560571f6b508fb045279bab8b98",
     "apps/ios/MiloCore/Sources/MiloCore/JournalRepository.swift": "10e2833c31902f12573e18a0ec903ceb19f91ede131081397f3b04bc10e495b3",
     "apps/ios/MiloCore/Sources/MiloCore/JournalEntry.swift": "1f8a25adb450a485fbbf06bdfd0d5eb05bd6158abb60e4d96ee793d8978b03ec",
     "apps/ios/MiloCore/Sources/MiloCore/Mood.swift": "b0a62e1f6f926a3f3802ee75f0c4462c8797b6f1c6aaafe29d6420a3a35617de",
     "apps/ios/MiloCore/Tests/MiloCoreTests/JournalRepositoryTests.swift": "a09e635cd3b61f3e804531c4e9b4443277af8e0b011227773a49197c10fa4d89",
-    "apps/ios/UITests/MiloUITests.swift": "8ab1913cef1fb1b6714fd37f01790862248bac48235d0ca725e8caa061f82962",
+    "apps/ios/UITests/MiloUITests.swift": "76a5bc62b643c0cb8f0ac897fb303124da954cee75a5ac5192edde15830b9afd",
     "apps/ios/scripts/verify.mjs": "afa8408a0f7e3857d7fe1c1ee39af872ea52087b513da523341549f9892c6093",
     ".github/workflows/ios-specdrive.yml": "cb5fa63d9f24e6c07734166e827e20fe1473a3325191ac0513f9ea54fb14cb5f",
     "apps/ios/scripts/await-review.mjs": "cd6357657a2a228dfc3f2987aec8d953e49fc3d54a67a9295cb4c3114e47c3f5",
@@ -42,5 +42,10 @@
     "reviewer": "independent specdrive_runtime agent",
     "verdict": "pass",
     "scope": "Bounded boot readiness and same-Xcode Simulator launch after a zero-test XCTest initialization failure; runtime effectiveness still pending"
+  },
+  "appearanceReview": {
+    "reviewer": "independent specdrive_runtime agent",
+    "verdict": "pass",
+    "scope": "Debug-only fixture theme override, real resolved environment assertion and nonidentical screenshot assertions; visual acceptance remains pending"
   }
 }

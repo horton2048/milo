@@ -19,9 +19,13 @@ The pilot Mac has Command Line Tools rather than full Xcode, and its compiler di
 
 The local native environment check correctly reports **blocked**. It must not be converted into a pass based on the Swift tests or source typecheck. A separate GitHub macOS workflow is used to obtain native build/UI evidence; consult the MILO pilot report and workflow for its current result.
 
+Three native pilot runs exposed distinct failures. First, the app compiled and four UI journeys passed, but the largest accessibility text size caused an editor tap to hit Save; the layout and the interaction assertion were corrected. Second, XCTest itself failed to initialize and ran zero tests; this was retained as an environment failure. After explicit simulator startup preparation, the third run executed all six UI tests successfully. Independent inspection of its six screenshots still rejected completion: images labelled Dark were actually light, and two Light/Dark pairs were byte-identical. No pass receipt was supplied. This is direct evidence that source-bound screenshots and independent inspection add coverage beyond green UI assertions. Current completion status is recorded in [MILO's pilot report](https://github.com/horton2048/milo/pull/1).
+
 ## What this establishes
 
 The revised skill can drive a real OpenSpec change across Codex agents, capture behavior checks, find and repair framework defects, and preserve honest platform gaps. It is useful as a lightweight orchestration/evidence layer. It is not proof of fully autonomous iOS release readiness, a scheduler, a sandbox, a model-cost limiter, or protection against deliberate evidence tampering.
+
+The benefit demonstrated is traceability and more credible acceptance. Maintaining specifications, check inputs, platform scripts, dependencies, review receipts, and a working CI environment has a real cost. This pilot did not compare development time or model spending against another workflow, so it does not establish a speed or cost advantage.
 
 The pilot also led to concrete project-check improvements: software-keyboard presence is asserted, simulator runtimes must meet the app deployment target, the pinned test framework's compiler requirement is checked, and reviewed image/result-bundle files must live in the fingerprinted evidence directory.
 

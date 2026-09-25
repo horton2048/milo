@@ -73,14 +73,19 @@ final class MiloUITests: XCTestCase {
 
     @MainActor
     func testLongNoteAndLargeTextScreenshots() throws {
+        var lightKeyboardImage: Data?
+        var lightDetailImage: Data?
         for appearance in ["Light", "Dark"] {
-            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "-AppleInterfaceStyle", appearance])
+            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "--uitest-appearance", appearance])
+            assertResolvedAppearance(appearance, in: app)
             let editor = try focusEditor(in: app)
             let text = String(repeating: "今天慢慢走了一段路，风很温柔。", count: 12)
             editor.typeText(text)
             XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The software keyboard must actually be shown for the reachability check")
             XCTAssertTrue(app.buttons["save-entry"].isHittable)
-            let keyboardShot = XCTAttachment(screenshot: app.screenshot())
+            let keyboardImage = app.screenshot()
+            assertDistinctAppearanceImage(keyboardImage, comparedWith: &lightKeyboardImage)
+            let keyboardShot = XCTAttachment(screenshot: keyboardImage)
             keyboardShot.name = "capture-large-text-keyboard-\(appearance)"
             keyboardShot.lifetime = .keepAlways
             add(keyboardShot)
@@ -89,7 +94,10 @@ final class MiloUITests: XCTestCase {
             XCTAssertTrue(entry.waitForExistence(timeout: 5))
             entry.tap()
             XCTAssertEqual(app.staticTexts["entry-note"].label, text)
-            let detailShot = XCTAttachment(screenshot: app.screenshot())
+            assertResolvedAppearance(appearance, in: app)
+            let detailImage = app.screenshot()
+            assertDistinctAppearanceImage(detailImage, comparedWith: &lightDetailImage)
+            let detailShot = XCTAttachment(screenshot: detailImage)
             detailShot.name = "detail-large-text-\(appearance)"
             detailShot.lifetime = .keepAlways
             add(detailShot)
@@ -99,13 +107,37 @@ final class MiloUITests: XCTestCase {
 
     @MainActor
     func testNormalSizeHomeScreenshots() {
+        var lightImage: Data?
         for appearance in ["Light", "Dark"] {
-            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL", "-AppleInterfaceStyle", appearance])
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL", "--uitest-appearance", appearance])
+            assertResolvedAppearance(appearance, in: app)
+            let image = app.screenshot()
+            assertDistinctAppearanceImage(image, comparedWith: &lightImage)
+            let screenshot = XCTAttachment(screenshot: image)
             screenshot.name = "home-standard-text-\(appearance)"
             screenshot.lifetime = .keepAlways
             add(screenshot)
             app.terminate()
+        }
+    }
+
+    @MainActor
+    private func assertResolvedAppearance(_ appearance: String, in app: XCUIApplication) {
+        let root = app.otherElements["uitest-appearance-root"]
+        XCTAssertTrue(root.waitForExistence(timeout: 5), "The debug appearance fixture must be active")
+        let applied = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", appearance), object: root)
+        XCTAssertEqual(XCTWaiter.wait(for: [applied], timeout: 5), .completed, "SwiftUI must resolve the requested appearance before capturing evidence")
+    }
+
+    @MainActor
+    private func assertDistinctAppearanceImage(_ image: XCUIScreenshot, comparedWith lightImage: inout Data?) {
+        let bytes = image.pngRepresentation
+        if let light = lightImage {
+            // Different bytes alone cannot prove appearance: clocks and cursors also
+            // change. Keep the resolved-scheme check and independent visual review.
+            XCTAssertNotEqual(bytes, light, "Light and Dark evidence must not be identical screenshots")
+        } else {
+            lightImage = bytes
         }
     }
 
