@@ -31,9 +31,12 @@ function xcodePreflight() {
   const env = toolEnvironment();
   try {
     const version = execute('xcodebuild', ['-version'], { env }).trim();
+    const compiler = execute('swift', ['--version'], { env }).trim();
+    const swiftVersion = compiler.match(/Swift version (\d+)\.(\d+)/);
+    if (!swiftVersion || Number(swiftVersion[1]) < 6 || (Number(swiftVersion[1]) === 6 && Number(swiftVersion[2]) < 1)) blocked('The pinned test framework requires Swift 6.1 or later. Select a compatible Xcode.');
     const sdk = execute('xcrun', ['--sdk', 'iphonesimulator', '--show-sdk-version'], { env }).trim();
     const list = JSON.parse(execute('xcrun', ['simctl', 'list', 'devices', 'available', '--json'], { env }));
-    const devices = Object.entries(list.devices).filter(([runtime]) => runtime.includes('.iOS-'))
+    const devices = Object.entries(list.devices).filter(([runtime]) => Number(runtime.match(/\.iOS-(\d+)/)?.[1] ?? 0) >= 17)
       .flatMap(([runtime, rows]) => rows.filter(row => row.isAvailable && row.name.includes('iPhone')).map(row => ({ ...row, runtime })));
     const requested = process.env.MILO_SIMULATOR_UDID;
     const device = requested ? devices.find(row => row.udid === requested) : [...devices].sort((a, b) => {
@@ -41,7 +44,7 @@ function xcodePreflight() {
       return small(a) - small(b) || a.name.localeCompare(b.name);
     })[0];
     if (!device) blocked('No available iPhone simulator. Install an iOS runtime in Xcode and rerun.');
-    const metadata = { version, sdk, device: { name: device.name, udid: device.udid, runtime: device.runtime }, developerDir: env.DEVELOPER_DIR ?? null };
+    const metadata = { version, compiler, sdk, device: { name: device.name, udid: device.udid, runtime: device.runtime }, developerDir: env.DEVELOPER_DIR ?? null };
     fs.writeFileSync(path.join(evidence, 'environment.json'), JSON.stringify(metadata, null, 2) + '\n');
     console.log(`Selected simulator: ${device.name} (${device.runtime})`);
   } catch (error) {
