@@ -1,9 +1,9 @@
-name: iOS Specdrive pilot
+name: iOS product parity verification
 
 on:
   push:
     branches: ['codex/ios-specdrive-pilot']
-    paths: ['apps/ios/**', 'openspec/**', '.agents/skills/specdrive/**', '.github/workflows/ios-specdrive.yml']
+    paths: ['apps/ios/**', 'openspec/**', 'docs/visual-parity/**', '.agents/skills/specdrive/**', '.github/workflows/ios-specdrive.yml']
   workflow_dispatch:
 
 permissions:
@@ -14,9 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  native-verification:
+  native-and-parity:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,64 +24,32 @@ jobs:
           node-version: '22'
       - name: Install pinned planning CLI
         run: npm ci --prefix apps/ios --ignore-scripts
-      - name: Test visual review receipt validation
-        run: node --test apps/ios/scripts/await-review.test.mjs
-      - name: Record environment
-        run: |
-          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
-          xcodebuild -version
-          swift --version
-          xcrun simctl list devices available
-      - name: Verify through Specdrive
-        id: verify
+      - name: Initialize current product verification
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.parity.json --project . --state apps/ios/.specdrive/ci-parity
+      - name: Execute required checks
         continue-on-error: true
-        run: |
-          node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.config.json --project . --state apps/ios/.specdrive/ci
-          node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci
-      - name: Determine native check outcome
-        id: native
-        if: always()
-        run: |
-          node -e 'const fs=require("node:fs"); const file="apps/ios/.specdrive/ci/report.json"; const r=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):null; const required=["specification","framework-tests","portable-core","xcode-environment","ios-build","ios-ui"]; console.log("passed="+required.every(id=>r?.checks?.find(c=>c.id===id)?.status==="passed"));' >> "$GITHUB_OUTPUT"
-      - name: Export simulator screenshots
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci-parity
+      - name: Export actual simulator attachments
         if: always()
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import subprocess
-          root = Path('apps/ios/evidence')
-          for result in root.glob('ui-test-*.xcresult'):
-              # Export all retained attachments, including successful .keepAlways screenshots.
-              # Do not add --only-failures: the reviewer needs the passing accessibility views.
-              subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result), '--output-path', str(root / 'screenshots')], check=False)
+          for result in Path('apps/ios/evidence/parity').glob('*.xcresult'):
+              subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result), '--output-path', str(result.with_suffix('.attachments'))], check=False)
           PY
+      - name: Render paired evidence status
+        if: always()
+        run: node apps/ios/scripts/parity-evidence.mjs report --output apps/ios/evidence/parity/report.html
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ios-specdrive-evidence
+          name: ios-product-parity-evidence
           path: |
-            apps/ios/.specdrive/ci
-            apps/ios/evidence
-          include-hidden-files: true
+            apps/ios/evidence/parity
+            apps/ios/.specdrive/ci-parity
+            docs/visual-parity
           retention-days: 14
-      - name: Wait for this run's independent screenshot review
-        id: review
-        if: steps.native.outputs.passed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: node apps/ios/scripts/await-review.mjs
-      - name: Resume the same Specdrive run with reviewed evidence
-        if: steps.review.outcome == 'success'
-        run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci
-      - name: Enforce the complete Specdrive gate
+      - name: Enforce full product acceptance
         if: always()
-        run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ios-specdrive-final-evidence
-          path: |
-            apps/ios/.specdrive/ci
-            apps/ios/evidence
-          include-hidden-files: true
-          retention-days: 14
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci-parity

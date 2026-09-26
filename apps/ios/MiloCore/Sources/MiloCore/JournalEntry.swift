@@ -1,32 +1,76 @@
 import Foundation
 
+public enum ChatRole: String, Codable, Sendable { case user, ai }
+
+public struct TranscriptMessage: Codable, Equatable, Sendable {
+    public var role: ChatRole
+    public var text: String
+    /// Milliseconds since the Unix epoch.
+    public var ts: Double
+    public init(role: ChatRole, text: String, ts: Double = Date().timeIntervalSince1970 * 1_000) {
+        self.role = role
+        self.text = text
+        self.ts = ts
+    }
+}
+
+public enum CardTemplate: String, Codable, CaseIterable, Identifiable, Sendable {
+    case planetLetter = "planet-letter"
+    case orbitTheatre = "orbit-theatre"
+    public var id: String { rawValue }
+    public var title: String { self == .planetLetter ? "星球卡片" : "轨道剧场" }
+    public var subtitle: String { self == .planetLetter ? "雾紫卡纸" : "社交海报" }
+}
+
 public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
     public let id: String
-    /// Milliseconds since the Unix epoch, matching the existing MILO contract.
     public let createdAt: Double
-    public let mood: Mood
-    public let note: String
-    public var kind: String { "now" }
-    public var diaryEnabled: Bool { false }
+    public var mood: Mood
+    public var note: String
+    public var labels: [String]
+    public var kind: String
+    public var timeMark: String?
+    public var transcript: [TranscriptMessage]
+    public var diary: String?
+    public var diaryEnabled: Bool
+    public var stickerTemplate: CardTemplate
 
     public init(
         id: String = UUID().uuidString,
         createdAt: Double = Date().timeIntervalSince1970 * 1_000,
         mood: Mood,
-        note: String
+        note: String = "",
+        labels: [String] = [],
+        kind: String = "now",
+        timeMark: String? = nil,
+        transcript: [TranscriptMessage] = [],
+        diary: String? = nil,
+        diaryEnabled: Bool = false,
+        stickerTemplate: CardTemplate = .planetLetter
     ) {
         self.id = UUID(uuidString: id)?.uuidString ?? id
         self.createdAt = createdAt
         self.mood = mood
         self.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.labels = labels
+        self.kind = kind
+        self.timeMark = timeMark
+        self.transcript = transcript
+        self.diary = diary
+        self.diaryEnabled = diaryEnabled
+        self.stickerTemplate = stickerTemplate
     }
 
-    public var preview: String { note.isEmpty ? "（一次安静的记录）" : note }
+    public var preview: String {
+        if let diary, !diary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return diary }
+        if !note.isEmpty { return note }
+        let text = transcript.filter { $0.role == .user }.map(\.text).joined(separator: " ")
+        return text.isEmpty ? "（一次安静的记录）" : text
+    }
 
     private enum CodingKeys: String, CodingKey {
-        case id, createdAt, kind, mood, note, diaryEnabled
+        case id, createdAt, kind, mood, note, timeMark, transcript, diary, diaryEnabled, stickerTemplate
     }
-
     private struct StoredMood: Codable {
         let valence: Int
         let labels: [String]
@@ -35,22 +79,22 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        let kind = try values.decode(String.self, forKey: .kind)
-        let diaryEnabled = try values.decode(Bool.self, forKey: .diaryEnabled)
         let storedMood = try values.decode(StoredMood.self, forKey: .mood)
-        guard kind == "now", !diaryEnabled else {
-            throw JournalError.invalidEntry("unsupported record kind")
-        }
-        // This milestone has no label editor or foreign-client import. Reject
-        // unsupported labels instead of silently dropping them on the next save.
-        guard storedMood.valence == storedMood.emotionId.valence, storedMood.labels.isEmpty else {
-            throw JournalError.invalidEntry("inconsistent or unsupported mood")
+        guard storedMood.valence == storedMood.emotionId.valence else {
+            throw JournalError.invalidEntry("inconsistent mood")
         }
         self.init(
             id: try values.decode(String.self, forKey: .id),
             createdAt: try values.decode(Double.self, forKey: .createdAt),
             mood: storedMood.emotionId,
-            note: try values.decode(String.self, forKey: .note)
+            note: values.contains(.note) ? try values.decode(String.self, forKey: .note) : "",
+            labels: storedMood.labels,
+            kind: try values.decode(String.self, forKey: .kind),
+            timeMark: try values.decodeIfPresent(String.self, forKey: .timeMark),
+            transcript: try values.decodeIfPresent([TranscriptMessage].self, forKey: .transcript) ?? [],
+            diary: try values.decodeIfPresent(String.self, forKey: .diary),
+            diaryEnabled: try values.decode(Bool.self, forKey: .diaryEnabled),
+            stickerTemplate: try values.decodeIfPresent(CardTemplate.self, forKey: .stickerTemplate) ?? .planetLetter
         )
         try validate()
     }
@@ -61,19 +105,47 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
         try values.encode(id, forKey: .id)
         try values.encode(createdAt, forKey: .createdAt)
         try values.encode(kind, forKey: .kind)
-        try values.encode(StoredMood(valence: mood.valence, labels: [], emotionId: mood), forKey: .mood)
+        try values.encode(StoredMood(valence: mood.valence, labels: labels, emotionId: mood), forKey: .mood)
         try values.encode(note, forKey: .note)
+        try values.encodeIfPresent(timeMark, forKey: .timeMark)
+        try values.encode(transcript, forKey: .transcript)
+        try values.encodeIfPresent(diary, forKey: .diary)
         try values.encode(diaryEnabled, forKey: .diaryEnabled)
+        try values.encode(stickerTemplate, forKey: .stickerTemplate)
     }
 
     func validate() throws {
-        guard let uuid = UUID(uuidString: id), uuid.uuidString == id else {
-            throw JournalError.invalidEntry("invalid UUID")
+        try validateIdentifier(id)
+        try validateTimestamp(createdAt)
+        try validateLabels(labels)
+        guard kind == "now" || kind == "past" else { throw JournalError.invalidEntry("unknown kind") }
+        if kind == "now" && diaryEnabled { throw JournalError.invalidEntry("present diary is not supported") }
+        if kind == "past", timeMark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            throw JournalError.invalidEntry("missing past time")
         }
-        // Bounds are explicit: 1970-01-01 through the final millisecond of
-        // year 9999. No wall-clock comparison, so clock changes are harmless.
-        guard createdAt.isFinite, (0...253_402_300_799_999).contains(createdAt) else {
-            throw JournalError.invalidEntry("invalid creation time")
-        }
+        for message in transcript { try validateTimestamp(message.ts) }
+    }
+}
+
+func validateIdentifier(_ value: String) throws {
+    // HarmonyOS creates non-UUID identifiers. Keep IDs opaque while excluding
+    // whitespace, path separators and unbounded values from persisted keys.
+    let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+    guard !value.isEmpty, value.utf8.count <= 128,
+          value != ".", value != "..", value.unicodeScalars.allSatisfy({ allowed.contains($0) }) else {
+        throw JournalError.invalidEntry("invalid identifier")
+    }
+}
+
+func validateTimestamp(_ value: Double) throws {
+    guard value.isFinite, (0...253_402_300_799_999).contains(value) else {
+        throw JournalError.invalidEntry("invalid timestamp")
+    }
+}
+
+func validateLabels(_ labels: [String]) throws {
+    guard labels.count <= 3, Set(labels).count == labels.count,
+          labels.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.count <= 64 }) else {
+        throw JournalError.invalidEntry("invalid labels")
     }
 }

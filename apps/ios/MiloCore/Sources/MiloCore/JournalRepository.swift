@@ -23,6 +23,8 @@ public enum JournalError: Error, Equatable, LocalizedError, Sendable {
 public protocol JournalRepository {
     func load() throws -> [JournalEntry]
     @discardableResult func save(_ entry: JournalEntry) throws -> [JournalEntry]
+    @discardableResult func delete(id: String) throws -> [JournalEntry]
+    @discardableResult func deleteAll() throws -> [JournalEntry]
 }
 
 public protocol JournalFileIO {
@@ -63,14 +65,15 @@ public final class JSONJournalRepository: JournalRepository {
         guard let bytes = try fileIO.read(from: fileURL) else { return [] }
         let envelope: Envelope
         do {
+            let header = try JSONDecoder().decode(SchemaHeader.self, from: bytes)
+            guard header.schemaVersion == 1 || header.schemaVersion == 2 else {
+                throw JournalError.unsupportedSchema(header.schemaVersion)
+            }
             envelope = try JSONDecoder().decode(Envelope.self, from: bytes)
         } catch let error as JournalError {
             throw error
         } catch {
             throw JournalError.malformedData
-        }
-        guard envelope.schemaVersion == 1 else {
-            throw JournalError.unsupportedSchema(envelope.schemaVersion)
         }
         var identifiers: Set<String> = []
         for entry in envelope.entries {
@@ -87,12 +90,31 @@ public final class JSONJournalRepository: JournalRepository {
         // Never convert an unreadable file into a writable empty journal.
         let existing = try load()
         let entries = ordered(existing.filter { $0.id != entry.id } + [entry])
+        try write(entries)
+        return entries
+    }
+
+    @discardableResult public func delete(id: String) throws -> [JournalEntry] {
+        let existing = try load()
+        let normalizedID = UUID(uuidString: id)?.uuidString ?? id
+        let entries = existing.filter { $0.id != normalizedID }
+        if entries.count != existing.count { try write(entries) }
+        return entries
+    }
+
+    @discardableResult public func deleteAll() throws -> [JournalEntry] {
+        // Validate first; a corrupt/future journal cannot be treated as empty.
+        let existing = try load()
+        if !existing.isEmpty { try write([]) }
+        return []
+    }
+
+    private func write(_ entries: [JournalEntry]) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        let bytes = try encoder.encode(Envelope(schemaVersion: 1, entries: entries))
+        let bytes = try encoder.encode(Envelope(schemaVersion: 2, entries: entries))
         // No cache is mutated before this atomic operation succeeds.
         try fileIO.writeAtomically(bytes, to: fileURL)
-        return entries
     }
 
     private func ordered(_ entries: [JournalEntry]) -> [JournalEntry] {
@@ -106,3 +128,5 @@ public final class JSONJournalRepository: JournalRepository {
         let entries: [JournalEntry]
     }
 }
+
+struct SchemaHeader: Decodable { let schemaVersion: Int }

@@ -1,180 +1,262 @@
 import XCTest
 
 final class MiloUITests: XCTestCase {
+    override func setUp() { continueAfterFailure = false }
+
     @MainActor
-    private func launch(id: String = UUID().uuidString, extra: [String] = []) -> XCUIApplication {
+    private func launch(id: String = UUID().uuidString, extra: [String] = [], login: Bool = true) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-id", id] + extra
         app.launch()
-        XCTAssertTrue(app.buttons["open-history"].waitForExistence(timeout: 10))
+        if login, app.textFields["login-email"].waitForExistence(timeout: 3) {
+            app.textFields["login-email"].tap()
+            app.textFields["login-email"].typeText("milo")
+            app.buttons["login-submit"].tap()
+        }
         return app
     }
-
-    @MainActor
-    func testWrittenNotePersistsAcrossRelaunch() throws {
-        let id = UUID().uuidString
-        let app = launch(id: id)
-        app.buttons["mood-bright"].tap()
-        let editor = try focusEditor(in: app)
-        editor.typeText("  今天散步很开心  ")
-        app.buttons["save-entry"].tap()
-        XCTAssertTrue(app.staticTexts["今天散步很开心"].waitForExistence(timeout: 5))
-        app.terminate()
-        app.launch()
-        app.buttons["open-history"].tap()
-        let note = app.staticTexts["今天散步很开心"]
-        XCTAssertTrue(note.waitForExistence(timeout: 5))
-        note.tap()
-        XCTAssertEqual(app.staticTexts["entry-note"].label, "今天散步很开心")
-        XCTAssertTrue(app.staticTexts["明亮"].exists)
+    @MainActor private func enterNow(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["confirm-mood"].waitForExistence(timeout: 10))
+        app.buttons["confirm-mood"].tap()
+        app.buttons["confirm-words"].tap()
+        app.buttons["choose-now"].tap()
+    }
+    @MainActor private func input(_ id: String, in app: XCUIApplication) -> XCUIElement {
+        let field = app.descendants(matching: .any).matching(identifier: id).firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        return field
+    }
+    @MainActor private func tap(_ id: String, in app: XCUIApplication) {
+        let button = app.buttons[id]
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        func visible() -> Bool {
+            guard button.isHittable else { return false }
+            if id.hasPrefix("card-template-") {
+                let footer = app.buttons["save-card"]
+                return footer.exists && button.frame.minY >= app.frame.minY + 8
+                    && button.frame.maxY <= footer.frame.minY - 12
+            }
+            return true
+        }
+        for _ in 0..<10 {
+            if visible() { break }
+            // A card's header can move above the viewport after choosing a template.
+            // Scroll toward the target instead of always moving further down the page.
+            if button.frame.midY < app.frame.midY { app.swipeDown() }
+            else { app.swipeUp() }
+        }
+        XCTAssertTrue(visible(), "The visible page must expose the complete \(id) action above fixed controls")
+        button.tap()
+    }
+    @MainActor private func capture(_ name: String, in app: XCUIApplication) {
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = name; image.lifetime = .keepAlways; add(image)
     }
 
-    @MainActor
-    func testBlankNoteAndEmptyHistory() {
+    @MainActor func testPresentJourneyAndRestartPersistence() {
         let app = launch()
-        app.buttons["open-history"].tap()
-        XCTAssertTrue(app.staticTexts["这里还很安静"].waitForExistence(timeout: 5))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.buttons["save-entry"].tap()
-        XCTAssertTrue(app.staticTexts["（一次安静的记录）"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["mood-bright"].waitForExistence(timeout: 10))
+        app.buttons["mood-bright"].tap()
+        enterNow(app)
+        let note = input("note-input", in: app); note.tap(); note.typeText("今天散步很开心")
+        tap("save-now", in: app)
+        XCTAssertTrue(app.buttons["card-done"].waitForExistence(timeout: 5))
+        tap("card-done", in: app)
+        app.terminate(); app.launch()
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); entry.tap()
+        XCTAssertEqual(app.staticTexts["detail.content"].label, "今天散步很开心")
+        XCTAssertTrue(app.staticTexts["明亮"].exists)
+        capture("journey-present-detail", in: app)
     }
 
-    @MainActor
-    func testWriteFailureKeepsDraftAndCanRecover() throws {
+    @MainActor func testPastOfflineJourneyDiaryEditAndTemplatePersistence() {
+        let app = launch()
+        tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-past", in: app)
+        XCTAssertFalse(app.buttons["start-chat"].isEnabled)
+        tap("time-去年夏天", in: app); tap("start-chat", in: app)
+        let field = input("chat-input", in: app); field.tap(); field.typeText("我记得那天和朋友一起散步。")
+        tap("send-message", in: app)
+        XCTAssertTrue(app.buttons["finish-chat"].waitForExistence(timeout: 8))
+        tap("finish-chat", in: app)
+        XCTAssertTrue(app.staticTexts["diary-content"].label.contains("和朋友一起散步"))
+        tap("edit-diary", in: app)
+        let diary = input("diary-editor", in: app); diary.tap(); diary.typeText("我想记住这一天。")
+        tap("save-past", in: app)
+        tap("card-template-orbit-theatre", in: app)
+        XCTAssertTrue(app.buttons["card-template-orbit-theatre"].isSelected)
+        capture("journey-past-card-orbit", in: app)
+        tap("card-done", in: app)
+        app.terminate(); app.launch()
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); entry.tap()
+        XCTAssertTrue(app.staticTexts["detail.content"].label.contains("我想记住这一天"))
+        tap("toggle-transcript", in: app)
+        XCTAssertTrue(app.staticTexts["我：我记得那天和朋友一起散步。"].waitForExistence(timeout: 5))
+        tap("open-card", in: app)
+        XCTAssertTrue(app.buttons["card-template-orbit-theatre"].isSelected)
+    }
+
+    @MainActor func testBlankNoteAndEmptyCollection() {
+        let app = launch()
+        tap("open-timeline", in: app)
+        XCTAssertTrue(app.staticTexts["这里还很安静"].waitForExistence(timeout: 5))
+        tap("back", in: app); enterNow(app); tap("save-now", in: app)
+        XCTAssertTrue(app.buttons["card-done"].waitForExistence(timeout: 5))
+        tap("card-done", in: app)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).count, 1)
+    }
+
+    @MainActor func testUnsentDraftRestoresAndChangingTimeClearsContext() {
+        let app = launch()
+        tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-past", in: app)
+        tap("time-昨天", in: app); tap("start-chat", in: app)
+        let field = input("chat-input", in: app); field.tap(); field.typeText("还没有说完的话")
+        app.terminate(); app.launch()
+        XCTAssertEqual(input("chat-input", in: app).value as? String, "还没有说完的话")
+        tap("back", in: app); tap("time-小时候", in: app); tap("start-chat", in: app)
+        XCTAssertFalse((input("chat-input", in: app).value as? String ?? "").contains("还没有说完"))
+        XCTAssertTrue(app.staticTexts["「小时候」，你最先想起什么？"].exists)
+    }
+
+    @MainActor func testWriteFailureRetainsInputThenRecovers() {
         let id = UUID().uuidString
         let app = launch(id: id, extra: ["--uitest-write-failure"])
-        let editor = try focusEditor(in: app)
-        editor.typeText("失败也别丢掉这句话")
-        app.buttons["save-entry"].tap()
-        XCTAssertTrue(app.otherElements["storage-error"].exists || app.staticTexts["storage-error"].exists)
-        XCTAssertEqual(editor.value as? String, "失败也别丢掉这句话")
-        app.terminate()
-        app.launchArguments = ["--uitest-id", id]
-        app.launch()
-        app.buttons["open-history"].tap()
-        XCTAssertTrue(app.staticTexts["这里还很安静"].waitForExistence(timeout: 5))
+        enterNow(app)
+        let field = input("note-input", in: app); field.tap(); field.typeText("失败也别丢掉这句话")
+        tap("save-now", in: app)
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
+        app.alerts.buttons["知道了"].tap()
+        XCTAssertEqual(input("note-input", in: app).value as? String, "失败也别丢掉这句话")
+        app.terminate(); app.launchArguments = ["--uitest-id", id]; app.launch()
+        XCTAssertEqual(input("note-input", in: app).value as? String, "失败也别丢掉这句话")
+        tap("save-now", in: app)
+        XCTAssertTrue(app.buttons["card-done"].waitForExistence(timeout: 5))
     }
 
-    @MainActor
-    func testCorruptDataRemainsBlockedAfterRelaunch() {
+    @MainActor func testCorruptStoreCannotBeRewritten() {
         let id = UUID().uuidString
-        let app = launch(id: id, extra: ["--uitest-corrupt"])
-        XCTAssertFalse(app.buttons["save-entry"].isEnabled)
-        XCTAssertTrue(app.buttons["retry-load"].exists)
-        app.terminate()
-        // Remove corruption injection; the existing file must still be unreadable.
-        app.launchArguments = ["--uitest-id", id]
-        app.launch()
-        XCTAssertTrue(app.buttons["retry-load"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["save-entry"].isEnabled)
-        app.buttons["retry-load"].tap()
-        XCTAssertFalse(app.buttons["save-entry"].isEnabled)
+        let app = launch(id: id, extra: ["--uitest-corrupt"], login: false)
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
+        app.alerts.buttons["知道了"].tap()
+        let email = app.textFields["login-email"]; email.tap(); email.typeText("milo"); app.buttons["login-submit"].tap()
+        enterNow(app)
+        XCTAssertFalse(app.buttons["save-now"].isEnabled)
+        app.terminate(); app.launchArguments = ["--uitest-id", id]; app.launch()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
+        app.alerts.buttons["知道了"].tap()
+        XCTAssertFalse(app.buttons["save-now"].isEnabled)
     }
 
-    @MainActor
-    func testLongNoteAndLargeTextScreenshots() throws {
-        var lightKeyboardImage: Data?
-        var lightDetailImage: Data?
-        for appearance in ["Light", "Dark"] {
-            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL", "--uitest-appearance", appearance])
-            assertResolvedAppearance(appearance, in: app)
-            let editor = try focusEditor(in: app)
-            let text = String(repeating: "今天慢慢走了一段路，风很温柔。", count: 12)
-            editor.typeText(text)
-            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The software keyboard must actually be shown for the reachability check")
-            XCTAssertTrue(app.buttons["save-entry"].isHittable)
-            let keyboardImage = app.screenshot()
-            assertDistinctAppearanceImage(keyboardImage, comparedWith: &lightKeyboardImage)
-            let keyboardShot = XCTAttachment(screenshot: keyboardImage)
-            keyboardShot.name = "capture-large-text-keyboard-\(appearance)"
-            keyboardShot.lifetime = .keepAlways
-            add(keyboardShot)
-            app.buttons["save-entry"].tap()
-            let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "entry-")).firstMatch
-            XCTAssertTrue(entry.waitForExistence(timeout: 5))
-            entry.tap()
-            XCTAssertEqual(app.staticTexts["entry-note"].label, text)
-            assertResolvedAppearance(appearance, in: app)
-            let detailImage = app.screenshot()
-            assertDistinctAppearanceImage(detailImage, comparedWith: &lightDetailImage)
-            let detailShot = XCTAttachment(screenshot: detailImage)
-            detailShot.name = "detail-large-text-\(appearance)"
-            detailShot.lifetime = .keepAlways
-            add(detailShot)
+    @MainActor func testLargeTextKeyboardKeepsSaveReachable() {
+        let app = launch(extra: ["--parity-case", "now-note--keyboard-long--large-text"], login: false)
+        let field = input("note-input", in: app)
+        // Tap the editor's visible intersection above the fixed save action.
+        let save = app.buttons["save-now"]
+        let top = max(field.frame.minY, app.frame.minY + 110)
+        let bottom = min(field.frame.maxY, save.frame.minY - 16)
+        if bottom > top + 30 {
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: field.frame.midX, dy: (top + bottom) / 2)).tap()
+        } else { app.swipeUp(); field.tap() }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isHittable)
+        field.typeText("大字号输入也要保留下来。")
+        XCTAssertTrue((field.value as? String ?? "").contains("大字号输入也要保留下来。"))
+        let viewport = parityViewport("parity-scroll-note-editor", in: app)
+        XCTAssertLessThanOrEqual(field.frame.maxY, save.frame.minY)
+        XCTAssertEqual(viewport.raw["isFirstResponder"], 1)
+        XCTAssertEqual(viewport.raw["selectionIsEmpty"], 1)
+        XCTAssertGreaterThan(viewport.raw["caretHeight"] ?? 0, 0)
+        XCTAssertGreaterThanOrEqual(viewport.raw["caretY"] ?? -1, viewport.frame.minY - 1)
+        XCTAssertLessThanOrEqual((viewport.raw["caretY"] ?? 0) + (viewport.raw["caretHeight"] ?? 0), viewport.frame.maxY + 1)
+        capture("now-note--keyboard-long--large-text--keyboard", in: app)
+        save.tap()
+        XCTAssertTrue(app.buttons["card-done"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor func testDescriptorLimitAndReentryReset() {
+        let app = launch()
+        tap("confirm-mood", in: app)
+        for index in 0...3 { tap("word-\(index)", in: app) }
+        XCTAssertEqual((0..<12).filter { app.buttons["word-\($0)"].isSelected }.count, 3)
+        tap("back", in: app); tap("confirm-mood", in: app)
+        XCTAssertEqual((0..<12).filter { app.buttons["word-\($0)"].isSelected }.count, 0)
+    }
+
+    @MainActor func testBothCardTemplatesRenderForNativeShare() {
+        for template in ["planet-letter", "orbit-theatre"] {
+            let app = launch(extra: ["--parity-case", "card--" + template], login: false)
+            tap("share-card", in: app)
+            let sheet = app.descendants(matching: .any).matching(identifier: "card-share-sheet").firstMatch
+            XCTAssertTrue(sheet.waitForExistence(timeout: 8), "A rendered PNG must reach native sharing for \(template)")
+            capture("export-" + template + "-native-share", in: app)
             app.terminate()
         }
     }
-
-    @MainActor
-    func testNormalSizeHomeScreenshots() {
-        var lightImage: Data?
-        for appearance in ["Light", "Dark"] {
-            let app = launch(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL", "--uitest-appearance", appearance])
-            assertResolvedAppearance(appearance, in: app)
-            let image = app.screenshot()
-            assertDistinctAppearanceImage(image, comparedWith: &lightImage)
-            let screenshot = XCTAttachment(screenshot: image)
-            screenshot.name = "home-standard-text-\(appearance)"
-            screenshot.lifetime = .keepAlways
-            add(screenshot)
-            app.terminate()
+    @MainActor func testLargeTextEditorTailRemainsVisibleAndPersists() {
+        let app = launch(extra: ["--parity-case", "now-note--empty--large-text"], login: false)
+        let field = input("note-input", in: app)
+        for _ in 0..<6 { if field.isHittable { break }; app.swipeUp() }
+        field.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let text = Array(repeating: "今天慢慢走了一段路，风很温柔。我想记住这段安静的时间。", count: 3).joined(separator: "\n\n") + "\n这里是实际输入的最后一句。"
+        field.typeText(text)
+        XCTAssertEqual(field.value as? String, text)
+        let viewport = parityViewport("parity-scroll-note-editor", in: app)
+        XCTAssertEqual(viewport.raw["isFirstResponder"], 1)
+        XCTAssertEqual(viewport.raw["selectionIsEmpty"], 1)
+        XCTAssertGreaterThan(viewport.raw["caretHeight"] ?? 0, 0)
+        XCTAssertGreaterThanOrEqual(viewport.raw["caretY"] ?? -1, viewport.frame.minY - 1)
+        XCTAssertLessThanOrEqual((viewport.raw["caretY"] ?? 0) + (viewport.raw["caretHeight"] ?? 0), viewport.frame.maxY + 1)
+        capture("large-text-editor-actual-tail", in: app)
+        tap("note-editor-done", in: app)
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        tap("save-now", in: app); tap("card-done", in: app)
+        // Relaunch the same isolated store without rebuilding the screenshot fixture.
+        app.terminate(); app.launchArguments = Array(app.launchArguments.prefix(2)); app.launch()
+        if app.textFields["login-email"].waitForExistence(timeout: 3) {
+            app.textFields["login-email"].tap(); app.textFields["login-email"].typeText("milo")
+            app.buttons["login-submit"].tap()
         }
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); entry.tap()
+        XCTAssertEqual(app.staticTexts["detail.content"].label, text)
     }
 
-    @MainActor
-    private func assertResolvedAppearance(_ appearance: String, in app: XCUIApplication) {
-        let root = app.otherElements["uitest-appearance-root"]
-        XCTAssertTrue(root.waitForExistence(timeout: 5), "The debug appearance fixture must be active")
-        let applied = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", appearance), object: root)
-        XCTAssertEqual(XCTWaiter.wait(for: [applied], timeout: 5), .completed, "SwiftUI must resolve the requested appearance before capturing evidence")
-    }
-
-    @MainActor
-    private func assertDistinctAppearanceImage(_ image: XCUIScreenshot, comparedWith lightImage: inout Data?) {
-        let bytes = image.pngRepresentation
-        if let light = lightImage {
-            // Different bytes alone cannot prove appearance: clocks and cursors also
-            // change. Keep the resolved-scheme check and independent visual review.
-            XCTAssertNotEqual(bytes, light, "Light and Dark evidence must not be identical screenshots")
-        } else {
-            lightImage = bytes
-        }
-    }
-
-    /// `isHittable` alone can include a TextEditor obscured by a safe-area inset.
-    /// Scroll the outer gutter, then tap only the editor's unobscured intersection.
-    @MainActor
-    private func focusEditor(in app: XCUIApplication) throws -> XCUIElement {
-        let editor = app.textViews["note-input"]
-        let scroll = app.scrollViews["capture-scroll"]
-        let save = app.buttons["save-entry"]
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        XCTAssertTrue(scroll.waitForExistence(timeout: 5))
-
-        for _ in 0..<20 {
-            let top = max(scroll.frame.minY, app.navigationBars.firstMatch.frame.maxY) + 12
-            let bottom = min(scroll.frame.maxY, save.frame.minY) - 12
-            let viewport = CGRect(x: scroll.frame.minX + 12, y: top,
-                                  width: max(0, scroll.frame.width - 24), height: max(0, bottom - top))
-            let visibleEditor = editor.frame.intersection(viewport)
-            if !visibleEditor.isNull, visibleEditor.width >= 100, visibleEditor.height >= 100 {
-                point(in: app, x: visibleEditor.midX, y: visibleEditor.midY).tap()
-                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Tapping the visible editor must focus it, not save an empty record")
-                XCTAssertTrue(editor.exists, "Focusing must keep the capture screen open")
-                return editor
+    @MainActor func testCardTemplateGeometryAndLoginErrorState() {
+        for template in ["planet-letter", "orbit-theatre"] {
+            let app = launch(extra: ["--parity-case", "card--" + template], login: false)
+            XCTAssertTrue(app.buttons["save-card"].isHittable)
+            XCTAssertTrue(app.buttons["card-home"].isHittable)
+            let identifier = "parity-scroll-collection-card"
+            var viewport = parityViewport(identifier, in: app)
+            for _ in 0..<12 {
+                if viewport.offset >= viewport.maxOffset - 1 { break }
+                parityDrag(viewport.frame, downward: false, in: app, edge: true)
+                viewport = parityViewport(identifier, in: app)
             }
-            // Stay outside the editor's own scroll surface and above the save bar.
-            let x = scroll.frame.minX + 6
-            point(in: app, x: x, y: viewport.maxY - 16)
-                .press(forDuration: 0.05, thenDragTo: point(in: app, x: x, y: viewport.minY + 16))
+            let first = app.buttons["card-template-planet-letter"]
+            let second = app.buttons["card-template-orbit-theatre"]
+            XCTAssertTrue(first.isHittable); XCTAssertTrue(second.isHittable)
+            XCTAssertEqual(first.frame.minY, second.frame.minY, accuracy: 1)
+            XCTAssertEqual(first.frame.width, second.frame.width, accuracy: 1)
+            XCTAssertEqual(first.frame.height, second.frame.height, accuracy: 1)
+            let heading = parityProbe("card-templates-heading", in: app)
+            XCTAssertTrue(heading.exists)
+            XCTAssertGreaterThanOrEqual(first.frame.minY, heading.frame.maxY + 6)
+            for value in ["planet-letter", "orbit-theatre"] {
+                let button = app.buttons["card-template-" + value]
+                let preview = parityProbe("card-template-preview-" + value, in: app)
+                XCTAssertTrue(preview.exists)
+                XCTAssertTrue(button.frame.insetBy(dx: -1, dy: -1).contains(preview.frame))
+                XCTAssertEqual(preview.frame.width / preview.frame.height, 1.6, accuracy: 0.03)
+            }
+            capture("repaired-template-layout-" + template, in: app)
+            app.terminate()
         }
-        XCTFail("The editor never became visibly reachable above the save action")
-        return try XCTUnwrap(nil as XCUIElement?)
+        let app = launch(extra: ["--parity-case", "login--error"], login: false)
+        assertParityState("login--error", in: app)
+        capture("repaired-login-error", in: app)
     }
 
-    @MainActor
-    private func point(in app: XCUIApplication, x: CGFloat, y: CGFloat) -> XCUICoordinate {
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0))
-            .withOffset(CGVector(dx: x - app.frame.minX, dy: y - app.frame.minY))
-    }
 }

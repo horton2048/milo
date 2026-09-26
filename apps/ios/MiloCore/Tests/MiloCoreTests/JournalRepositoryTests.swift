@@ -6,8 +6,8 @@ private let earlierID = "00000000-0000-4000-8000-000000000001"
 private let laterID = "00000000-0000-4000-8000-000000000002"
 
 @Test func primaryMoodContractMatchesExistingMilo() {
-    #expect(Mood.allCases.map(\.rawValue) == ["joyful", "bright", "okay", "calm", "heavy", "low", "very-low"])
-    #expect(Mood.allCases.map(\.valence) == [3, 2, 1, 0, -1, -2, -3])
+    #expect(Mood.primaryMoods.map(\.rawValue) == ["joyful", "bright", "okay", "calm", "heavy", "low", "very-low"])
+    #expect(Mood.primaryMoods.map(\.valence) == [3, 2, 1, 0, -1, -2, -3])
     #expect(Mood.calm.title == "平静")
     #expect(Mood.bright.title == "明亮")
 }
@@ -34,7 +34,7 @@ private let laterID = "00000000-0000-4000-8000-000000000002"
     #expect(!loaded.diaryEnabled)
 
     let payload = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: fixture.url)) as? [String: Any])
-    #expect(payload["schemaVersion"] as? Int == 1)
+    #expect(payload["schemaVersion"] as? Int == 2)
     let records = try #require(payload["entries"] as? [[String: Any]])
     let mood = try #require(records[0]["mood"] as? [String: Any])
     #expect(mood["emotionId"] as? String == "bright")
@@ -140,11 +140,11 @@ func malformedDataIsReportedAndNeverOverwritten(json: String) throws {
 
 @Test func unsupportedSchemaIsReportedAndNeverOverwritten() throws {
     let fixture = try DiskFixture()
-    let bytes = Data("{\"schemaVersion\":2,\"entries\":[]}".utf8)
+    let bytes = Data("{\"schemaVersion\":3,\"entries\":[]}".utf8)
     try bytes.write(to: fixture.url)
     let repository = JSONJournalRepository(fileURL: fixture.url)
-    #expect(throws: JournalError.unsupportedSchema(2)) { try repository.load() }
-    #expect(throws: JournalError.unsupportedSchema(2)) { try repository.save(JournalEntry(mood: .calm, note: "new")) }
+    #expect(throws: JournalError.unsupportedSchema(3)) { try repository.load() }
+    #expect(throws: JournalError.unsupportedSchema(3)) { try repository.save(JournalEntry(mood: .calm, note: "new")) }
     #expect(try Data(contentsOf: fixture.url) == bytes)
 }
 
@@ -152,12 +152,12 @@ func malformedDataIsReportedAndNeverOverwritten(json: String) throws {
     let original = JournalEntry(id: earlierID, createdAt: 1_000, mood: .bright, note: "safe")
     let dictionary = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any])
     let mutations: [(String, Any)] = [
-        ("id", ""), ("id", "not-a-uuid"), ("createdAt", -1),
+        ("id", ""), ("id", "../invalid"), ("createdAt", -1),
         ("createdAt", 253_402_300_800_000), ("createdAt", "yesterday"),
         ("kind", "past"), ("diaryEnabled", true), ("note", NSNull()),
         ("mood", ["valence": 2, "labels": [], "emotionId": "mystery"]),
         ("mood", ["valence": 1, "labels": [], "emotionId": "bright"]),
-        ("mood", ["valence": 2, "labels": ["unknown-label"], "emotionId": "bright"]),
+        ("mood", ["valence": 2, "labels": ["a", "b", "c", "d"], "emotionId": "bright"]),
     ]
     for (field, invalidValue) in mutations {
         var entry = dictionary
@@ -190,7 +190,7 @@ func malformedDataIsReportedAndNeverOverwritten(json: String) throws {
     let io = MemoryFileIO()
     let repository = JSONJournalRepository(fileURL: testURL, fileIO: io)
     let entries = [
-        JournalEntry(id: "bad", mood: .calm, note: "invalid id"),
+        JournalEntry(id: "bad/id", mood: .calm, note: "invalid id"),
         JournalEntry(createdAt: -.infinity, mood: .calm, note: "invalid date"),
         JournalEntry(createdAt: .infinity, mood: .calm, note: "invalid date"),
         JournalEntry(createdAt: .nan, mood: .calm, note: "invalid date"),
