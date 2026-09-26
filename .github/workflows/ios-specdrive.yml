@@ -1,0 +1,55 @@
+name: iOS product parity verification
+
+on:
+  push:
+    branches: ['codex/ios-specdrive-pilot']
+    paths: ['apps/ios/**', 'openspec/**', 'docs/visual-parity/**', '.agents/skills/specdrive/**', '.github/workflows/ios-specdrive.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-specdrive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-and-parity:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned planning CLI
+        run: npm ci --prefix apps/ios --ignore-scripts
+      - name: Initialize current product verification
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.parity.json --project . --state apps/ios/.specdrive/ci-parity
+      - name: Execute required checks
+        continue-on-error: true
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci-parity
+      - name: Export actual simulator attachments
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          for result in Path('apps/ios/evidence/parity').glob('*.xcresult'):
+              subprocess.run(['xcrun', 'xcresulttool', 'export', 'attachments', '--path', str(result), '--output-path', str(result.with_suffix('.attachments'))], check=False)
+          PY
+      - name: Render paired evidence status
+        if: always()
+        run: node apps/ios/scripts/parity-evidence.mjs report --output apps/ios/evidence/parity/report.html
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-product-parity-evidence
+          path: |
+            apps/ios/evidence/parity
+            apps/ios/.specdrive/ci-parity
+            docs/visual-parity
+          retention-days: 14
+      - name: Enforce full product acceptance
+        if: always()
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci-parity

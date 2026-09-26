@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEVECO_STUDIO_HOME="${DEVECO_STUDIO_HOME:-/Applications/DevEco-Studio.app/Contents}"
+export NODE_HOME="${NODE_HOME:-$DEVECO_STUDIO_HOME/tools/node}"
+export JAVA_HOME="${JAVA_HOME:-$DEVECO_STUDIO_HOME/jbr/Contents/Home}"
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+# HarmonyOS SDK metadata and components are bundled with DevEco Studio under
+# its SDK root. `sdk-pkg.json` lives in `sdk/default`, so the SDK home that
+# hvigor scans must be the parent directory `sdk`.
+SDK_HOME_ROOT="$DEVECO_STUDIO_HOME/sdk"
+BUNDLED_SDK_ROOT="$DEVECO_STUDIO_HOME/sdk/default"
+
+if [[ ! -f "$BUNDLED_SDK_ROOT/sdk-pkg.json" ]]; then
+  echo "DevEco HarmonyOS SDK not found: $BUNDLED_SDK_ROOT" >&2
+  exit 1
+fi
+
+printf 'sdk.dir=%s\n' "$SDK_HOME_ROOT" > "$PROJECT_ROOT/local.properties"
+export DEVECO_SDK_HOME="$SDK_HOME_ROOT"
+export OHOS_SDK_HOME="$SDK_HOME_ROOT"
+export PATH="$JAVA_HOME/bin:$NODE_HOME/bin:$DEVECO_STUDIO_HOME/tools/ohpm/bin:$DEVECO_STUDIO_HOME/tools/hvigor/bin:$BUNDLED_SDK_ROOT/hms/toolchains:$PATH"
+
+exec "$DEVECO_STUDIO_HOME/tools/hvigor/bin/hvigorw" "$@"

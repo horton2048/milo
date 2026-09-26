@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "sourceHash": "4fba1c17364323eca0a597cfeb11fcf7dfcb7e05e75d2be40f24d2a1ab91d512",
+  "build": {
+    "path": "apps/ios/DerivedData/Build/Products/Debug-iphonesimulator/Milo.app",
+    "sha256": "b499debe920078767bc3823c5c3fc4b1f98c1bcec132b2738ae7d233f836f2aa"
+  },
+  "buildReceipt": {
+    "sourceHashBefore": "4fba1c17364323eca0a597cfeb11fcf7dfcb7e05e75d2be40f24d2a1ab91d512",
+    "sourceHashAfter": "4fba1c17364323eca0a597cfeb11fcf7dfcb7e05e75d2be40f24d2a1ab91d512",
+    "buildHash": "b499debe920078767bc3823c5c3fc4b1f98c1bcec132b2738ae7d233f836f2aa",
+    "command": [
+      "xcodebuild",
+      "-project",
+      "apps/ios/Milo.xcodeproj",
+      "-scheme",
+      "Milo",
+      "-configuration",
+      "Debug",
+      "-destination",
+      "platform=iOS Simulator,id=EAE7BE56-823B-4B27-93CE-2883A202DC1D",
+      "-derivedDataPath",
+      "apps/ios/DerivedData",
+      "-resultBundlePath",
+      "/Users/hut/Projects/milo-ios-validation/apps/ios/evidence/parity/build-2026-09-26T08-01-58-229Z.xcresult",
+      "CODE_SIGNING_ALLOWED=NO",
+      "-parallel-testing-enabled",
+      "NO",
+      "-jobs",
+      "2",
+      "build-for-testing"
+    ],
+    "startedAt": "2026-09-26T08:01:58.312Z",
+    "finishedAt": "2026-09-26T08:02:03.553Z",
+    "exitCode": 0,
+    "log": {
+      "path": "apps/ios/evidence/parity/build-2026-09-26T08-01-58-229Z.log",
+      "sha256": "49da173ac26121ef3e023ccb33b0d9e50d99cfcd0072a604ffbb854e11b32605"
+    }
+  },
+  "verificationReceipt": {
+    "sourceHashBefore": "4fba1c17364323eca0a597cfeb11fcf7dfcb7e05e75d2be40f24d2a1ab91d512",
+    "sourceHashAfter": "4fba1c17364323eca0a597cfeb11fcf7dfcb7e05e75d2be40f24d2a1ab91d512",
+    "buildHash": "b499debe920078767bc3823c5c3fc4b1f98c1bcec132b2738ae7d233f836f2aa",
+    "command": [
+      "xcodebuild",
+      "-project",
+      "apps/ios/Milo.xcodeproj",
+      "-scheme",
+      "Milo",
+      "-configuration",
+      "Debug",
+      "-destination",
+      "platform=iOS Simulator,id=EAE7BE56-823B-4B27-93CE-2883A202DC1D",
+      "-derivedDataPath",
+      "apps/ios/DerivedData",
+      "-resultBundlePath",
+      "/Users/hut/Projects/milo-ios-validation/apps/ios/evidence/parity/journeys-2026-09-26T08-02-03-620Z.xcresult",
+      "CODE_SIGNING_ALLOWED=NO",
+      "-parallel-testing-enabled",
+      "NO",
+      "-jobs",
+      "2",
+      "-only-testing:MiloUITests/MiloUITests",
+      "test-without-building"
+    ],
+    "startedAt": "2026-09-26T08:02:03.944Z",
+    "finishedAt": "2026-09-26T08:06:55.535Z",
+    "exitCode": 0,
+    "log": {
+      "path": "apps/ios/evidence/parity/journeys-2026-09-26T08-02-03-620Z.log",
+      "sha256": "49d80ea1c2bb61aed7b7b89166915f1dbcfb22a68b526ddfea2d0229c98c8fe5"
+    }
+  }
+}

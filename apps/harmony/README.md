@@ -1,0 +1,107 @@
+# MILO HarmonyOS
+
+Bundle name: `com.milo.echoes`
+
+Stage-model ArkTS application that mirrors the MILO web diary/recall
+experience for HarmonyOS devices. Architecture, screen flow, and AI
+fallback contract are identical to the web build; only the render layer
+changes. See `docs/superpowers/plans/2026-08-08-harmonyos-native-replica.md`
+for the multi-platform strategy and `docs/compliance/` for the release
+artifacts.
+
+## Toolchain
+
+- DevEco Studio 6.1.1, build `DS-243.24978.46.36.611300`
+- HarmonyOS SDK `6.1.1.125` (API 24): OpenHarmony base components (ArkTS/Ets, Js, Native, Previewer, Toolchains) plus HMS components
+- Node.js `v18.20.1`
+- OHPM `6.1.2.285`
+- Hvigor `6.24.4`
+- HDC `3.2.0d`
+- JetBrains Runtime `21.0.8` (`JBR-21.0.8+9-1038.71-jcef`)
+
+The reproducible wrapper expects DevEco Studio at `/Applications/DevEco-Studio.app/Contents` unless `DEVECO_STUDIO_HOME` is set. It uses DevEco's bundled Node, Hvigor, JBR, HDC, and HarmonyOS SDK; no system Java is required. Hvigor resolves the all-in-one SDK through `sdk-pkg.json` inside `sdk/default`, so the wrapper points `sdk.dir`/`DEVECO_SDK_HOME` at the SDK root (the parent of `default`) and regenerates ignored `local.properties` before every invocation.
+
+## Source layout
+
+```
+entry/src/main/ets
+├── core/
+│   ├── data/         # MapKVStorage + EntryRepository + RecallSessionRepository
+│   ├── flow/         # RecallMachine state machine
+│   ├── model/        # Domain types, Moods, MoodAssets
+│   ├── network/      # AiGatewayClient + typed HTTP transport
+│   ├── system/       # SpeechInput, Haptics, CardRenderer, ShareService
+│   └── theme/        # MiloTheme tokens
+├── features/
+│   ├── conversation/ # ChatScreen, ConversationController, FallbackGuide
+│   ├── diary/        # DiaryScreen
+│   ├── home/         # HomeScreen
+│   ├── mood/         # MoodOrbitCarousel + gesture model
+│   ├── recall/       # ClassifyScreen, NowNoteScreen, PastTimeScreen
+│   ├── share/        # ShareCardScreen
+│   └── timeline/     # TimelineScreen, DetailScreen, CardScreen
+└── pages/Index.ets   # Root navigation + draft hydration
+```
+
+Tests live in `entry/src/ohosTest/ets/test/` and are wired in
+`entry/src/test/List.test.ets`. The test suite covers domain types, the
+recall state machine, repositories, the offline fallback flow, the
+mood-orbit swipe model, the AI gateway client, the conversation
+controller, the system adapters, and the card renderer contract.
+
+## Install dependencies
+
+```bash
+/Applications/DevEco-Studio.app/Contents/tools/ohpm/bin/ohpm install --all
+```
+
+The generated `oh-package-lock.json5` pins `@ohos/hypium` 1.0.28 and `@ohos/hamock` 1.0.0.
+
+## Build and test
+
+```bash
+./hvigorw clean
+./hvigorw assembleHap                       # debug HAP (default product)
+./hvigorw assembleHap --mode module -p product=release -p buildMode=release   # release HAP
+./hvigorw assembleApp --mode project -p product=release -p buildMode=release  # .app for AGC upload
+./hvigorw test
+/Applications/DevEco-Studio.app/Contents/tools/node/bin/node --test tests/shell-contract.test.mjs
+```
+
+The unsigned debug HAP is generated at `entry/build/default/outputs/default/entry-default-unsigned.hap`; the signed release HAP at `entry/build/release/outputs/default/entry-default-signed.hap`. Signing must remain local and is intentionally not committed.
+
+Signing materials (all local, never committed):
+
+- debug: `~/.ohos/config/default_harmony_*.p12/.cer/.p7b` (auto-generated via `devecocli signature generate`)
+- release: `~/.ohos/config/release_harmony_milo.cer` + `release_harmony_milo.p7b` (AGC 发布证书 `milo_release.cer` + 发布 Profile `milo_release`, both valid to 2029-09-12), signing with the same debug p12 keypair; wired as the `release` product/signingConfig in `build-profile.json5`
+
+## Verification matrix
+
+Run from the repo root after every release candidate:
+
+```bash
+npm test                       # 133 web tests
+npm run build                  # web build to apps/web/dist
+npm -w services/ai-gateway test
+npm -w services/ai-gateway run build
+cd apps/harmony && ./hvigorw clean && ./hvigorw test && ./hvigorw assembleHap && ./hvigorw assembleHap --mode module -p product=release -p buildMode=release
+```
+
+Last verified locally:
+
+- `npm test` — 133 / 133 pass
+- `npm -w services/ai-gateway test` — 15 / 15 pass
+- `./hvigorw test` — all Hypium suites green (Domain, RecallMachine, MoodAssets, EntryRepository, OfflineFlow, MoodSwipeModel, ConversationController, SystemAdapters, CardRenderer, plus the LocalUnit boilerplate)
+- `./hvigorw assembleHap` — `BUILD SUCCESSFUL`
+
+## Compliance and release
+
+- `docs/compliance/data-flow.md` — every data category, trigger, retention, and processor
+- `docs/compliance/permissions.md` — `ohos.permission.MICROPHONE` matrix
+- `docs/compliance/release-checklist.md` — reviewer test path (fresh install → privacy → now → past AI → forced offline → share → deletion)
+
+MILO uses **MiniMax** (`api.minimax.chat`) as the AI processor for chat and
+diary generation. The local `FallbackGuide` and `fallbackDiary` paths cover
+every AI failure so the diary flow always completes offline. The product
+is a personal diary and recall tool, **not** a mental-health diagnosis or
+treatment service.
