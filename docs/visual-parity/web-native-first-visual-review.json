@@ -609,6 +609,154 @@
       ],
       "acceptanceGranted": false,
       "motionScopeNote": "Parent reports motion3 loaded an older test runner while actual app binary was new. This review does not approve or reject C2/C3 based on that stale test execution."
+    },
+    {
+      "reviewedAt": "2026-09-29T15:40:45.217273+00:00",
+      "scope": "Final bounded run3 original-image sample: home calm1; AI personal large-text all8 scroll images; default and large-text note keyboard first/last2each. Total13 originals visually inspected; no source edits/test/app operations.",
+      "index": {
+        "path": ".artifacts/ios/capture-third-attachments/case-index.json",
+        "sha256": "7a83652d2eb7c53111d83ba93129a3ab2c47ad6f012ec0d7435f86459365303e"
+      },
+      "sourceReferences": [
+        {
+          "path": "apps/ios/App/Journey/HomeView.swift",
+          "sha256": "eab7bc53d5e41eb93dc2a8110d98e71dc83919e77521af5e49a0de7b9535e569"
+        },
+        {
+          "path": "apps/ios/App/Journey/RecallViews.swift",
+          "sha256": "f1a8c5f630b7aaa5af4cb8c72b8e6d7a0eb5d9d38e8d4ab77d0111ad9b6abd7f"
+        },
+        {
+          "path": "apps/ios/App/Design/ParityScrollMetrics.swift",
+          "sha256": "99acef7b5ccac89200e3d88828544cea5a797d37427063dc0b408dcfa1eea688"
+        },
+        {
+          "path": "apps/ios/UITests/ParityCaptureGeometry.swift",
+          "sha256": "55f77e77c0f67f2833bba4981d4435f34059c3f955185edf36d675f89faea0f5"
+        },
+        {
+          "path": "apps/ios/UITests/ParityCaptureTests.swift",
+          "sha256": "c6dbc7dc7661377a9a48b6a4cf423146a3597a5aca5f380712bdfcb659a12bc0"
+        },
+        {
+          "path": "apps/ios/App/Account/AISettingsView.swift",
+          "sha256": "f07a58307a805cf601907265a2d6dade33f2365d10464ebb94b8aecdd69f5530"
+        }
+      ],
+      "cases": [
+        {
+          "id": "home--mood-calm",
+          "visuallyInspected": [
+            {
+              "name": "home--mood-calm--top",
+              "path": ".artifacts/ios/capture-third-attachments/4493FB22-58E8-4E7E-AE4A-0AA64D085791.png",
+              "sha256": "236d0d25a7a4c7793c6a008a9555150ad0cb022b48c7dc64d5e8a7c9af7ab3ac",
+              "capturedAt": "2026-09-29T15:27:28.610000+00:00"
+            }
+          ]
+        },
+        {
+          "id": "ai-settings--personal--large-text",
+          "visuallyInspected": [
+            {
+              "name": "ai-settings--personal--large-text--top",
+              "path": ".artifacts/ios/capture-third-attachments/3FED7AE8-E927-4FA1-A8A6-7296CF181357.png",
+              "sha256": "9b1f1d076160bab4d2b269e268e29131b971cebe57175ad68013fd142f7d28e6",
+              "capturedAt": "2026-09-29T15:19:22.296000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-1",
+              "path": ".artifacts/ios/capture-third-attachments/AA83199A-EC0A-4391-B776-56D4458B1F4D.png",
+              "sha256": "b2c0e3f5ce9f2408595f727d1143d5d40146f409c3f8cea3697ed6d45bbc3696",
+              "capturedAt": "2026-09-29T15:19:25.505000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-2",
+              "path": ".artifacts/ios/capture-third-attachments/2B929A7D-38D5-49F4-B4CA-6E06624114BF.png",
+              "sha256": "93411ca969e64a8ed327ffa5e2eceb07b4002cb2d410b17d5bf65c04d1c995c3",
+              "capturedAt": "2026-09-29T15:19:29.673000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-3",
+              "path": ".artifacts/ios/capture-third-attachments/FAA7C8C0-AD28-4FBB-813D-2F969E38590D.png",
+              "sha256": "c7b825cb48734307062076897327b0016df8407e853f29be7855b5e4ce244dbb",
+              "capturedAt": "2026-09-29T15:19:34.952000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-4",
+              "path": ".artifacts/ios/capture-third-attachments/15ADBC2B-F3DD-4F41-B9E4-F581AD3FA749.png",
+              "sha256": "32122574782572e47ccb4516cc3acbc768053b926df02d3237b00eda81f22fca",
+              "capturedAt": "2026-09-29T15:19:38.978000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-5",
+              "path": ".artifacts/ios/capture-third-attachments/1C603EC1-992D-4880-A2F6-021D22A86618.png",
+              "sha256": "f956e56aea8ab60f4cf56446709ab2935d8ff11a879b0a12a304502b25368781",
+              "capturedAt": "2026-09-29T15:19:43.652000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-6",
+              "path": ".artifacts/ios/capture-third-attachments/83BCCC09-BE9E-4971-81C2-2A3FBFF77DA3.png",
+              "sha256": "f9741c67cb5eff382d4f88da53fd52c297fb557a760779d0bf84d967319c117b",
+              "capturedAt": "2026-09-29T15:19:48.622000+00:00"
+            },
+            {
+              "name": "ai-settings--personal--large-text--scroll-7",
+              "path": ".artifacts/ios/capture-third-attachments/C33399E8-8A02-49A1-8E33-BEE775D575A2.png",
+              "sha256": "17c9a7cc0b088375e96e6350727c88a24407a115317f7d17d2cfd23345fd7741",
+              "capturedAt": "2026-09-29T15:19:53.301000+00:00"
+            }
+          ]
+        },
+        {
+          "id": "now-note--keyboard-long",
+          "visuallyInspected": [
+            {
+              "name": "now-note--keyboard-long--top",
+              "path": ".artifacts/ios/capture-third-attachments/8E37BC7E-6A9C-4C70-B14F-E195C2386A5F.png",
+              "sha256": "55371550426c015bb488b4ea382cbe8f1a24a292cb74ee1b35a0c768d2b5f6df",
+              "capturedAt": "2026-09-29T15:28:40.600000+00:00"
+            },
+            {
+              "name": "now-note--keyboard-long--scroll-1",
+              "path": ".artifacts/ios/capture-third-attachments/BAB57345-9E91-4B6F-8F4D-BDE648586962.png",
+              "sha256": "d13d0dd4e92a0f083eaded397a865d0ae282bb1b3fae2e8e79dbff82f5d1603a",
+              "capturedAt": "2026-09-29T15:28:46.447000+00:00"
+            }
+          ]
+        },
+        {
+          "id": "now-note--keyboard-long--large-text",
+          "visuallyInspected": [
+            {
+              "name": "now-note--keyboard-long--large-text--top",
+              "path": ".artifacts/ios/capture-third-attachments/46EB9FF3-CA03-40CD-B2D7-CE25AB20B86E.png",
+              "sha256": "def4e190656d6a9e52de5b4fc0dd11d3bbd8a30ba6f1d5244d80f7b3107aa0ef",
+              "capturedAt": "2026-09-29T15:29:07.213000+00:00"
+            },
+            {
+              "name": "now-note--keyboard-long--large-text--editor--scroll-54",
+              "path": ".artifacts/ios/capture-third-attachments/7A07503F-1C52-46D6-91AD-BF3CD70296F4.png",
+              "sha256": "e198c483aa4627d42443eb2d8a9466fd5ccb69cb5c69048cd25fc88e7e1e1b36",
+              "capturedAt": "2026-09-29T15:35:23.510000+00:00"
+            }
+          ]
+        }
+      ],
+      "localConclusions": [
+        "Home calm: complete centered planet, peripheral labels readable, selected calm label separated from hint, primary button fully visible. Earlier sampled V1/V2 improvements persist. This is one calm default state and says nothing about live motion or all moods.",
+        "AI personal large text: all8 original images reviewed. Service/model/address/API-key field and consent/privacy descriptions wrap within horizontal margins; final Test connection/Delete saved key actions fully visible above Save. Content cut at intermediate scroll edges is revealed in adjacent images. Previous horizontal-clipping finding remains resolved for this state.",
+        "Default and large-text keyboard originals show Done in its own row above Save with clear separation; both action labels and software keyboard are fully visible. V4 is resolved in these four sampled originals. This does not establish whole editor content or insertion-tail visibility.",
+        "Default keyboard receipts show outer offset0 then411 with viewport320, hence missing overlap and a91pt unobserved interval (the validator additionally requires overlap, yielding a289pt maximum allowed step). Both bracket flags are true. The first image already displays the editor rather than the page title/planet even though its outer receipt says0; matching two readings alone therefore does not establish image/geometry correspondence. Do not use this failed series to approve continuous coverage.",
+        "Large-text final receipt is editor offset6843.3333 of max8077 with196pt visible viewport. Thus approximately1233.6667pt remain before bottom; the60-image cap was reached. The sampled last image contains an interior portion of repeated text and does not prove the true last line. Existing V5 from the real typing journey remains unresolved."
+      ],
+      "newProductP2Findings": [],
+      "limits": [
+        "Only13 images across these4 states inspected in this task; no other state reviewed now.",
+        "No all53 visual, whole product, real device or motion acceptance. Parent reports51/53 capture and8/11 journeys; motion3 stale test bundle is invalid for current-test acceptance.",
+        "Failed keyboard evidence stays failed. No fourth run, assertion relaxation, metadata repair or source change made by this reviewer."
+      ],
+      "acceptanceGranted": false
     }
   ],
   "additionalFirstCaptureSample": {
