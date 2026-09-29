@@ -65,6 +65,17 @@
                ReferencedContainer = "container:Milo.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "8BCE2F20E2296DCE4B4300C7"
+               BuildableName = "MiloAccountTests.xctest"
+               BlueprintName = "MiloAccountTests"
+               ReferencedContainer = "container:Milo.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
       <CommandLineArguments>
       </CommandLineArguments>

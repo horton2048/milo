@@ -4,12 +4,14 @@ struct AISettingsView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let account: AccountModel
     let back: () -> Void
+    let onSaved: () -> Void
     @State private var settings: PersonalAISettings
     @State private var apiKey = ""
 
-    init(account: AccountModel, back: @escaping () -> Void) {
+    init(account: AccountModel, back: @escaping () -> Void, onSaved: @escaping () -> Void) {
         self.account = account
         self.back = back
+        self.onSaved = onSaved
         _settings = State(initialValue: account.aiSettings)
     }
 
@@ -36,7 +38,11 @@ struct AISettingsView: View {
                 .scrollIndicators(.hidden).scrollDismissesKeyboard(.interactively)
             AccountStatusView(account: account)
             MiloPrimaryButton(title: "保存设置") {
-                if account.saveAISettings(settings, newKey: apiKey) { apiKey = ""; settings = account.aiSettings }
+                if account.saveAISettings(settings, newKey: apiKey) {
+                    apiKey = ""
+                    settings = account.aiSettings
+                    onSaved()
+                }
             }.disabled(account.isBusy).accessibilityIdentifier("ai-save")
         }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 24)
             .onDisappear { apiKey = "" }

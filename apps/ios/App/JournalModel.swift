@@ -44,6 +44,7 @@ final class JournalModel {
         let account = AccountModel(directory: directory)
         self.account = account
         self.aiCompletion = aiCompletion ?? { messages in try await account.completeAI(messages: messages) }
+        draft = RecallDraft(aiEnabled: account.aiSettings.enabled)
         reload()
         do { if let restored = try draftRepository.load() { draft = restored } }
         catch {
@@ -78,18 +79,37 @@ final class JournalModel {
     }
     func back() {
         cancelGeneration()
-        if draft.page == "ai-settings" { draft.page = settingsReturnPage; return }
+        if draft.page == "ai-settings" {
+            draft.page = settingsReturnPage
+            resumeConversationAfterSettings()
+            return
+        }
         draft.goBack()
     }
     func openSettings() { settingsReturnPage = draft.page; go("ai-settings") }
     func chooseKind(_ kind: String) { cancelGeneration(); draft.chooseKind(kind) }
     func openEntry(_ id: String) { draft.entryID = id; go("detail") }
-    func startHome() { cancelGeneration(); draft = RecallDraft() }
+    func startHome() { cancelGeneration(); draft = RecallDraft(aiEnabled: account.aiSettings.enabled) }
     func returnHome() { go("home") }
     func beginMoodWords() {
         let mood = draft.mood
         cancelGeneration()
-        var next = RecallDraft(mood: mood); next.page = "home-words"; draft = next
+        var next = RecallDraft(mood: mood, aiEnabled: account.aiSettings.enabled); next.page = "home-words"; draft = next
+    }
+    /// Call only after account settings were successfully persisted. Provider,
+    /// model, consent and key changes invalidate a request even if AI stays on.
+    func aiSettingsDidSave() {
+        cancelGeneration()
+        draft.aiEnabled = account.aiSettings.enabled
+        guidanceNotice = draft.aiEnabled ? "AI 设置已更新，下次请求将使用新配置。" : "正在使用本地引导"
+    }
+    private func resumeConversationAfterSettings() {
+        guard draft.page == "chat", !isThinking else { return }
+        if draft.transcript.isEmpty, let time = draft.timeMark {
+            startConversation(time: time)
+        } else if draft.transcript.last?.role == .user {
+            respondToCurrentConversation()
+        }
     }
     func setPendingTime(_ value: String) {
         if draft.timeMark != value.trimmingCharacters(in: .whitespacesAndNewlines) { cancelGeneration() }
@@ -130,7 +150,7 @@ final class JournalModel {
                     try draftRepository.save(draft)
                 } else {
                     cancelGeneration()
-                    replaceDraftWithoutWriting(stored ?? RecallDraft())
+                    replaceDraftWithoutWriting(stored ?? RecallDraft(aiEnabled: account.aiSettings.enabled))
                 }
                 finishDraftRecovery()
             } else {
@@ -207,6 +227,15 @@ final class JournalModel {
             guidanceNotice = "正在使用本地引导"
             return
         }
+        respondToCurrentConversation()
+    }
+    private func respondToCurrentConversation() {
+        guard draft.transcript.last?.role == .user else { return }
+        if !draft.aiEnabled {
+            draft.transcript.append(TranscriptMessage(role: .ai, text: OfflineGuide.respond(transcript: draft.transcript)))
+            guidanceNotice = "正在使用本地引导"
+            return
+        }
         let conversation = Array(draft.transcript.suffix(24))
         let messages = [AIMessage(role: .system, content: chatInstruction)]
             + conversation.map { AIMessage(role: $0.role == .user ? .user : .assistant, content: $0.text) }
@@ -224,7 +253,7 @@ final class JournalModel {
         generationKind = kind
         guidanceNotice = "正在连接 AI…"
         conversationTask = Task { [weak self] in
-            guard let self else { return }
+            guard let self, !Task.isCancelled, current == generation else { return }
             defer { finishGeneration(current) }
             let reply: String
             let notice: String
@@ -278,7 +307,7 @@ final class JournalModel {
         let messages = [AIMessage(role: .system, content: "你是MILO的回忆记录助手。仅使用用户真实说过的事实，整理为第一人称中文日记，200至500字，材料不足时可以更短。不虚构人物、事件、感觉或细节，不诊断、不说教、不写标题，只输出日记正文。回忆时间：\(time ?? "过去")。")]
             + conversation.filter { $0.role == .user }.map { AIMessage(role: .user, content: $0.text) }
         conversationTask = Task { [weak self] in
-            guard let self else { return }
+            guard let self, !Task.isCancelled, current == generation else { return }
             defer { finishGeneration(current) }
             let text: String
             let notice: String
@@ -316,7 +345,7 @@ final class JournalModel {
             let entry = try pending.makeEntry(id: pending.pendingEntryID!)
             entries = try repository.save(entry)
             recordWritten = true
-            var next = RecallDraft(); next.page = "card"; next.entryID = entry.id
+            var next = RecallDraft(aiEnabled: account.aiSettings.enabled); next.page = "card"; next.entryID = entry.id
             try draftRepository.save(next)
             draftReady = false; draft = next; draftReady = true
             errorMessage = nil
@@ -353,7 +382,7 @@ final class JournalModel {
             try removeIfPresent(backups)
             entries = try repository.deleteAll()
             try draftRepository.clear()
-            replaceDraftWithoutWriting(RecallDraft())
+            replaceDraftWithoutWriting(RecallDraft(aiEnabled: account.aiSettings.enabled))
             finishDraftRecovery()
             recoveryBackupURL = nil
             isLoaded = true; errorMessage = nil

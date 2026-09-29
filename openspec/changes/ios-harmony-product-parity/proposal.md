@@ -30,3 +30,7 @@ None. The prior offline pilot remains a historical, narrower milestone; this cha
 ## 2026-09-29 user-authorized scope amendment
 
 The current reference is the actual public Web experience at https://milo.huangtangai.top/app, per the user's explicit direction; do not launch HarmonyOS. Preserve the prior Harmony evidence as historical. Develop only in /Users/hut/Projects/milo. The current phase restores Web starfield/touch motion and page semantics while improving native iOS controls, retains all 53 native state checks, and records Web-absent native states separately without fabricating reference screenshots. See docs/visual-parity/web-native-plan-2026-09-29.md for the reviewed implementation and acceptance plan. This amendment supersedes the prior requirement to use a sibling worktree or to obtain new Harmony runtime captures for this phase; real account/device release claims remain separate.
+
+## 2026-09-30 functional parity continuation
+
+The user explicitly requests a new functional audit against the current HarmonyOS source, especially login, account and settings. Implement the bounded scope and scenarios in docs/operations/ios-functional-parity-plan-2026-09-30.md. Keep the Web visual reference and historical failures; do not launch Harmony or treat functional checks as full visual acceptance. All work stays in the current project. Production email authentication requires the actual supported iOS provider and bundle-specific configuration; distinguish implementation, injected tests and actual remote verification.

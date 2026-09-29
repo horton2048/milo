@@ -56,3 +56,20 @@ The expanded store SHALL read the iOS pilot's schema-1 now records, preserve all
 ## 2026-09-29 user-authorized scope amendment
 
 The current reference is the actual public Web experience at https://milo.huangtangai.top/app, per the user's explicit direction; do not launch HarmonyOS. Preserve the prior Harmony evidence as historical. Develop only in /Users/hut/Projects/milo. The current phase restores Web starfield/touch motion and page semantics while improving native iOS controls, retains all 53 native state checks, and records Web-absent native states separately without fabricating reference screenshots. See docs/visual-parity/web-native-plan-2026-09-29.md for the reviewed implementation and acceptance plan. This amendment supersedes the prior requirement to use a sibling worktree or to obtain new Harmony runtime captures for this phase; real account/device release claims remain separate.
+
+## ADDED Requirements
+
+### Requirement: Account settings affect actual behavior
+The iOS client SHALL expose login and account settings through normal navigation and SHALL apply saved AI defaults to new memories and explicitly saved settings to the active conversation. Restored drafts SHALL preserve their existing per-conversation choice. A password reset that succeeds before sign-in fails SHALL return to password sign-in with accurate status. Remote sign-out cleanup failure SHALL NOT trap a user in the local account; unsuccessful local cleanup SHALL remain an error.
+
+#### Scenario: Saved AI default and active request
+- **WHEN** the user disables AI and saves settings during an active request, then starts a new memory or restarts
+- **THEN** the old request cannot mutate the conversation, the new memory uses the saved default, and a restored draft retains its recorded choice
+
+#### Scenario: Reset succeeded before sign-in failed
+- **WHEN** the service resets the password but subsequent password sign-in fails
+- **THEN** the user sees that the password changed and can retry password login without reusing the consumed reset code
+
+#### Scenario: Offline exit
+- **WHEN** remote sign-out cleanup fails while local session storage is writable
+- **THEN** the app returns to login and retains the user's local memories and draft content

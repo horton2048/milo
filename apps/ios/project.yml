@@ -13,6 +13,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     TARGETED_DEVICE_FAMILY: '1'
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    OTHER_LDFLAGS: ["$(inherited)", "-ObjC"]
 targets:
   Milo:
     type: application
@@ -20,11 +21,24 @@ targets:
     sources:
       - path: App
       - path: Resources
+      - path: Vendor/AGConnect/1.9.4.300/AGCResources.bundle
+        type: file
+        buildPhase: resources
     dependencies:
       - package: MiloCore
+      - framework: Vendor/AGConnect/1.9.4.300/AGConnectAuth.xcframework
+        embed: false
+      - framework: Vendor/AGConnect/1.9.4.300/AGConnectCredential.xcframework
+        embed: false
+      - framework: Vendor/AGConnect/1.9.4.300/AGConnectCore.xcframework
+        embed: false
+      - framework: Vendor/AGConnect/1.9.4.300/HMFoundation.xcframework
+        embed: false
+      - sdk: Security.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.milo.echoes.ios
+        INFOPLIST_FILE: ""
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MILO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
@@ -35,6 +49,25 @@ targets:
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: 将你主动录下的话转换成文字；系统可能使用 Apple 语音服务。
         MARKETING_VERSION: '0.2.0'
         CURRENT_PROJECT_VERSION: '1'
+  MiloAccountTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [tests/AccountBehaviorTests.swift]
+    dependencies:
+      - target: Milo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.milo.echoes.ios.accounttests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Milo.app/Milo"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        OTHER_LDFLAGS: []
+        FRAMEWORK_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(BUILT_PRODUCTS_DIR)/XCFrameworkIntermediates/AGConnectAuth"
+          - "$(BUILT_PRODUCTS_DIR)/XCFrameworkIntermediates/AGConnectCredential"
+          - "$(BUILT_PRODUCTS_DIR)/XCFrameworkIntermediates/AGConnectCore"
+          - "$(BUILT_PRODUCTS_DIR)/XCFrameworkIntermediates/HMFoundation"
   MiloUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -54,4 +87,4 @@ schemes:
         MiloUITests: [test]
     test:
       gatherCoverageData: true
-      targets: [MiloUITests]
+      targets: [MiloUITests, MiloAccountTests]

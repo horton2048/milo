@@ -40,7 +40,7 @@ try {
         process.exit(0);
     }
     if (action === 'external-auth') {
-        blocked('The actual iOS AGC configuration/provider and owner-driven account verification are not yet available. Local owner/DEBUG fixtures are not remote authentication.');
+        blocked('Bundle-matching iOS AGC configuration and owner-driven account verification have not been evidenced. The real SDK adapter is implemented. Local owner/DEBUG fixtures are not remote authentication.');
     }
     if (!['build', 'journeys', 'capture', 'motion', 'harmony-build'].includes(action)) throw new Error('Expected preflight/build/journeys/capture/harmony-build/parity-gate/external-auth');
     let buildRoot = root, command, args, buildPath, before, sourceManifest, priorBuild;

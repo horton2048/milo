@@ -8,7 +8,14 @@ import MiloCore
 // is touched. Deliberately uncancellable continuations test late provider data.
 @MainActor final class AccountModel {
     let directory: URL
-    init(directory: URL) { self.directory = directory }
+    var aiSettings: PersonalAISettings
+    // Only account storage is stubbed: the real PersonalAISettings value and
+    // JournalModel coordinator remain under test, without credentials or HTTP.
+    static var fixtureSettings: [String: PersonalAISettings] = [:]
+    init(directory: URL) {
+        self.directory = directory
+        aiSettings = Self.fixtureSettings[directory.path] ?? PersonalAISettings()
+    }
     func completeAI(messages: [AIMessage]) async throws -> String { throw URLError(.notConnectedToInternet) }
 }
 
@@ -79,6 +86,115 @@ enum CheckError: Error { case failed(String) }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("MILO-AI-Checks-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         var passed = 0
+        for enabled in [false, true] {
+            let fixture = StorageFixture(root)
+            var settings = PersonalAISettings(); settings.enabled = enabled
+            AccountModel.fixtureSettings[fixture.directory.path] = settings
+            let model = fixture.model()
+            try require(model.draft.aiEnabled == enabled, "first draft must use the stored account AI default")
+            try require(fixture.drafts.load() == nil, "reading the account default must not manufacture a persisted draft")
+            model.draft.aiEnabled = !enabled
+            model.draft.mood = .bright
+            model.beginMoodWords()
+            try require(model.draft.aiEnabled == enabled && model.draft.mood == .bright, "new mood journey must use the account default while retaining mood")
+            model.draft.aiEnabled = !enabled
+            model.startHome()
+            try require(model.draft.aiEnabled == enabled, "starting another memory must use the current account default")
+            passed += 1
+        }
+        for enabled in [false, true] {
+            let fixture = StorageFixture(root)
+            var settings = PersonalAISettings(); settings.enabled = !enabled
+            AccountModel.fixtureSettings[fixture.directory.path] = settings
+            var saved = fullDraft("用户已经明确选择的草稿")
+            saved.aiEnabled = enabled
+            try fixture.drafts.save(saved)
+            let model = fixture.model()
+            try require(model.draft == saved, "restored draft must preserve its choice even when the account default differs")
+            model.openSettings()
+            try require(model.draft.aiEnabled == enabled, "opening settings without saving cannot replace the session choice")
+            model.back()
+            try require(model.draft == saved, "leaving unchanged settings must retain the complete restored diary")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "past", page: "past-time")
+            model.startConversation(time: "昨天")
+            try await wait { ai.messages.count == 1 }
+            model.openSettings()
+            model.account.aiSettings.enabled = false
+            model.aiSettingsDidSave()
+            try require(!model.draft.aiEnabled && !model.isThinking, "successful settings save must synchronize the current draft")
+            model.back()
+            let local = model.draft.transcript
+            try require(model.draft.page == "chat" && local.count == 1 && ai.messages.count == 1, "returning to an interrupted opening with AI disabled must use local guidance")
+            ai.reply("设置保存前的迟到开场")
+            await drain()
+            try require(model.draft.transcript == local, "a prior opening cannot return after settings changed")
+            let repository = JSONJournalRepository(fileURL: model.account.directory.appendingPathComponent("journal.json"))
+            let restored = JournalModel(repository: repository, directory: model.account.directory)
+            try require(!restored.draft.aiEnabled, "the synchronized session AI choice survives restart")
+            model.draft.inputText = "我还记得河边的树。"; model.send()
+            try require(model.draft.transcript.count == 3 && !model.isThinking && ai.messages.count == 1, "local chat remains usable after saving settings")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "past", page: "past-time")
+            model.startConversation(time: "昨天")
+            // Save before the scheduled Task has begun contacting its provider.
+            model.account.aiSettings.enabled = false
+            model.aiSettingsDidSave()
+            await drain()
+            try require(ai.messages.isEmpty && !model.isThinking && !model.draft.aiEnabled,
+                        "settings cancellation before task execution must prevent the provider call itself")
+            passed += 1
+        }
+        for changedField in ["provider", "model", "consent"] {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "past", timeMark: "昨天", transcript: transcript(), inputText: "我还记得风的声音。", page: "chat")
+            model.send()
+            try await wait { ai.messages.count == 1 }
+            let waitingTranscript = model.draft.transcript
+            switch changedField {
+            case "provider": model.account.aiSettings.provider = .qwen
+            case "model": model.account.aiSettings.model = "new-test-model"
+            default: model.account.aiSettings.consent = true
+            }
+            // Exercise the save callback itself, independent of navigation's
+            // cancellation. Enabled stays true in all three configuration changes.
+            model.aiSettingsDidSave()
+            try require(model.draft.aiEnabled && !model.isThinking && model.draft.transcript == waitingTranscript,
+                        "saving \(changedField) with AI still on must cancel the old request without erasing user text")
+            model.openSettings(); model.back()
+            try await wait { ai.messages.count == 2 }
+            try require(model.isThinking && model.draft.transcript == waitingTranscript,
+                        "returning to chat must resume the pending answer without duplicating the user's message")
+            ai.reply("旧配置迟到回复", at: 0)
+            await drain()
+            try require(model.isThinking && model.draft.transcript == waitingTranscript,
+                        "old \(changedField) request cannot mutate or finish the replacement request")
+            ai.reply("新配置下的回复", at: 1)
+            try await wait { !model.isThinking }
+            try require(model.draft.transcript.count == waitingTranscript.count + 1 && model.draft.transcript.last?.text == "新配置下的回复",
+                        "the resumed request must still complete under current settings")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "past", timeMark: "昨天", transcript: transcript(), page: "chat")
+            model.prepareDiary()
+            try await wait { ai.messages.count == 1 }
+            model.account.aiSettings.enabled = false
+            model.aiSettingsDidSave()
+            ai.reply("旧模型不该覆盖的新日记")
+            await drain()
+            try require(!model.isThinking && model.draft.diary == nil, "saving settings invalidates pending diary output too")
+            model.ensureDiary()
+            try require(model.draft.diary == OfflineGuide.diary(transcript: transcript()), "diary can continue locally after AI is disabled")
+            passed += 1
+        }
         do {
             let ai = ControlledAI(), model = create(ai, root)
             model.draft = RecallDraft(kind: "past", aiEnabled: false, page: "past-time")

@@ -26,8 +26,15 @@ jobs:
         run: npm ci --prefix apps/ios --ignore-scripts
       - name: Test Web reference evidence validation
         run: node --test apps/ios/tests/web-parity-gate.test.mjs
+      - name: Install verified native account SDK
+        run: python3 apps/ios/scripts/install-agc-sdk.py
       - name: Resolve packages before source fingerprinting
         run: xcodebuild -resolvePackageDependencies -project apps/ios/Milo.xcodeproj -scheme Milo -derivedDataPath apps/ios/DerivedData
+      - name: Initialize functional account verification
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.functional.json --project . --state apps/ios/.specdrive/ci-functional
+      - name: Execute functional account checks
+        continue-on-error: true
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci-functional
       - name: Initialize current product verification
         run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.web-native.json --project . --state apps/ios/.specdrive/ci-parity
       - name: Execute required checks
@@ -51,9 +58,14 @@ jobs:
           name: ios-product-parity-evidence
           path: |
             apps/ios/evidence/parity
+            apps/ios/evidence/functional
+            apps/ios/.specdrive/ci-functional
             apps/ios/.specdrive/ci-parity
             docs/visual-parity
           retention-days: 14
       - name: Enforce current product acceptance (external evidence remains required)
         if: always()
         run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci-parity
+      - name: Enforce functional account acceptance
+        if: always()
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci-functional

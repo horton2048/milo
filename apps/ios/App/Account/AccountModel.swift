@@ -19,7 +19,7 @@ enum VerificationPurpose: String, Sendable { case signIn, resetPassword }
     func sendCode(email: String, purpose: VerificationPurpose) async throws
     func signIn(email: String, code: String) async throws -> AccountIdentity
     func signIn(email: String, password: String) async throws -> AccountIdentity
-    func resetPassword(email: String, code: String, password: String) async throws -> AccountIdentity
+    func resetPassword(email: String, code: String, password: String) async throws
     func changePassword(email: String, code: String, password: String) async throws
     func signOut() async throws
     func deleteAccount() async throws
@@ -34,7 +34,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     func sendCode(email: String, purpose: VerificationPurpose) async throws { throw unavailable }
     func signIn(email: String, code: String) async throws -> AccountIdentity { throw unavailable }
     func signIn(email: String, password: String) async throws -> AccountIdentity { throw unavailable }
-    func resetPassword(email: String, code: String, password: String) async throws -> AccountIdentity { throw unavailable }
+    func resetPassword(email: String, code: String, password: String) async throws { throw unavailable }
     func changePassword(email: String, code: String, password: String) async throws { throw unavailable }
     func signOut() async throws { throw unavailable }
     func deleteAccount() async throws { throw unavailable }
@@ -45,6 +45,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     private(set) var aiSettings = PersonalAISettings()
     private(set) var avatarData: Data?
     private(set) var isBusy = false
+    private(set) var passwordResetRequiresSignIn = false
     var statusMessage = ""
     var errorMessage = ""
     var isAuthenticated: Bool { identity != nil }
@@ -54,6 +55,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     let directory: URL
     @ObservationIgnored private let authProvider: any MiloAuthProvider
     @ObservationIgnored private let keychain: AccountKeychain
+    @ObservationIgnored private var remoteDeletedUID: String?
     @ObservationIgnored private var cooldowns: [String: Date] = [:]
     #if DEBUG
     private(set) var fixtureState: String?
@@ -71,7 +73,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
         if ["personal", "consent", "connection-error"].contains(state ?? "") { aiSettings.source = .personal }
         if state == "consent" { aiSettings.consent = true }
         if state == "connection-error" { errorMessage = "连接失败，请检查网络、URL 和模型服务状态。" }
-        if state == "error" { errorMessage = "邮箱登录尚未接通，请完成此 iOS 版本的账号服务配置。现有本机回忆不会丢失。" }
+        if ["error", "password-error", "code-error"].contains(state ?? "") { errorMessage = "邮箱登录尚未接通，请完成此 iOS 版本的账号服务配置。现有本机回忆不会丢失。" }
     }
     func clearFixtureIdentity() {
         let parts = directory.standardizedFileURL.pathComponents
@@ -81,15 +83,20 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     }
     #endif
 
-    init(directory: URL, authProvider: any MiloAuthProvider = UnconfiguredAGCAuthProvider()) {
+    init(directory: URL, authProvider: (any MiloAuthProvider)? = nil) {
         self.directory = directory
-        self.authProvider = authProvider
+        self.authProvider = authProvider ?? AGCAuthProvider.make()
         self.keychain = AccountKeychain(directory: directory)
         // An offline session is a device-local identity snapshot, never a token or
         // proof that an AGC session was freshly validated.
         do {
             let data = try Data(contentsOf: directory.appendingPathComponent("account.json"))
             identity = try JSONDecoder().decode(AccountIdentity.self, from: data)
+            if let pending = try? Data(contentsOf: directory.appendingPathComponent("account-deletion.json")),
+               let uid = try? JSONDecoder().decode(String.self, from: pending), uid == identity?.uid {
+                remoteDeletedUID = uid
+                statusMessage = "账号已注销，本机数据清理尚未完成，请重试注销以完成清理。"
+            }
             loadAccountPreferences()
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             identity = nil
@@ -108,7 +115,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     static func validCode(_ text: String) -> Bool { text.utf8.count == 6 && text.utf8.allSatisfy { (48...57).contains($0) } }
     static func isOwnerEmail(_ text: String) -> Bool { text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "milo" }
 
-    func clearMessages() { statusMessage = ""; errorMessage = "" }
+    func clearMessages() { statusMessage = ""; errorMessage = ""; passwordResetRequiresSignIn = false }
     func resendSeconds(email: String, purpose: VerificationPurpose) -> Int {
         max(0, Int(ceil((cooldowns[cooldownKey(email, purpose)] ?? .distantPast).timeIntervalSinceNow)))
     }
@@ -154,8 +161,18 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     func resetPassword(email: String, code: String, password: String) async -> Bool {
         guard !isBusy, Self.validEmail(email), Self.validCode(code), Self.validPassword(password) else { return false }
         isBusy = true; clearMessages(); defer { isBusy = false }
-        do { try acceptIdentity(await authProvider.resetPassword(email: email.trimmingCharacters(in: .whitespacesAndNewlines), code: code, password: password)); return true }
-        catch { errorMessage = error.localizedDescription; return false }
+        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        var passwordChanged = false
+        do {
+            try await authProvider.resetPassword(email: address, code: code, password: password)
+            passwordChanged = true
+            try acceptIdentity(await authProvider.signIn(email: address, password: password))
+            return true
+        } catch {
+            passwordResetRequiresSignIn = passwordChanged
+            errorMessage = passwordChanged ? "密码已更新，请使用新密码登录。" : error.localizedDescription
+            return false
+        }
     }
 
     func changePassword(code: String, password: String, confirmation: String) async -> Bool {
@@ -173,10 +190,15 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     func signOut() async -> Bool {
         guard !isBusy else { return false }
         clearMessages(); isBusy = true; defer { isBusy = false }
+        var remoteCleanupFailed = false
+        if identity?.provider == .agc {
+            do { try await authProvider.signOut() }
+            catch { remoteCleanupFailed = true }
+        }
         do {
-            if identity?.provider == .agc { try await authProvider.signOut() }
             try removeIfExists(directory.appendingPathComponent("account.json"))
             identity = nil; aiSettings = PersonalAISettings(); avatarData = nil
+            if remoteCleanupFailed { statusMessage = "已退出本机登录。远程会话未能完成清理，再次登录时会重新验证。" }
             return true
         } catch { errorMessage = "退出未完成：\(error.localizedDescription)"; return false }
     }
@@ -185,7 +207,15 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
         guard !isBusy, let current = identity else { return false }
         clearMessages(); isBusy = true; defer { isBusy = false }
         do {
-            if current.provider == .agc { try await authProvider.deleteAccount() }
+            if current.provider == .agc {
+                if remoteDeletedUID != current.uid {
+                    try await authProvider.deleteAccount()
+                    remoteDeletedUID = current.uid
+                }
+                // Persist remote completion before local cleanup. A retry after
+                // relaunch must not require a now-deleted remote session.
+                try write(JSONEncoder().encode(current.uid), to: directory.appendingPathComponent("account-deletion.json"))
+            }
             guard deleteLocalData() else {
                 errorMessage = current.provider == .agc ? "账号已注销，但本机回忆清理未完成，请重试。" : "本机回忆清理未完成，账号仍保留，请重试。"
                 return false
@@ -195,6 +225,8 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
             try removeIfExists(avatarURL(uid: current.uid))
             try removeIfExists(directory.appendingPathComponent("account.json"))
             identity = nil; aiSettings = PersonalAISettings(); avatarData = nil
+            remoteDeletedUID = nil
+            try? removeIfExists(directory.appendingPathComponent("account-deletion.json"))
             return true
         } catch { errorMessage = "注销未完成：\(error.localizedDescription)"; return false }
     }

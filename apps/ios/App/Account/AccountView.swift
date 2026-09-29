@@ -135,7 +135,7 @@ struct AccountView: View {
     }
     private var passwordForm: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("邮箱验证码", text: $code).keyboardType(.numberPad).textContentType(.oneTimeCode).miloAccountField()
+            TextField("邮箱验证码", text: feedbackInput($code)).keyboardType(.numberPad).textContentType(.oneTimeCode).miloAccountField()
                 .onChange(of: code) { _, value in code = String(value.filter { "0123456789".contains($0) }.prefix(6)) }
                 .accessibilityIdentifier("account-password-code")
             SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { _ in
@@ -144,9 +144,8 @@ struct AccountView: View {
                     Task { _ = await account.requestCode(email: account.email, purpose: .resetPassword) }
                 }.font(.footnote).foregroundStyle(MiloTheme.dim).frame(minHeight: 44).disabled(seconds > 0 || account.isBusy)
             }
-            SecureField("新密码", text: $password).textContentType(.newPassword).miloAccountField()
-                .accessibilityIdentifier("account-new-password")
-            SecureField("再次输入新密码", text: $confirmation).textContentType(.newPassword).miloAccountField()
+            MiloSecureField("新密码", text: feedbackInput($password), identifier: "account-new-password", contentType: .newPassword)
+            MiloSecureField("再次输入新密码", text: feedbackInput($confirmation), identifier: "account-confirm-password", contentType: .newPassword)
             Text("密码为 6–32 位，首尾不留空格。最终要求以账号服务设置为准。")
                 .font(.caption).foregroundStyle(MiloTheme.hint)
             MiloPrimaryButton(title: account.isBusy ? "请稍候…" : "保存新密码") {
@@ -157,6 +156,12 @@ struct AccountView: View {
                 }
             }.disabled(account.isBusy)
         }
+    }
+    private func feedbackInput(_ value: Binding<String>) -> Binding<String> {
+        Binding(get: { value.wrappedValue }, set: { next in
+            guard value.wrappedValue != next else { return }
+            value.wrappedValue = next; account.clearMessages()
+        })
     }
     private var dataPanel: some View {
         VStack(alignment: .leading, spacing: 10) {

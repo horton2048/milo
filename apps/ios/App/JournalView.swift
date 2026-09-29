@@ -55,7 +55,7 @@ struct JournalView: View {
                 MemoryCardView(entry: entry, temporaryExportDirectory: model.temporaryExportDirectory, onTemplate: model.setTemplate, onDone: { model.go("timeline") }, onHome: model.startHome, back: { model.go("timeline") })
             } else { MemoryDetailView(entry: nil, onDelete: {}, onCard: {}, back: { model.go("timeline") }) }
         case "account": AccountView(account: model.account, entryCount: model.entries.count, exportJSON: model.exportJSON, exportMarkdown: model.exportMarkdown, onAISettings: model.openSettings, onLogout: model.logout, onDeleteLocalData: model.clearLocalData, back: model.returnHome)
-        case "ai-settings": AISettingsView(account: model.account, back: model.back)
+        case "ai-settings": AISettingsView(account: model.account, back: model.back, onSaved: model.aiSettingsDidSave)
         default: HomeView(model: model)
         }
     }

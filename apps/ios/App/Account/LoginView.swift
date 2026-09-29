@@ -28,7 +28,7 @@ struct LoginView: View {
                 if step == .code || step == .reset {
                     Text("已发送至 \(email.trimmingCharacters(in: .whitespacesAndNewlines))")
                         .font(.subheadline).foregroundStyle(MiloTheme.hint).multilineTextAlignment(.center).padding(.bottom, 24)
-                    TextField("6 位验证码", text: $code)
+                    TextField("6 位验证码", text: feedbackInput($code))
                         .keyboardType(.numberPad).textContentType(.oneTimeCode).multilineTextAlignment(.center)
                         .font(.title2).miloAccountField().focused($focused, equals: .code)
                         .accessibilityIdentifier("login-code")
@@ -41,6 +41,11 @@ struct LoginView: View {
                         .submitLabel(mode == .password ? .next : .go).accessibilityIdentifier("login-email")
                         .onSubmit { if step == .email && mode == .password { focused = .password } else { submit() } }
                     if step == .email && mode == .password { passwordField(reset: false).padding(.top, 14) }
+                }
+                if !account.statusMessage.isEmpty {
+                    Text(account.statusMessage).font(.footnote).foregroundStyle(MiloTheme.dim)
+                        .multilineTextAlignment(.center).padding(.top, 14)
+                        .accessibilityIdentifier("login-status-message")
                 }
                 if !account.errorMessage.isEmpty {
                     Text(account.errorMessage).font(.subheadline).foregroundStyle(Color(red: 1, green: 0.65, blue: 0.69))
@@ -116,9 +121,18 @@ struct LoginView: View {
             .accessibilityIdentifier(next == .code ? "login-mode-code" : "login-mode-password")
     }
     private func passwordField(reset: Bool) -> some View {
-        SecureField(reset ? "新密码（6–32 位）" : "密码", text: reset ? $newPassword : $password)
-            .textContentType(reset ? .newPassword : .password).miloAccountField().focused($focused, equals: .password)
-            .submitLabel(.go).onSubmit(submit).accessibilityIdentifier(reset ? "login-new-password" : "login-password")
+        MiloSecureField(reset ? "新密码（6–32 位）" : "密码",
+                        text: feedbackInput(reset ? $newPassword : $password),
+                        identifier: reset ? "login-new-password" : "login-password",
+                        contentType: reset ? .newPassword : .password)
+            .focused($focused, equals: .password).submitLabel(.go).onSubmit(submit)
+    }
+    private func feedbackInput(_ value: Binding<String>) -> Binding<String> {
+        Binding(get: { value.wrappedValue }, set: { next in
+            guard value.wrappedValue != next else { return }
+            value.wrappedValue = next
+            account.clearMessages()
+        })
     }
     private func backToEmail() {
         step = .email; password = ""; newPassword = ""; code = ""; account.clearMessages()
@@ -139,14 +153,19 @@ struct LoginView: View {
             case .reset: success = await account.resetPassword(email: email, code: code, password: newPassword)
             }
             if success { password = ""; newPassword = ""; onAuthenticated() }
+            else if account.passwordResetRequiresSignIn {
+                // The reset code is consumed. Retry password sign-in without
+                // accidentally submitting the same reset transaction again.
+                step = .email; mode = .password; password = ""; newPassword = ""; code = ""
+            }
         }
     }
     private func applyFixture() {
         #if DEBUG
         guard let state = account.fixtureState else { return }
         if state != "email" { email = "milo@example.com" }
-        if state == "password" { mode = .password }
-        if state == "code" { step = .code }
+        if ["password", "password-error"].contains(state) { mode = .password }
+        if ["code", "code-error"].contains(state) { step = .code }
         if state == "reset" { step = .reset }
         #endif
     }

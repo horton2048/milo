@@ -36,3 +36,11 @@
 - [ ] 5.5 Refine iOS navigation/actions and repair template transition layout; verify real journeys, accessibility and both switch directions.
 - [ ] 5.6 Capture all 53 native states independently and review actual paired images and motion evidence.
 - [ ] 5.7 Run required current checks, update PR and merge the verified code milestone; report external release gaps separately.
+
+## 6. Harmony-source functional completion (user-authorized 2026-09-30)
+
+- [x] 6.1 Record source-based login/account/settings differences and independently review the functional plan.
+- [x] 6.2 Integrate the supported iOS AGC adapter and validate the build/configuration boundary; keep actual remote account verification separately blocked when unavailable.
+- [ ] 6.3 Complete login/reset/logout behavior with failure preservation and account-model regression evidence.
+- [x] 6.4 Connect AI defaults and settings saves to new and current journeys, preserve drafts, and reject stale requests; verify regressions.
+- [ ] 6.5 Exercise normal login/account/settings navigation, persistence and exit in the simulator; independently review current originals and update the PR with accurate external gaps.
