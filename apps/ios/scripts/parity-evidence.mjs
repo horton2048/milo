@@ -179,12 +179,12 @@ function validateTextSetting(setting, platform, required) {
   }
 }
 
-function validateCapture(capture, name, item, ledger, provenance, evidenceRoot) {
+function validateCapture(capture, name, item, ledger, provenance, evidenceRoot, { fixtureItem = item } = {}) {
   assert(capture && provenance, `${name}: capture/provenance missing`);
   assert(capture.caseId === item.id, `${name}: capture belongs to another case`);
   assert(capture.sourceHash === provenance.sourceHash && capture.buildHash === provenance.buildHash, `${name}: capture source/build is stale`);
   assert(capture.fixtureVersion === ledger.fixtureVersion, `${name}: fixture version mismatch`);
-  assert(capture.fixtureHash === fixtureHash(ledger, item), `${name}: fixture data hash mismatch`);
+  assert(capture.fixtureHash === fixtureHash(ledger, fixtureItem), `${name}: fixture data hash mismatch`);
   assert(capture.fixedTime === ledger.fixedTime && capture.locale === ledger.locale && capture.timezone === ledger.timezone, `${name}: fixture time/locale/timezone mismatch`);
   assert(capture.textSize === item.textSize, `${name}: text size mismatch`);
   validateTextSetting(capture.actualTextSetting, name, item.textSize);
@@ -371,3 +371,6 @@ function main() {
 if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
   try { main(); } catch (error) { console.error(`Evidence unavailable: ${error.message}`); process.exitCode = 1; }
 }
+
+// Shared native evidence primitives; legacy validation behavior is unchanged.
+export { checkProvenance, validateCapture, pngSize, contained, overflowIds };

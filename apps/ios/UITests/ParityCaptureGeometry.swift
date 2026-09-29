@@ -94,7 +94,10 @@ private func measuredRect(_ values: [String: Double]) -> CGRect {
         let delta = inner.minY < outer.frame.minY
             ? outer.frame.minY - inner.minY + 2
             : outer.frame.maxY - inner.maxY - 2
-        let move = max(-outer.frame.height * 0.65, min(outer.frame.height * 0.65, delta))
+        // A drag spends its first points crossing UIKit's pan threshold. A
+        // residual ten-point correction never moves content; include that cost.
+        let requested = (delta < 0 ? -1.0 : 1.0) * max(24, abs(delta) + 12)
+        let move = max(-outer.frame.height * 0.65, min(outer.frame.height * 0.65, requested))
         let startY = move > 0 ? outer.frame.minY + 10 : outer.frame.maxY - 10
         let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: outer.frame.minX + 12, dy: startY))
         let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: outer.frame.minX + 12, dy: startY + move))
@@ -102,4 +105,53 @@ private func measuredRect(_ values: [String: Double]) -> CGRect {
         Thread.sleep(forTimeInterval: 0.25)
     }
     XCTFail("The complete editor could not be aligned inside the measured outer viewport")
+}
+
+@MainActor func parityAssertKeyboardVisible(in app: XCUIApplication) {
+    let keyboard = app.keyboards.firstMatch
+    XCTAssertTrue(keyboard.exists || keyboard.waitForExistence(timeout: 5))
+    let visible = keyboard.frame.intersection(app.frame)
+    XCTAssertFalse(visible.isNull, "The software keyboard must actually be on screen")
+    XCTAssertGreaterThan(visible.height, 80, "An offscreen keyboard accessibility node is not keyboard evidence")
+}
+
+/// Compare actual content/viewport geometry, including keyboard-induced insets.
+/// Caret blinking or its presentation does not define scroll coverage.
+func paritySameViewport(_ first: ParityMeasuredViewport, _ second: ParityMeasuredViewport) -> Bool {
+    let keys = ["offsetX", "offsetY", "contentWidth", "contentHeight", "containerWidth", "containerHeight",
+                "insetTop", "insetBottom", "frameX", "frameY", "frameWidth", "frameHeight"]
+    return keys.allSatisfy { abs((first.raw[$0] ?? 0) - (second.raw[$0] ?? 0)) <= 0.5 }
+        && abs(first.offset - second.offset) <= 0.5
+        && abs(first.frame.minY - second.frame.minY) <= 0.5
+        && abs(first.frame.height - second.frame.height) <= 0.5
+}
+
+/// AX queries used to calculate the visible frame take time. A sample read
+/// before those queries can precede focus/keyboard auto-scroll by a whole page.
+/// Require two consecutive matching measurements instead of trusting that sample.
+@MainActor func parityStableViewport(_ identifier: String, in app: XCUIApplication) -> ParityMeasuredViewport {
+    var previous = parityViewport(identifier, in: app)
+    var matches = 0
+    for _ in 0..<8 {
+        Thread.sleep(forTimeInterval: 0.15)
+        let current = parityViewport(identifier, in: app)
+        matches = paritySameViewport(previous, current) ? matches + 1 : 0
+        if matches >= 2 { return current }
+        previous = current
+    }
+    XCTFail("Focus/keyboard geometry never settled: \(identifier)")
+    return previous
+}
+
+@MainActor func parityAssertNoteActionsSeparated(in app: XCUIApplication) {
+    let done = app.buttons["note-editor-done"]
+    let save = app.buttons["save-now"]
+    XCTAssertTrue(done.exists && done.isHittable)
+    XCTAssertTrue(save.exists && save.isHittable)
+    XCTAssertGreaterThanOrEqual(done.frame.height, 44)
+    XCTAssertLessThanOrEqual(done.frame.maxY, save.frame.minY,
+                            "Complete editing and save must occupy separate reserved rows")
+    let intersection = done.frame.intersection(save.frame)
+    XCTAssertTrue(intersection.isNull || intersection.height <= 0,
+                  "The keyboard completion action must not cover the save button")
 }

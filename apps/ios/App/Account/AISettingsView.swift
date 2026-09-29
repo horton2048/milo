@@ -31,7 +31,6 @@ struct AISettingsView: View {
                     }
                     if settings.source == .personal { personalSettings } else { hostedSettings }
                 }.frame(maxWidth: .infinity, alignment: .leading)
-                    .containerRelativeFrame(.horizontal)
                     .padding(.bottom, 20).disabled(account.isBusy)
             }.parityScrollMetrics("account-ai-settings")
                 .scrollIndicators(.hidden).scrollDismissesKeyboard(.interactively)
@@ -39,8 +38,9 @@ struct AISettingsView: View {
             MiloPrimaryButton(title: "保存设置") {
                 if account.saveAISettings(settings, newKey: apiKey) { apiKey = ""; settings = account.aiSettings }
             }.disabled(account.isBusy).accessibilityIdentifier("ai-save")
-        }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 24).background(MiloBackground())
+        }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 24)
             .onDisappear { apiKey = "" }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("page-ai-settings")
     }
 

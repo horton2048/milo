@@ -1,6 +1,6 @@
 # MILO for iPhone
 
-Native SwiftUI implementation of the HarmonyOS MILO product: mood and descriptor rings, present/past memory journeys, offline guidance, diary editing, collection/detail, two card templates, local account entry and AI settings.
+Native SwiftUI implementation of MILO, with current visual and motion comparison against the actual Web product: mood and descriptor rings, present/past memory journeys, offline guidance, diary editing, collection/detail, two card templates, local account entry and AI settings.
 
 **Full cross-platform acceptance is still in progress.** Current scope, actual results and external blockers are in [PARITY-STATUS.md](PARITY-STATUS.md). The source-bound 53-case screenshot ledger and comparison contract are in [the visual parity documentation](../../docs/visual-parity/README.md).
 
@@ -13,13 +13,16 @@ xcodegen generate --spec apps/ios/project.yml
 swift test --package-path apps/ios/MiloCore
 apps/ios/scripts/test-journal-ai.sh
 node --test apps/ios/tests/parity-evidence.test.mjs
-node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.parity.json --project .
-# Use the returned state directory for run/status/gate and every repair resume.
+node --test apps/ios/tests/web-parity-gate.test.mjs
+# Existing local iteration: resume its saved state; do not initialize again.
+node .agents/skills/specdrive/scripts/specdrive.mjs status .specdrive/web-native-20260929
+# For a genuinely new authorized phase, initialize specdrive.web-native.json once.
+# Keep its returned state directory for every repair resume.
 ```
 
 The app keeps device-local records and atomic JSON drafts in Application Support. Schema 1 remains readable and migrates on successful writes; unknown future or corrupted data blocks rewriting. Personal API keys are bound to account/provider/HTTPS destination in Keychain and excluded from exports. Every AI failure has a local fallback.
 
-`specdrive.parity.json` is the current full-product manifest. Missing screenshot pairs or actual account integration blocks final acceptance. The previous `specdrive.config.json`, `verify.mjs` and pilot reports document the earlier offline slice; their six screenshots cannot approve the expanded product.
+`specdrive.web-native.json` is the current Web-reference phase manifest; `specdrive.parity.json` preserves the historical Harmony-reference phase. Missing screenshot pairs or actual account integration blocks final acceptance. The previous `specdrive.config.json`, `verify.mjs` and pilot reports document the earlier offline slice; their six screenshots cannot approve the expanded product.
 
 The portable package pins Apple's Swift Testing only for tests. Production business logic has no third-party runtime dependency. Original HarmonyOS mood artwork is reused byte-for-byte. Source assets, implementation, project configuration, tests and verification scripts are fingerprinted alongside actual builds; never copy a passing receipt onto changed code.
 

@@ -3,10 +3,11 @@ import MiloCore
 
 struct JournalView: View {
     @Bindable var model: JournalModel
+    @State private var galaxy = MiloGalaxyState()
     var body: some View {
         GeometryReader { viewport in
             ZStack {
-                MiloBackground()
+                MiloBackground(galaxy: galaxy)
                 Group {
                     if !model.account.isAuthenticated {
                         LoginView(account: model.account, onAuthenticated: {})

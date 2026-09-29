@@ -11,6 +11,7 @@ struct MemoryCardView: View {
     let onHome: () -> Void
     let back: () -> Void
     @State private var selected: CardTemplate
+    @State private var hasChangedTemplate = false
     @State private var saveState: CardSaveState = .idle
     @State private var share: CardShareFile?
     @State private var shareFailure: String?
@@ -27,71 +28,99 @@ struct MemoryCardView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Button(action: onDone) {
-                        Label("完成", systemImage: "arrow.left").font(.subheadline)
-                            .frame(minHeight: 44)
+        ScrollViewReader { scroll in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Button(action: onDone) {
+                            Label("完成", systemImage: "chevron.left")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 14).frame(minHeight: 44)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                        .accessibilityIdentifier("card-done")
+                        Spacer()
+                        Button(action: prepareShare) {
+                            Image(systemName: "square.and.arrow.up").font(.body)
+                                .frame(width: 44, height: 44)
+                                .background(.ultraThinMaterial, in: Circle())
+                        }
+                        .accessibilityLabel("分享卡片").accessibilityIdentifier("share-card")
+                        .disabled(saveState.isSaving)
                     }
-                    .accessibilityIdentifier("card-done")
-                    Spacer()
-                    Button(action: prepareShare) {
-                        Image(systemName: "square.and.arrow.up").font(.body)
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel("分享卡片").accessibilityIdentifier("share-card")
-                    .disabled(saveState.isSaving)
-                }
-                .buttonStyle(.plain).foregroundStyle(MiloTheme.dim)
-                .padding(.bottom, 4)
-                VStack(spacing: 7) {
-                    Text("MILO MEMORY").font(.system(size: 12)).tracking(4)
-                        .foregroundStyle(MiloTheme.dim.opacity(0.65))
-                    Text("你的情绪卡片")
-                        .font(MiloTheme.serif(27)).fontWeight(.medium)
-                        .foregroundStyle(MiloTheme.ink)
-                    Text("把这颗星球，分享给今天的世界。")
-                        .font(.subheadline).foregroundStyle(MiloTheme.dim)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity).padding(.bottom, 30)
-
-                CardArtworkView(entry: entry, template: selected)
-                    .clipShape(RoundedRectangle(cornerRadius: 23))
-                    .overlay(RoundedRectangle(cornerRadius: 23).strokeBorder(.white.opacity(0.11)))
-                    .shadow(color: MiloTheme.accent.opacity(0.14), radius: 28)
-                    .frame(maxWidth: 460)
-                    .frame(maxWidth: .infinity)
-                    .accessibilityIdentifier("card.preview")
-                    .padding(.bottom, 32)
-                HStack(alignment: .bottom) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("LAYOUTS").font(.system(size: 9)).tracking(1.8)
+                    .buttonStyle(.plain).foregroundStyle(MiloTheme.dim)
+                    .padding(.bottom, 4)
+                    VStack(spacing: 7) {
+                        Text("MILO MEMORY").font(.system(size: 12)).tracking(4)
                             .foregroundStyle(MiloTheme.dim.opacity(0.65))
-                        Text("选择卡片模板")
-                            .font(MiloTheme.serif(16)).fontWeight(.medium)
+                        Text("你的情绪卡片")
+                            .font(MiloTheme.serif(27)).fontWeight(.medium)
                             .foregroundStyle(MiloTheme.ink)
+                        Text("把这颗星球，分享给今天的世界。")
+                            .font(.subheadline).foregroundStyle(MiloTheme.dim)
+                            .multilineTextAlignment(.center)
                     }
-                    Spacer()
-                    Text(selected == .planetLetter ? "1 / 2" : "2 / 2")
-                        .font(.caption2.monospaced()).tracking(1.8)
-                        .foregroundStyle(MiloTheme.dim.opacity(0.65))
+                    .frame(maxWidth: .infinity).padding(.bottom, 30)
+
+                    CardArtworkView(entry: entry, template: selected)
+                        .clipShape(RoundedRectangle(cornerRadius: 23))
+                        .overlay(RoundedRectangle(cornerRadius: 23).strokeBorder(.white.opacity(0.11)))
+                        .shadow(color: MiloTheme.accent.opacity(0.14), radius: 28)
+                        .frame(maxWidth: 460)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("card.preview")
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+                            if hasChangedTemplate {
+                                scrollToTemplates(scroll)
+                            }
+                        }
+                        .padding(.bottom, 32)
+                    VStack(spacing: 0) {
+                        HStack(alignment: .bottom) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("LAYOUTS").font(.system(size: 9)).tracking(1.8)
+                                    .foregroundStyle(MiloTheme.dim.opacity(0.65))
+                                Text("选择卡片模板")
+                                    .font(MiloTheme.serif(16)).fontWeight(.medium)
+                                    .foregroundStyle(MiloTheme.ink)
+                            }
+                            Spacer()
+                            Text(selected == .planetLetter ? "1 / 2" : "2 / 2")
+                                .font(.caption2.monospaced()).tracking(1.8)
+                                .foregroundStyle(MiloTheme.dim.opacity(0.65))
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("card-templates-heading")
+                        .padding(.horizontal, 2).padding(.bottom, 11)
+                        CardTemplateColumns(spacing: 10) {
+                            templateButton(.planetLetter, index: 1)
+                            templateButton(.orbitTheatre, index: 2)
+                        }
+                        // A template changes the artwork height above this row.
+                        // Selection feedback must never animate row placement.
+                        .transaction { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
+                        }
+                    }
+                    .id("card-template-region")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("card-templates-heading")
-                .padding(.horizontal, 2).padding(.bottom, 11)
-                CardTemplateColumns(spacing: 10) {
-                    templateButton(.planetLetter, index: 1)
-                    templateButton(.orbitTheatre, index: 2)
-                }
+                .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
             }
-            .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
+            .parityScrollMetrics("collection-card")
+            .scrollIndicators(.hidden)
+            .onChange(of: selected) { _, _ in
+                // Artwork heights differ. Keep the complete selector in the safe
+                // scroll viewport after the new template's layout is committed.
+                scrollToTemplates(scroll)
+            }
         }
-        .parityScrollMetrics("collection-card")
-        .scrollIndicators(.hidden)
         .safeAreaInset(edge: .bottom, spacing: 0) { footer }
-        .onChange(of: entry.id) { _, _ in selected = entry.stickerTemplate; saveState = .idle }
+        .onChange(of: entry.id) { _, _ in
+            hasChangedTemplate = false
+            selected = entry.stickerTemplate
+            saveState = .idle
+        }
         .onDisappear { CardArtworkRaster.clear() }
         .sheet(item: $share, onDismiss: clearShareFile) { file in
             CardActivitySheet(url: file.url)
@@ -103,6 +132,14 @@ struct MemoryCardView: View {
         } message: { Text(shareFailure ?? "") }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("card.page")
+    }
+
+    private func scrollToTemplates(_ scroll: ScrollViewProxy) {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            scroll.scrollTo("card-template-region", anchor: .bottom)
+        }
     }
 
     private var footer: some View {
@@ -130,14 +167,20 @@ struct MemoryCardView: View {
     private func templateButton(_ template: CardTemplate, index: Int) -> some View {
         Button {
             guard !saveState.isSaving else { return }
-            selected = template
-            saveState = .idle
-            onTemplate(template)
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                hasChangedTemplate = true
+                selected = template
+                saveState = .idle
+                onTemplate(template)
+            }
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                Image(uiImage: CardArtworkRaster.thumbnail(entry: entry, template: template))
-                    .resizable()
-                    .aspectRatio(1.6, contentMode: .fit)
+                CardTemplatePreviewBounds {
+                    Image(uiImage: CardArtworkRaster.thumbnail(entry: entry, template: template))
+                        .resizable()
+                }
                     .clipShape(RoundedRectangle(cornerRadius: 9))
                     .overlay(alignment: .topLeading) {
                         Text(String(format: "%02d", index)).font(.system(size: 8).monospaced())
@@ -150,15 +193,19 @@ struct MemoryCardView: View {
                     }
                     .accessibilityLabel("\(template.title)预览")
                     .accessibilityIdentifier("card-template-preview-\(template.rawValue)")
-                Text(template.title).font(MiloTheme.serif(14))
-                    .foregroundStyle(MiloTheme.ink).padding(.top, 3).lineLimit(1)
-                Text(template.subtitle).font(.caption).foregroundStyle(MiloTheme.dim.opacity(0.65)).lineLimit(1)
+                Text(template.title).font(MiloTheme.serif(14, relativeTo: .subheadline))
+                    .foregroundStyle(MiloTheme.ink).padding(.top, 3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("card-template-title-\(template.rawValue)")
+                Text(template.subtitle).font(.caption).foregroundStyle(MiloTheme.dim.opacity(0.65))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("card-template-subtitle-\(template.rawValue)")
             }
             .padding(7).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(LinearGradient(colors: [MiloTheme.accent.opacity(selected == template ? 0.19 : 0.07), MiloTheme.surface.opacity(0.78)], startPoint: .top, endPoint: .bottom), in: RoundedRectangle(cornerRadius: 15))
             .overlay(RoundedRectangle(cornerRadius: 15).strokeBorder(selected == template ? Color(red: 0.73, green: 0.67, blue: 1).opacity(0.72) : .white.opacity(0.10)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CardTemplateSelectionStyle())
         .accessibilityLabel("\(template.title)，\(template.subtitle)")
         .accessibilityAddTraits(selected == template ? [.isSelected] : [])
         .accessibilityIdentifier("card-template-\(template.rawValue)")
@@ -213,6 +260,23 @@ struct MemoryCardView: View {
     }
 }
 
+/// The thumbnail owns its height independently of the enclosing equal-height
+/// button proposal. A flexible image must not consume the title/subtitle space
+/// when the full card above it changes height during a real template switch.
+private struct CardTemplatePreviewBounds: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width.flatMap { $0.isFinite ? max(0, $0) : nil } ?? 144
+        return CGSize(width: width, height: width / 1.6)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for subview in subviews {
+            subview.place(at: bounds.origin, anchor: .topLeading,
+                          proposal: ProposedViewSize(width: bounds.width, height: bounds.width / 1.6))
+        }
+    }
+}
+
 /// Propose one measured height and one width to both buttons, including their
 /// image, title, subtitle and padding. This also equalizes their tappable bounds.
 private struct CardTemplateColumns: Layout {
@@ -259,4 +323,12 @@ private struct CardActivitySheet: UIViewControllerRepresentable {
         UIActivityViewController(activityItems: [url], applicationActivities: nil)
     }
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+/// Opacity changes immediately. An unscoped `.animation(value: isPressed)`
+/// would also animate the label's layout when selection and release coincide.
+private struct CardTemplateSelectionStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label.opacity(configuration.isPressed ? 0.82 : 1)
+    }
 }

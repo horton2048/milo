@@ -53,6 +53,73 @@ final class MiloUITests: XCTestCase {
         image.name = name; image.lifetime = .keepAlways; add(image)
     }
 
+    @MainActor private func assertCardTemplateGeometry(in app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["card-template-planet-letter"].isHittable)
+        XCTAssertTrue(app.buttons["card-template-orbit-theatre"].isHittable)
+        // One public AX snapshot gives every rectangle from the same instant.
+        // There is no wait/retry and the one-point tolerance is unchanged.
+        guard let snapshot = try? app.snapshot() else {
+            XCTFail("Unable to read the actual template layout"); return
+        }
+        func flatten(_ item: any XCUIElementSnapshot) -> [any XCUIElementSnapshot] {
+            [item] + item.children.flatMap { flatten($0) }
+        }
+        let nodes = flatten(snapshot)
+        func node(_ id: String, button: Bool = false) -> (any XCUIElementSnapshot)? {
+            nodes.first { $0.identifier == id && (!button || $0.elementType == .button) }
+        }
+        capture("card-templates-measured-state", in: app)
+        let tree = XCTAttachment(string: String(describing: snapshot.dictionaryRepresentation))
+        tree.name = "card-templates-measured-accessibility"; tree.lifetime = .keepAlways; add(tree)
+        guard let first = node("card-template-planet-letter", button: true),
+              let second = node("card-template-orbit-theatre", button: true),
+              let heading = node("card-templates-heading"),
+              let footer = node("save-card", button: true) else {
+            XCTFail("Template buttons, heading and footer must exist in the same snapshot"); return
+        }
+        XCTAssertEqual(first.frame.minY, second.frame.minY, accuracy: 1)
+        XCTAssertEqual(first.frame.width, second.frame.width, accuracy: 1)
+        XCTAssertEqual(first.frame.height, second.frame.height, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(heading.frame.minY, snapshot.frame.minY)
+        XCTAssertGreaterThanOrEqual(first.frame.minY, heading.frame.maxY + 6)
+        let footerTop = footer.frame.minY - 12
+        var previewTops: [CGFloat] = []
+        for (value, title, subtitle) in [
+            ("planet-letter", "星球卡片", "雾紫卡纸"),
+            ("orbit-theatre", "轨道剧场", "社交海报")
+        ] {
+            guard let button = node("card-template-" + value, button: true),
+                  let preview = node("card-template-preview-" + value),
+                  let titleText = node("card-template-title-" + value),
+                  let subtitleText = node("card-template-subtitle-" + value) else {
+                XCTFail("The template's complete preview, title and subtitle must remain accessible"); return
+            }
+            XCTAssertEqual(titleText.label, title); XCTAssertEqual(subtitleText.label, subtitle)
+            XCTAssertGreaterThan(titleText.frame.height, 0); XCTAssertGreaterThan(subtitleText.frame.height, 0)
+            for content in [preview, titleText, subtitleText] {
+                XCTAssertTrue(button.frame.insetBy(dx: -1, dy: -1).contains(content.frame),
+                              "The complete \(content.identifier) must stay inside its template button")
+                XCTAssertLessThanOrEqual(content.frame.maxY, footerTop)
+            }
+            XCTAssertGreaterThanOrEqual(titleText.frame.minY, preview.frame.maxY)
+            XCTAssertGreaterThanOrEqual(subtitleText.frame.minY, titleText.frame.maxY)
+            XCTAssertLessThanOrEqual(button.frame.maxY, footerTop)
+            XCTAssertEqual(preview.frame.width / preview.frame.height, 1.6, accuracy: 0.03)
+            previewTops.append(preview.frame.minY)
+        }
+        XCTAssertEqual(previewTops[0], previewTops[1], accuracy: 1)
+    }
+
+    @MainActor private func scrollToCardTemplates(in app: XCUIApplication) {
+        let identifier = "parity-scroll-collection-card"
+        var viewport = parityViewport(identifier, in: app)
+        for _ in 0..<12 {
+            if viewport.offset >= viewport.maxOffset - 1 { break }
+            parityDrag(viewport.frame, downward: false, in: app, edge: true)
+            viewport = parityViewport(identifier, in: app)
+        }
+    }
+
     @MainActor func testPresentJourneyAndRestartPersistence() {
         let app = launch()
         XCTAssertTrue(app.buttons["mood-bright"].waitForExistence(timeout: 10))
@@ -85,7 +152,18 @@ final class MiloUITests: XCTestCase {
         tap("save-past", in: app)
         tap("card-template-orbit-theatre", in: app)
         XCTAssertTrue(app.buttons["card-template-orbit-theatre"].isSelected)
+        assertCardTemplateGeometry(in: app)
         capture("journey-past-card-orbit", in: app)
+        // Assert immediately after real switches; do not repair visibility by
+        // scrolling in the test before checking the production layout.
+        app.buttons["card-template-planet-letter"].tap()
+        XCTAssertTrue(app.buttons["card-template-planet-letter"].isSelected)
+        assertCardTemplateGeometry(in: app)
+        capture("journey-past-card-planet-after-switch", in: app)
+        app.buttons["card-template-orbit-theatre"].tap()
+        XCTAssertTrue(app.buttons["card-template-orbit-theatre"].isSelected)
+        assertCardTemplateGeometry(in: app)
+        capture("journey-past-card-orbit-after-return", in: app)
         tap("card-done", in: app)
         app.terminate(); app.launch()
         let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
@@ -228,32 +306,31 @@ final class MiloUITests: XCTestCase {
             let app = launch(extra: ["--parity-case", "card--" + template], login: false)
             XCTAssertTrue(app.buttons["save-card"].isHittable)
             XCTAssertTrue(app.buttons["card-home"].isHittable)
-            let identifier = "parity-scroll-collection-card"
-            var viewport = parityViewport(identifier, in: app)
-            for _ in 0..<12 {
-                if viewport.offset >= viewport.maxOffset - 1 { break }
-                parityDrag(viewport.frame, downward: false, in: app, edge: true)
-                viewport = parityViewport(identifier, in: app)
-            }
-            let first = app.buttons["card-template-planet-letter"]
-            let second = app.buttons["card-template-orbit-theatre"]
-            XCTAssertTrue(first.isHittable); XCTAssertTrue(second.isHittable)
-            XCTAssertEqual(first.frame.minY, second.frame.minY, accuracy: 1)
-            XCTAssertEqual(first.frame.width, second.frame.width, accuracy: 1)
-            XCTAssertEqual(first.frame.height, second.frame.height, accuracy: 1)
-            let heading = parityProbe("card-templates-heading", in: app)
-            XCTAssertTrue(heading.exists)
-            XCTAssertGreaterThanOrEqual(first.frame.minY, heading.frame.maxY + 6)
-            for value in ["planet-letter", "orbit-theatre"] {
-                let button = app.buttons["card-template-" + value]
-                let preview = parityProbe("card-template-preview-" + value, in: app)
-                XCTAssertTrue(preview.exists)
-                XCTAssertTrue(button.frame.insetBy(dx: -1, dy: -1).contains(preview.frame))
-                XCTAssertEqual(preview.frame.width / preview.frame.height, 1.6, accuracy: 0.03)
-            }
+            scrollToCardTemplates(in: app)
+            assertCardTemplateGeometry(in: app)
+            let other = template == "planet-letter" ? "orbit-theatre" : "planet-letter"
+            app.buttons["card-template-" + other].tap()
+            XCTAssertTrue(app.buttons["card-template-" + other].isSelected)
+            assertCardTemplateGeometry(in: app)
+            capture("template-switch-" + template + "-to-" + other, in: app)
+            app.buttons["card-template-" + template].tap()
+            XCTAssertTrue(app.buttons["card-template-" + template].isSelected)
+            assertCardTemplateGeometry(in: app)
             capture("repaired-template-layout-" + template, in: app)
             app.terminate()
         }
+        let largeTextApp = launch(extra: ["--parity-case", "timeline--populated--large-text"], login: false)
+        let entry = largeTextApp.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 5)); entry.tap()
+        tap("open-card", in: largeTextApp)
+        scrollToCardTemplates(in: largeTextApp)
+        for template in ["orbit-theatre", "planet-letter"] {
+            largeTextApp.buttons["card-template-" + template].tap()
+            XCTAssertTrue(largeTextApp.buttons["card-template-" + template].isSelected)
+            assertCardTemplateGeometry(in: largeTextApp)
+            capture("template-switch-largest-text-" + template, in: largeTextApp)
+        }
+        largeTextApp.terminate()
         let app = launch(extra: ["--parity-case", "login--error"], login: false)
         assertParityState("login--error", in: app)
         capture("repaired-login-error", in: app)

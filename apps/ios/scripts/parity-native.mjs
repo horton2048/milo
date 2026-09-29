@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { hashIOSSource, hashBuild, fingerprint } from './parity-evidence.mjs';
 
@@ -42,7 +42,7 @@ try {
     if (action === 'external-auth') {
         blocked('The actual iOS AGC configuration/provider and owner-driven account verification are not yet available. Local owner/DEBUG fixtures are not remote authentication.');
     }
-    if (!['build', 'journeys', 'capture', 'harmony-build'].includes(action)) throw new Error('Expected preflight/build/journeys/capture/harmony-build/parity-gate/external-auth');
+    if (!['build', 'journeys', 'capture', 'motion', 'harmony-build'].includes(action)) throw new Error('Expected preflight/build/journeys/capture/harmony-build/parity-gate/external-auth');
     let buildRoot = root, command, args, buildPath, before, sourceManifest, priorBuild;
     if (action === 'harmony-build') {
         sourceManifest = json(path.join(root, 'docs/visual-parity/harmony-source.json'));
@@ -72,11 +72,23 @@ try {
         }
         command = 'xcodebuild';
         args = ['-project', 'apps/ios/Milo.xcodeproj', '-scheme', 'Milo', '-configuration', 'Debug', '-destination', `platform=iOS Simulator,id=${env.device.udid}`, '-derivedDataPath', 'apps/ios/DerivedData', '-resultBundlePath', path.join(evidence, `${action}-${stamp}.xcresult`), 'CODE_SIGNING_ALLOWED=NO', '-parallel-testing-enabled', 'NO', '-jobs', '2'];
-        if (action !== 'build') args.push('-only-testing:MiloUITests/' + (action === 'capture' ? 'ParityCaptureTests' : 'MiloUITests'));
+        if (action !== 'build') args.push('-only-testing:MiloUITests/' + (action === 'capture' ? 'ParityCaptureTests' : action === 'motion' ? 'GalaxyMotionTests' : 'MiloUITests'));
         args.push(action === 'build' ? 'build-for-testing' : 'test-without-building');
+    }
+    let video;
+    let videoPath;
+    if (action === 'motion') {
+        const env = json(path.join(evidence, 'environment.json'));
+        videoPath = path.join(evidence, `motion-${stamp}.mp4`);
+        video = spawn('xcrun', ['simctl', 'io', env.device.udid, 'recordVideo', '--codec=h264', videoPath], { stdio: 'ignore' });
     }
     const startedAt = new Date().toISOString();
     const result = run(command, args, action === 'harmony-build' ? path.join(buildRoot, 'apps/harmony') : buildRoot);
+    if (video) {
+        const stopped = new Promise(resolve => video.once('exit', resolve));
+        video.kill('SIGINT');
+        await stopped;
+    }
     const finishedAt = new Date().toISOString();
     const logText = result.stdout + result.stderr;
     const logRelative = action === 'harmony-build' ? `apps/harmony/entry/build/parity-logs/${action}-${stamp}.log` : `apps/ios/evidence/parity/${action}-${stamp}.log`;
@@ -89,6 +101,7 @@ try {
     const buildHash = hashBuild(buildRoot, buildPath);
     if (priorBuild && buildHash !== priorBuild.build.sha256) blocked('The tested app differs from the prepared build.');
     const receipt = { sourceHashBefore: before, sourceHashAfter: after, buildHash, command: [command, ...args], startedAt, finishedAt, exitCode: 0, log: { path: logRelative, sha256: sha(Buffer.from(logText)) } };
+    if (videoPath && fs.existsSync(videoPath)) receipt.video = {path: path.relative(root, videoPath), sha256: sha(fs.readFileSync(videoPath))};
     if (action === 'harmony-build') {
         if (before !== sourceManifest.sourceHash) blocked('Harmony reference changed; review and refresh the baseline before capture.');
         sourceManifest.build.sha256 = buildHash;

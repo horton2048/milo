@@ -52,3 +52,7 @@ The expanded store SHALL read the iOS pilot's schema-1 now records, preserve all
 #### Scenario: Upgrade and storage failure
 - **WHEN** an existing pilot record is loaded and a new richer record is saved, or a write fails
 - **THEN** the old record survives unchanged in meaning and a failed write leaves the original file and unsaved input intact.
+
+## 2026-09-29 user-authorized scope amendment
+
+The current reference is the actual public Web experience at https://milo.huangtangai.top/app, per the user's explicit direction; do not launch HarmonyOS. Preserve the prior Harmony evidence as historical. Develop only in /Users/hut/Projects/milo. The current phase restores Web starfield/touch motion and page semantics while improving native iOS controls, retains all 53 native state checks, and records Web-absent native states separately without fabricating reference screenshots. See docs/visual-parity/web-native-plan-2026-09-29.md for the reviewed implementation and acceptance plan. This amendment supersedes the prior requirement to use a sibling worktree or to obtain new Harmony runtime captures for this phase; real account/device release claims remain separate.

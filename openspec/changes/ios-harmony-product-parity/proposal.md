@@ -26,3 +26,7 @@ None. The prior offline pilot remains a historical, narrower milestone; this cha
 ## Impact
 
 `apps/ios` native app, portable models/persistence, assets, interaction tests and verification scripts; new reference evidence and parity documentation. The current HarmonyOS working tree is the authoritative reference and must be preserved. Release signing, App Store submission and purchases are separate actions; external account configuration or owner-only operations must be recorded as blocked rather than simulated in production. True physical-device validation remains distinct from simulator evidence.
+
+## 2026-09-29 user-authorized scope amendment
+
+The current reference is the actual public Web experience at https://milo.huangtangai.top/app, per the user's explicit direction; do not launch HarmonyOS. Preserve the prior Harmony evidence as historical. Develop only in /Users/hut/Projects/milo. The current phase restores Web starfield/touch motion and page semantics while improving native iOS controls, retains all 53 native state checks, and records Web-absent native states separately without fabricating reference screenshots. See docs/visual-parity/web-native-plan-2026-09-29.md for the reviewed implementation and acceptance plan. This amendment supersedes the prior requirement to use a sibling worktree or to obtain new Harmony runtime captures for this phase; real account/device release claims remain separate.

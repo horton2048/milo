@@ -4,63 +4,60 @@ import XCTest
 /// candidates for comparison, never an automatic visual approval.
 final class ParityCaptureTests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
-    private let cases = [
-        "login--email",
-        "login--password",
-        "login--code",
-        "login--reset",
-        "login--error",
-        "home--mood-calm",
-        "home--mood-joyful",
-        "home--mood-low",
-        "home--words-empty",
-        "home--words-three",
-        "classify--default",
-        "now-note--empty",
-        "now-note--written",
-        "now-note--keyboard-long",
-        "past-time--empty",
-        "past-time--preset",
-        "past-time--custom",
-        "chat--opening",
-        "chat--conversation",
-        "chat--offline",
-        "chat--keyboard",
-        "chat--busy",
-        "diary--enabled",
-        "diary--disabled",
-        "diary--editing",
-        "diary--long",
-        "timeline--empty",
-        "timeline--populated",
-        "detail--now",
-        "detail--past",
-        "detail--transcript-expanded",
-        "detail--missing",
-        "detail--delete-confirmation",
-        "card--planet-letter",
-        "card--orbit-theatre",
-        "account--local",
-        "account--remote",
-        "account--password-form",
-        "account--export",
-        "account--delete-confirmation",
-        "ai-settings--hosted",
-        "ai-settings--personal",
-        "ai-settings--missing-config",
-        "ai-settings--consent",
-        "ai-settings--connection-error",
-        "home--words-three--large-text",
-        "now-note--keyboard-long--large-text",
-        "chat--conversation--large-text",
-        "diary--long--large-text",
-        "timeline--populated--large-text",
-        "detail--transcript-expanded--large-text",
-        "account--local--large-text",
-        "ai-settings--personal--large-text"
-    ]
-    @MainActor func testRequiredPageStates() {
-        for caseID in cases {
+    @MainActor func test_login__email() { captureCase("login--email") }
+    @MainActor func test_login__password() { captureCase("login--password") }
+    @MainActor func test_login__code() { captureCase("login--code") }
+    @MainActor func test_login__reset() { captureCase("login--reset") }
+    @MainActor func test_login__error() { captureCase("login--error") }
+    @MainActor func test_home__mood_calm() { captureCase("home--mood-calm") }
+    @MainActor func test_home__mood_joyful() { captureCase("home--mood-joyful") }
+    @MainActor func test_home__mood_low() { captureCase("home--mood-low") }
+    @MainActor func test_home__words_empty() { captureCase("home--words-empty") }
+    @MainActor func test_home__words_three() { captureCase("home--words-three") }
+    @MainActor func test_classify__default() { captureCase("classify--default") }
+    @MainActor func test_now_note__empty() { captureCase("now-note--empty") }
+    @MainActor func test_now_note__written() { captureCase("now-note--written") }
+    @MainActor func test_now_note__keyboard_long() { captureCase("now-note--keyboard-long") }
+    @MainActor func test_past_time__empty() { captureCase("past-time--empty") }
+    @MainActor func test_past_time__preset() { captureCase("past-time--preset") }
+    @MainActor func test_past_time__custom() { captureCase("past-time--custom") }
+    @MainActor func test_chat__opening() { captureCase("chat--opening") }
+    @MainActor func test_chat__conversation() { captureCase("chat--conversation") }
+    @MainActor func test_chat__offline() { captureCase("chat--offline") }
+    @MainActor func test_chat__keyboard() { captureCase("chat--keyboard") }
+    @MainActor func test_chat__busy() { captureCase("chat--busy") }
+    @MainActor func test_diary__enabled() { captureCase("diary--enabled") }
+    @MainActor func test_diary__disabled() { captureCase("diary--disabled") }
+    @MainActor func test_diary__editing() { captureCase("diary--editing") }
+    @MainActor func test_diary__long() { captureCase("diary--long") }
+    @MainActor func test_timeline__empty() { captureCase("timeline--empty") }
+    @MainActor func test_timeline__populated() { captureCase("timeline--populated") }
+    @MainActor func test_detail__now() { captureCase("detail--now") }
+    @MainActor func test_detail__past() { captureCase("detail--past") }
+    @MainActor func test_detail__transcript_expanded() { captureCase("detail--transcript-expanded") }
+    @MainActor func test_detail__missing() { captureCase("detail--missing") }
+    @MainActor func test_detail__delete_confirmation() { captureCase("detail--delete-confirmation") }
+    @MainActor func test_card__planet_letter() { captureCase("card--planet-letter") }
+    @MainActor func test_card__orbit_theatre() { captureCase("card--orbit-theatre") }
+    @MainActor func test_account__local() { captureCase("account--local") }
+    @MainActor func test_account__remote() { captureCase("account--remote") }
+    @MainActor func test_account__password_form() { captureCase("account--password-form") }
+    @MainActor func test_account__export() { captureCase("account--export") }
+    @MainActor func test_account__delete_confirmation() { captureCase("account--delete-confirmation") }
+    @MainActor func test_ai_settings__hosted() { captureCase("ai-settings--hosted") }
+    @MainActor func test_ai_settings__personal() { captureCase("ai-settings--personal") }
+    @MainActor func test_ai_settings__missing_config() { captureCase("ai-settings--missing-config") }
+    @MainActor func test_ai_settings__consent() { captureCase("ai-settings--consent") }
+    @MainActor func test_ai_settings__connection_error() { captureCase("ai-settings--connection-error") }
+    @MainActor func test_home__words_three__large_text() { captureCase("home--words-three--large-text") }
+    @MainActor func test_now_note__keyboard_long__large_text() { captureCase("now-note--keyboard-long--large-text") }
+    @MainActor func test_chat__conversation__large_text() { captureCase("chat--conversation--large-text") }
+    @MainActor func test_diary__long__large_text() { captureCase("diary--long--large-text") }
+    @MainActor func test_timeline__populated__large_text() { captureCase("timeline--populated--large-text") }
+    @MainActor func test_detail__transcript_expanded__large_text() { captureCase("detail--transcript-expanded--large-text") }
+    @MainActor func test_account__local__large_text() { captureCase("account--local--large-text") }
+    @MainActor func test_ai_settings__personal__large_text() { captureCase("ai-settings--personal--large-text") }
+    @MainActor private func captureCase(_ caseID: String) {
             let app = XCUIApplication()
             app.launchArguments = ["--uitest-id", UUID().uuidString, "--parity-case", caseID]
             app.launch()
@@ -82,6 +79,7 @@ final class ParityCaptureTests: XCTestCase {
                 }
                 XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), caseID)
                 Thread.sleep(forTimeInterval: 0.4)
+                parityAssertKeyboardVisible(in: app)
             }
             assertParityState(caseID, in: app)
             if caseID == "login--error" { XCTAssertTrue(parityProbe("login-error-message", in: app).isHittable) }
@@ -89,7 +87,7 @@ final class ParityCaptureTests: XCTestCase {
             if caseID.contains("confirmation") {
                 attach(caseID + "--top", app: app)
                 assertParityState(caseID, in: app)
-                app.terminate(); continue
+                app.terminate(); return
             }
             var remainingImages = 60
             if caseID.hasPrefix("now-note--keyboard-long") {
@@ -107,26 +105,31 @@ final class ParityCaptureTests: XCTestCase {
             }
             assertParityState(caseID, in: app)
             app.terminate()
-        }
     }
 
     @MainActor private func captureEntireViewport(_ caseID: String, region: String, identifier: String, app: XCUIApplication, remainingImages: inout Int) {
         let prefix = caseID + (region == "editor" ? "--editor" : "")
         let keyboardRequired = caseID.contains("--keyboard")
         let edge = identifier != "parity-scroll-note-editor"
-        var measured = parityViewport(identifier, in: app)
+        func measuredViewport() -> ParityMeasuredViewport {
+            keyboardRequired ? parityStableViewport(identifier, in: app) : parityViewport(identifier, in: app)
+        }
+        var measured = measuredViewport()
         // Focus and lazy layout may start inside the content. Measure, then return
         // through real gestures to the top before claiming top coverage.
         for _ in 0..<60 {
             if measured.offset <= 1 { break }
             let previous = measured.offset
             parityDrag(measured.frame, downward: true, in: app, edge: edge)
-            measured = parityViewport(identifier, in: app)
+            measured = measuredViewport()
             XCTAssertLessThan(measured.offset, previous - 0.5, "Cannot reach top: \(caseID)")
         }
         XCTAssertLessThanOrEqual(measured.offset, 1, "Top was not reached: \(caseID)")
         XCTAssertGreaterThan(remainingImages, 0)
-        if keyboardRequired { XCTAssertTrue(app.keyboards.firstMatch.exists) }
+        if keyboardRequired {
+            parityAssertKeyboardVisible(in: app)
+            if caseID.hasPrefix("now-note--") { parityAssertNoteActionsSeparated(in: app) }
+        }
         attach(prefix + "--top", app: app, metrics: measured, region: region, probe: identifier)
         remainingImages -= 1
         var finished = measured.maxOffset <= 1
@@ -138,10 +141,13 @@ final class ParityCaptureTests: XCTestCase {
             // Use a shorter first gesture, then verify its actual measured result.
             let distance = step == 1 ? min(measured.frame.height * 0.7, measured.maxOffset / 2) : nil
             parityDrag(measured.frame, downward: false, in: app, edge: edge, distance: distance)
-            measured = parityViewport(identifier, in: app)
+            measured = measuredViewport()
             // Store failed geometry too; a capture command must not silently
             // turn an unmeasured gap into successful visual coverage.
-            if keyboardRequired { XCTAssertTrue(app.keyboards.firstMatch.exists) }
+            if keyboardRequired {
+                parityAssertKeyboardVisible(in: app)
+                if caseID.hasPrefix("now-note--") { parityAssertNoteActionsSeparated(in: app) }
+            }
             attach(prefix + "--scroll-\(step)", app: app, metrics: measured, region: region, probe: identifier)
             remainingImages -= 1
             XCTAssertEqual(measured.frame.height, previous.frame.height, accuracy: 1, "Viewport changed during coverage: \(caseID)")
@@ -163,7 +169,15 @@ final class ParityCaptureTests: XCTestCase {
     }
 
     @MainActor private func attach(_ name: String, app: XCUIApplication, metrics: ParityMeasuredViewport? = nil, region: String = "page", probe: String? = nil) {
-        let attachment = XCTAttachment(screenshot: app.screenshot())
+        let screenshot = app.screenshot()
+        // A saved image must describe the same scroll position as its receipt.
+        // Check after screenshot acquisition as well; never pair stale geometry
+        // with a later image or silently accept an uninspected jump.
+        let afterScreenshot: ParityMeasuredViewport?
+        if metrics != nil, let probe, name.contains("--keyboard") {
+            afterScreenshot = parityViewport(probe, in: app)
+        } else { afterScreenshot = nil }
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
         let tree = XCTAttachment(string: app.debugDescription)
         tree.name = name + "--accessibility"; tree.lifetime = .keepAlways; add(tree)
@@ -171,11 +185,19 @@ final class ParityCaptureTests: XCTestCase {
             let evidence: [String: Any] = ["region": region, "probe": probe ?? "", "raw": metrics.raw, "scrollOffset": metrics.offset,
                 "totalContentHeight": metrics.contentHeight, "viewportHeight": metrics.frame.height,
                 "maxScrollOffset": metrics.maxOffset,
+                "geometryBracketChecked": afterScreenshot != nil,
+                "geometryBracketMatched": afterScreenshot.map { paritySameViewport(metrics, $0) } ?? true,
+                "afterScreenshotRaw": afterScreenshot?.raw ?? metrics.raw,
                 "visibleFrame": ["x": metrics.frame.minX, "y": metrics.frame.minY,
                                  "width": metrics.frame.width, "height": metrics.frame.height]]
             let data = try! JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys, .prettyPrinted])
             let receipt = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
             receipt.name = name + "--geometry"; receipt.lifetime = .keepAlways; add(receipt)
+        }
+        // Retain the failed image and both measurements before XCTest aborts.
+        if let metrics, let afterScreenshot {
+            XCTAssertTrue(paritySameViewport(metrics, afterScreenshot),
+                          "Geometry changed while acquiring screenshot: \(name)")
         }
     }
 }

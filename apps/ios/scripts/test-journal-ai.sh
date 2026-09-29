@@ -6,7 +6,8 @@ set -euo pipefail
 # download is needed. AccountModel is the explicit test stub in the harness.
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ios_directory="$(cd -- "$script_directory/.." && pwd)"
-test_root="$(mktemp -d "${TMPDIR:-/tmp}/milo-journal-ai.XXXXXX")"
+mkdir -p "$ios_directory/.test-work"
+test_root="$(mktemp -d "$ios_directory/.test-work/journal-ai.XXXXXX")"
 trap 'rm -rf -- "$test_root"' EXIT
 
 swift_compiler="$(xcrun --find swiftc)"

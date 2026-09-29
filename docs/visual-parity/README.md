@@ -1,6 +1,26 @@
-# MILO 鸿蒙 / iOS 逐页验收
+# MILO 跨平台逐页验收
 
-这里保存当前鸿蒙产品的参考指纹、53 个必需页面/状态及后续真实截图。
+## 当前阶段：Web / iOS（2026-09-29）
+
+用户已将本轮参考改为实际公开Web产品 `https://milo.huangtangai.top/app`，不启动鸿蒙App。当前计划见[Web参考与原生迭代](web-native-plan-2026-09-29.md)，实际进展见[本轮记录](../operations/ios-web-native-iteration-2026-09-29.md)。
+
+- `web-cases.json` 保留全部53个原生状态：28共享、17原生独有、8最大字号压力状态；没有匹配原图或独立审查时保持pending。
+- `web-parity-gate.mjs` 校验原生PNG、实际Web PNG/JPEG原图、构建/运行回执、页面及编辑器连续覆盖、图像绑定的独立作者审查和真实动效证据。JPEG通过macOS自带ImageIO完整解码；非macOS缺少该能力时明确失败，不猜测通过。
+- 截图工具报告的网页devicePixelRatio可能不同于返回原图的实际像素倍率，以原图宽高为准。改后缀或转码不能补造图像来源。
+- `specdrive.web-native.json` 是本阶段执行清单；本机继续 `.specdrive/web-native-20260929`，不得重新初始化来绕过原有执行上限。
+- 所有新证据与临时产物留在当前项目；原始截图和私有数据不提交Git。
+
+```sh
+node --test apps/ios/tests/web-parity-gate.test.mjs
+node apps/ios/scripts/web-parity-gate.mjs
+node .agents/skills/specdrive/scripts/specdrive.mjs status .specdrive/web-native-20260929
+```
+
+## 历史鸿蒙参考契约
+
+以下记录保留历史参考及工具接口，不能换标题后冒充本轮Web验收。
+
+这里保存此前鸿蒙产品的参考指纹、53 个必需页面/状态及后续真实截图。
 `cases.json` 中的 `pending`、空图片和空评审代表尚未完成，不能用早期 iOS
 离线试验的几张图替代。本工具不生成截图或评审通过凭据。
 
@@ -14,7 +34,7 @@ node apps/ios/scripts/parity-evidence.mjs hash-build --path apps/ios/DerivedData
 node apps/ios/scripts/parity-evidence.mjs hash-fixture --case login--email
 node apps/ios/scripts/parity-evidence.mjs hash-captures --case login--email
 node apps/ios/scripts/parity-evidence.mjs validate
-node apps/ios/scripts/parity-evidence.mjs report --output /tmp/milo-parity-report.html
+node apps/ios/scripts/parity-evidence.mjs report --output .artifacts/ios/harmony-history-report.html
 node --test apps/ios/tests/parity-evidence.test.mjs
 ```
 

@@ -149,7 +149,7 @@ func assertParityState(_ caseID: String, in app: XCUIApplication) {
         let send = check.require(app.buttons["send-message"])
         XCTAssertEqual(send.isEnabled, parts[1] == "keyboard", caseID)
         if parts[1] == "busy" {
-            check.require(app.progressIndicators.firstMatch)
+            check.require(check.element("chat-thinking-progress"))
             check.require(app.staticTexts["回响正在靠近…"])
             XCTAssertFalse(app.buttons["finish-chat"].exists, caseID)
             XCTAssertFalse(check.require(app.buttons["语音输入"]).isEnabled, caseID)

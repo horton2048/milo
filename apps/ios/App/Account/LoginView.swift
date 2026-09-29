@@ -68,8 +68,9 @@ struct LoginView: View {
                 .frame(maxWidth: .infinity).disabled(account.isBusy)
         }.parityScrollMetrics("account-login")
             .scrollIndicators(.hidden).scrollDismissesKeyboard(.interactively)
-            .background(MiloBackground()).onAppear(perform: applyFixture)
+            .onAppear(perform: applyFixture)
             .onDisappear { password = ""; newPassword = ""; code = "" }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("page-login")
     }
 

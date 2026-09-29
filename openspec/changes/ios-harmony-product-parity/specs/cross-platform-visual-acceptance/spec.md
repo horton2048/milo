@@ -44,3 +44,7 @@ The paired capture manifest SHALL record actual system text size and every requi
 #### Scenario: System text sizes differ across platforms
 - **WHEN** iOS accessibility5 and Harmony's largest supported setting have different pixel sizes
 - **THEN** the reviewer records both actual settings and checks equivalent content, readable wrapping and reachable actions rather than claiming pixel identity
+
+## 2026-09-29 user-authorized scope amendment
+
+The current reference is the actual public Web experience at https://milo.huangtangai.top/app, per the user's explicit direction; do not launch HarmonyOS. Preserve the prior Harmony evidence as historical. Develop only in /Users/hut/Projects/milo. The current phase restores Web starfield/touch motion and page semantics while improving native iOS controls, retains all 53 native state checks, and records Web-absent native states separately without fabricating reference screenshots. See docs/visual-parity/web-native-plan-2026-09-29.md for the reviewed implementation and acceptance plan. This amendment supersedes the prior requirement to use a sibling worktree or to obtain new Harmony runtime captures for this phase; real account/device release claims remain separate.

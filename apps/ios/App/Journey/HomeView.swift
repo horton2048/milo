@@ -15,7 +15,7 @@ struct HomeView: View {
                         moodContent
                     }
                 }.font(.subheadline).foregroundStyle(MiloTheme.dim).padding(.horizontal, 24).padding(.top, 8)
-                    .frame(minHeight: max(500, geometry.size.height - 20))
+                    .frame(minHeight: max(500, geometry.size.height - 20), alignment: .top)
             }.parityScrollMetrics("home").scrollIndicators(.hidden)
         }
     }
@@ -39,22 +39,16 @@ struct HomeView: View {
 
     private var moodContent: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                Text("此刻，你感受到的是？").font(.title2).foregroundStyle(MiloTheme.ink)
-                Text("点选最贴近的一颗星，我们陪你继续").font(.footnote).foregroundStyle(MiloTheme.hint)
-            }.multilineTextAlignment(.center).padding(.top, 18)
-            Spacer(minLength: 22)
             MoodOrbit(mood: $model.draft.mood)
-                .frame(height: textSize.isAccessibilitySize ? 370 : 350)
+                .frame(height: 400)
+                .padding(.top, 36)
                 .padding(.horizontal, -24)
-            Spacer(minLength: 20)
-            Text(model.draft.mood.title).font(MiloTheme.serif(22)).foregroundStyle(MiloTheme.ink)
             Text("沿圆环旋转，或点击任意情绪直接切换")
-                .font(.caption).foregroundStyle(MiloTheme.hint).multilineTextAlignment(.center).padding(.top, 6).padding(.bottom, 22)
+                .font(.caption).foregroundStyle(MiloTheme.hint).multilineTextAlignment(.center).padding(.top, 12).padding(.bottom, 22)
             MiloPrimaryButton(title: "就是这种感觉") {
                 model.beginMoodWords()
-            }.accessibilityIdentifier("confirm-mood").padding(.bottom, 24)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }.accessibilityIdentifier("confirm-mood").frame(maxWidth: 240).padding(.bottom, 24)
+        }.frame(maxWidth: .infinity)
     }
     private var wordContent: some View {
         VStack(spacing: 0) {
@@ -86,21 +80,21 @@ private struct MoodOrbit: View {
             let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
             ZStack {
                 Circle().stroke(.white.opacity(dragging ? 0.32 : 0.2), style: StrokeStyle(lineWidth: 0.7, dash: [1, 4]))
-                    .frame(width: 240, height: 240).position(center)
-                MoodPlanet(mood: moods[active], size: 195).position(center)
+                    .frame(width: 288, height: 288).position(center)
+                MoodPlanet(mood: moods[active], size: 246).position(center)
                 ForEach(Array(moods.enumerated()), id: \.element.id) { index, item in
                     let angle = (180 + (Double(index) - position) * 360 / 7) * .pi / 180
                     let selected = index == active
                     Rectangle().fill(.white.opacity(selected ? 0.9 : 0.4))
                         .frame(width: 1, height: selected ? 18 : 10)
                         .rotationEffect(.radians(angle))
-                        .position(x: center.x + sin(angle) * 114, y: center.y - cos(angle) * 114)
+                        .position(x: center.x + sin(angle) * 144, y: center.y - cos(angle) * 144)
                     Button { settle(Double(index) + ((position - Double(index)) / 7).rounded() * 7) } label: {
                         Text(item.title).font(MiloTheme.serif(selected ? 22 : 12, relativeTo: .caption))
                             .foregroundStyle(selected ? .white : item.valence > 0 ? Color(red: 0.95, green: 0.86, blue: 0.75) : MiloTheme.dim)
                             .fixedSize().padding(8).frame(minWidth: 44, minHeight: 44)
                     }.buttonStyle(.plain)
-                        .position(x: center.x + sin(angle) * 147, y: center.y - cos(angle) * 147)
+                        .position(x: center.x + sin(angle) * 174, y: center.y - cos(angle) * 174)
                         .accessibilityIdentifier("mood-\(item.rawValue)")
                         .accessibilityAddTraits(selected ? .isSelected : [])
                 }

@@ -24,8 +24,12 @@ jobs:
           node-version: '22'
       - name: Install pinned planning CLI
         run: npm ci --prefix apps/ios --ignore-scripts
+      - name: Test Web reference evidence validation
+        run: node --test apps/ios/tests/web-parity-gate.test.mjs
+      - name: Resolve packages before source fingerprinting
+        run: xcodebuild -resolvePackageDependencies -project apps/ios/Milo.xcodeproj -scheme Milo -derivedDataPath apps/ios/DerivedData
       - name: Initialize current product verification
-        run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.parity.json --project . --state apps/ios/.specdrive/ci-parity
+        run: node .agents/skills/specdrive/scripts/specdrive.mjs init apps/ios/specdrive.web-native.json --project . --state apps/ios/.specdrive/ci-parity
       - name: Execute required checks
         continue-on-error: true
         run: node .agents/skills/specdrive/scripts/specdrive.mjs run apps/ios/.specdrive/ci-parity
@@ -50,6 +54,6 @@ jobs:
             apps/ios/.specdrive/ci-parity
             docs/visual-parity
           retention-days: 14
-      - name: Enforce full product acceptance
+      - name: Enforce current product acceptance (external evidence remains required)
         if: always()
         run: node .agents/skills/specdrive/scripts/specdrive.mjs gate apps/ios/.specdrive/ci-parity

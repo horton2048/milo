@@ -15,76 +15,13 @@ enum MiloTheme {
     }
 }
 
-struct MiloBackground: View {
-    @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var burstPoint: CGPoint?
-    @State private var burstStartedAt = Date.distantPast
-    private var freezeMotion: Bool {
-        #if DEBUG
-        if ParityFixture.id != nil { return true }
-        #endif
-        return reduceMotion || scenePhase != .active
-    }
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                MiloTheme.background
-                Ellipse().fill(MiloTheme.accent.opacity(0.045))
-                    .frame(width: geometry.size.width * 1.1, height: geometry.size.height * 0.56)
-                    .blur(radius: 65).offset(x: -80, y: -100)
-                SwiftUI.TimelineView(.animation(minimumInterval: 1.0 / 30, paused: freezeMotion)) { timeline in
-                    let time = freezeMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
-                    let burstAge = timeline.date.timeIntervalSince(burstStartedAt)
-                    let burst = freezeMotion ? 0 : burstAmount(at: burstAge)
-                    Canvas { context, size in
-                        let count = max(18, Int(size.width * size.height / 4200))
-                        for index in 0..<count {
-                            let phase = Double(index) * 1.731
-                            let driftX = sin(time * 0.06 + phase) * 1.3
-                            let driftY = cos(time * 0.05 + phase) * 1.7
-                            var x = Double((index * 7919 + 137) % 10000) / 10000 * size.width + driftX
-                            var y = Double((index * 3571 + 631) % 10000) / 10000 * size.height + driftY
-                            let radius = index % 5 == 0 ? 0.8 : 0.45
-                            var opacity = (index % 3 == 0 ? 0.33 : 0.16) + sin(time * 0.35 + phase) * 0.06
-                            if let point = burstPoint, burst > 0 {
-                                let dx = x - point.x, dy = y - point.y
-                                let distance = hypot(dx, dy)
-                                if distance > 0.001 && distance < 170 {
-                                    let falloff = 1 - distance / 170
-                                    let displacement = 36 * falloff * falloff * burst
-                                    x += dx / distance * displacement
-                                    y += dy / distance * displacement
-                                    opacity *= 1 - 0.45 * falloff * burst
-                                }
-                            }
-                            context.fill(Path(ellipseIn: CGRect(x: x, y: y, width: radius * 2, height: radius * 2)), with: .color(MiloTheme.dim.opacity(opacity)))
-                        }
-                    }
-                }
-            }.contentShape(Rectangle())
-                .onTapGesture { location in
-                    guard !freezeMotion else { return }
-                    burstPoint = location; burstStartedAt = .now
-                }
-        }.ignoresSafeArea().allowsHitTesting(!freezeMotion).accessibilityHidden(true)
-    }
-    private func burstAmount(at age: TimeInterval) -> Double {
-        guard age >= 0, age < 1.06 else { return 0 }
-        if age < 0.3 { return 1 - pow(1 - age / 0.3, 3) }
-        if age < 0.42 { return 1 }
-        let progress = (age - 0.42) / 0.64
-        return 1 - progress * progress * (3 - 2 * progress)
-    }
-}
-
 struct MiloPrimaryButton: View {
     let title: String
     var action: () -> Void
     @Environment(\.isEnabled) private var isEnabled
     var body: some View {
         Button(action: action) {
-            Text(title).font(.body.weight(.medium)).tracking(1.2)
+            Text(title).font(.body.weight(.semibold)).tracking(0.5)
                 .multilineTextAlignment(.center).padding(.horizontal, 18).padding(.vertical, 15)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .foregroundStyle(.white)
@@ -98,20 +35,24 @@ struct MiloPrimaryButton: View {
 struct MiloGlassButton: View {
     let title: String
     var action: () -> Void
+    @Environment(\.isEnabled) private var isEnabled
     var body: some View {
         Button(action: action) {
-            Text(title).font(.body).foregroundStyle(MiloTheme.dim)
+            Text(title).font(.body.weight(.medium)).foregroundStyle(MiloTheme.dim)
                 .padding(.horizontal, 18).padding(.vertical, 13).frame(maxWidth: .infinity, minHeight: 48)
                 .background(LinearGradient(colors: [.white.opacity(0.12), .white.opacity(0.025)], startPoint: .top, endPoint: .bottom), in: Capsule())
                 .overlay(Capsule().stroke(.white.opacity(0.14), lineWidth: 0.7))
-        }.buttonStyle(MiloPressStyle())
+        }.buttonStyle(MiloPressStyle()).opacity(isEnabled ? 1 : 0.38)
     }
 }
 
 struct MiloPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -119,11 +60,12 @@ struct MiloBackButton: View {
     var action: () -> Void
     var body: some View {
         Button(action: action) {
-            Image(systemName: "arrow.left").font(.system(size: 16, weight: .light))
-                .foregroundStyle(MiloTheme.dim).frame(width: 44, height: 44)
-                .background(.white.opacity(0.035), in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.09), lineWidth: 0.7))
-        }.buttonStyle(.plain).accessibilityLabel("返回").accessibilityIdentifier("back")
+            Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(MiloTheme.ink).frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().stroke(.white.opacity(0.14), lineWidth: 0.7))
+                .contentShape(Circle())
+        }.buttonStyle(MiloPressStyle()).accessibilityLabel("返回").accessibilityIdentifier("back")
     }
 }
 

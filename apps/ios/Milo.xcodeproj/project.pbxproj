@@ -14,6 +14,7 @@
 		190D069FE45F5026DFBC7C74 /* mood_sheet_01.png in Resources */ = {isa = PBXBuildFile; fileRef = DC7931D568D3A57506B6777C /* mood_sheet_01.png */; };
 		194F5B521C7CD19911196BDB /* ParityCaptureGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C8A6F5E7E437F52994E2F34 /* ParityCaptureGeometry.swift */; };
 		21DC1FAF5555705AC802A8AA /* mood_sheet_04.png in Resources */ = {isa = PBXBuildFile; fileRef = E622B38DD893C91CFF2D502D /* mood_sheet_04.png */; };
+		227909589693F9BF921F38A2 /* GalaxyMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCEC0834EA9626ABFB0181B9 /* GalaxyMotionTests.swift */; };
 		28916FADBB885D911D38C8D5 /* CardArtworkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95522B68E072C458C9FD1C8C /* CardArtworkView.swift */; };
 		340D0A2F0A6C47715566F53D /* mood_sheet_02.png in Resources */ = {isa = PBXBuildFile; fileRef = 6188CB5F5362EA18346BEA90 /* mood_sheet_02.png */; };
 		3CC0AE502091733F3FEEC5E5 /* MiloCore in Frameworks */ = {isa = PBXBuildFile; productRef = 28C02AC18D2A4E6B55F1E514 /* MiloCore */; };
@@ -30,7 +31,9 @@
 		BCEC2783C74F5A9F209803FF /* mood_sheet_05.png in Resources */ = {isa = PBXBuildFile; fileRef = 8DF7E8AD29B11E6A9C025079 /* mood_sheet_05.png */; };
 		BF23A8FBCF806834DFEE925A /* RecallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E9127460BEEEEE9E22C4D22 /* RecallViews.swift */; };
 		C005A0FD0A45DA02CB25B165 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBDAA2B6472FDA7DE79AFEC /* TimelineView.swift */; };
+		CA1BB1026D417B4891D28F16 /* MiloGalaxy.metal.txt in Resources */ = {isa = PBXBuildFile; fileRef = AD0CD881D88255A38A6942E4 /* MiloGalaxy.metal.txt */; };
 		D0176791BFCD75E9B96E176D /* MiloTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77063930A92E72BFC56298E2 /* MiloTheme.swift */; };
+		D20E2AE093C02CA9C36C9800 /* MiloGalaxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */; };
 		DC868099C8EE46428267FFA8 /* ParityCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0980BD42920B105877E8AA24 /* ParityCaptureTests.swift */; };
 		DCBDCCD363F7D8795998AA41 /* MiloUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FC4A7B64148FA83865CA00 /* MiloUITests.swift */; };
 		E6F41A508B2C17F1DC814EBA /* ParityStateAssertions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE18E104E7A0D33E31E0DE91 /* ParityStateAssertions.swift */; };
@@ -59,6 +62,7 @@
 		3C8A6F5E7E437F52994E2F34 /* ParityCaptureGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParityCaptureGeometry.swift; sourceTree = "<group>"; };
 		3E9127460BEEEEE9E22C4D22 /* RecallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallViews.swift; sourceTree = "<group>"; };
 		451EE8691B7C6F8D16860831 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloGalaxy.swift; sourceTree = "<group>"; };
 		6188CB5F5362EA18346BEA90 /* mood_sheet_02.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_02.png; sourceTree = "<group>"; };
 		6292C7B1EAF5220A936506E9 /* JournalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalModel.swift; sourceTree = "<group>"; };
 		709FDA63B44B81B458DFB961 /* SpeechInputModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechInputModel.swift; sourceTree = "<group>"; };
@@ -70,8 +74,10 @@
 		93A44D17BD0C29F449941D9D /* AccountModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountModel.swift; sourceTree = "<group>"; };
 		95522B68E072C458C9FD1C8C /* CardArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardArtworkView.swift; sourceTree = "<group>"; };
 		971C915147403DF3835B023F /* AccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountView.swift; sourceTree = "<group>"; };
+		AD0CD881D88255A38A6942E4 /* MiloGalaxy.metal.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = MiloGalaxy.metal.txt; sourceTree = "<group>"; };
 		AEE93223F5A00BD7F17AD8F4 /* MiloCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = MiloCore; path = MiloCore; sourceTree = SOURCE_ROOT; };
 		B41BA0061468AC788E9C640C /* MemoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryDetailView.swift; sourceTree = "<group>"; };
+		BCEC0834EA9626ABFB0181B9 /* GalaxyMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalaxyMotionTests.swift; sourceTree = "<group>"; };
 		C2370CD6673DEC8F45813EA1 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		D7D4640E726EFCCD79596C54 /* AISettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISettingsView.swift; sourceTree = "<group>"; };
 		DC7931D568D3A57506B6777C /* mood_sheet_01.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_01.png; sourceTree = "<group>"; };
@@ -107,6 +113,7 @@
 		1C8DF115D6A7EB1A1B29F01B /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				BCEC0834EA9626ABFB0181B9 /* GalaxyMotionTests.swift */,
 				20FC4A7B64148FA83865CA00 /* MiloUITests.swift */,
 				3C8A6F5E7E437F52994E2F34 /* ParityCaptureGeometry.swift */,
 				0980BD42920B105877E8AA24 /* ParityCaptureTests.swift */,
@@ -118,6 +125,7 @@
 		206DC18E2357B47A6D742F54 /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */,
 				77063930A92E72BFC56298E2 /* MiloTheme.swift */,
 				1FBB7B6AB55CDC51F9C6B0BB /* ParityScrollMetrics.swift */,
 			);
@@ -157,6 +165,7 @@
 		AC30BAB2FDB063B2F5F1A5CC /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				AD0CD881D88255A38A6942E4 /* MiloGalaxy.metal.txt */,
 				DC7931D568D3A57506B6777C /* mood_sheet_01.png */,
 				6188CB5F5362EA18346BEA90 /* mood_sheet_02.png */,
 				82E65E18F112770FB00CFA44 /* mood_sheet_03.png */,
@@ -289,6 +298,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CA1BB1026D417B4891D28F16 /* MiloGalaxy.metal.txt in Resources */,
 				4096FFB016B611F6E1DF0A3B /* PrivacyInfo.xcprivacy in Resources */,
 				190D069FE45F5026DFBC7C74 /* mood_sheet_01.png in Resources */,
 				340D0A2F0A6C47715566F53D /* mood_sheet_02.png in Resources */,
@@ -305,6 +315,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				227909589693F9BF921F38A2 /* GalaxyMotionTests.swift in Sources */,
 				DCBDCCD363F7D8795998AA41 /* MiloUITests.swift in Sources */,
 				194F5B521C7CD19911196BDB /* ParityCaptureGeometry.swift in Sources */,
 				DC868099C8EE46428267FFA8 /* ParityCaptureTests.swift in Sources */,
@@ -328,6 +339,7 @@
 				52EB9FF2293381CABB11CF23 /* MemoryCardView.swift in Sources */,
 				FAA60940DBB27DF4BF82F1D0 /* MemoryDetailView.swift in Sources */,
 				0BF202F187DE9BA084D02594 /* MiloApp.swift in Sources */,
+				D20E2AE093C02CA9C36C9800 /* MiloGalaxy.swift in Sources */,
 				D0176791BFCD75E9B96E176D /* MiloTheme.swift in Sources */,
 				14A0F8346F315B6CCD6515B4 /* ParityScrollMetrics.swift in Sources */,
 				BF23A8FBCF806834DFEE925A /* RecallViews.swift in Sources */,

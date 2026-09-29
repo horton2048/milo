@@ -8,3 +8,5 @@ xcuserdata/
 .specdrive/
 node_modules/
 evidence/
+
+.test-work/

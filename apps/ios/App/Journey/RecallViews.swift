@@ -62,14 +62,25 @@ struct NowNoteView: View {
                     }
             }
         }.safeAreaInset(edge: .bottom) {
-            MiloPrimaryButton(title: "收藏这一刻") { editing = false; model.save() }
-                .disabled(!model.isLoaded || model.isSaving).accessibilityIdentifier("save-now")
-                .padding(.horizontal, 24).padding(.vertical, 14).background(MiloTheme.background)
-        }.toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("完成编辑") { editing = false }.accessibilityIdentifier("note-editor-done")
-            }
+            // iOS 26's keyboard toolbar floats over the save action. Keep both
+            // controls in the measured inset so the editor reserves their space.
+            VStack(spacing: 10) {
+                if editing {
+                    HStack {
+                        Spacer()
+                        Button { editing = false } label: {
+                            Text("完成编辑").font(.subheadline.weight(.medium))
+                                .foregroundStyle(MiloTheme.dim)
+                                .padding(.horizontal, 16).padding(.vertical, 10)
+                                .frame(minHeight: 44)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }.buttonStyle(MiloPressStyle())
+                            .accessibilityIdentifier("note-editor-done")
+                    }
+                }
+                MiloPrimaryButton(title: "收藏这一刻") { editing = false; model.save() }
+                    .disabled(!model.isLoaded || model.isSaving).accessibilityIdentifier("save-now")
+            }.padding(.horizontal, 24).padding(.vertical, 14).background(MiloTheme.background)
         }
     }
     private func noteEditor(height: CGFloat) -> some View {
@@ -128,7 +139,7 @@ struct PastTimeView: View {
                     .overlay(Capsule().stroke(.white.opacity(0.1), lineWidth: 0.7)).accessibilityIdentifier("custom-time")
             }.padding(.horizontal, 28).padding(.bottom, 24)
         }.parityScrollMetrics("journey-past-time")
-            .scrollDismissesKeyboard(.interactively)
+            .scrollDismissesKeyboard(.never)
             .safeAreaInset(edge: .bottom) {
                 MiloPrimaryButton(title: "回到那时") { model.startConversation(time: mark) }
                     .disabled(mark.isEmpty).accessibilityIdentifier("start-chat")
@@ -175,14 +186,20 @@ struct ChatView: View {
                                 if message.role == .ai { Spacer(minLength: 35) }
                             }.id(index).accessibilityIdentifier("message-\(index)")
                         }
-                        if model.isThinking { HStack { ProgressView().tint(MiloTheme.dim); Text("回响正在靠近…").font(.caption).foregroundStyle(MiloTheme.hint); Spacer() } }
+                        if model.isThinking { HStack { ProgressView().tint(MiloTheme.dim).accessibilityLabel("正在生成回复").accessibilityIdentifier("chat-thinking-progress"); Text("回响正在靠近…").font(.caption).foregroundStyle(MiloTheme.hint); Spacer() } }
                         Color.clear.frame(height: 1).id("bottom")
                     }.padding(.horizontal, 24).padding(.vertical, 20)
                 }.parityScrollMetrics("journey-chat")
-                    .scrollDismissesKeyboard(.interactively)
+                    .defaultScrollAnchor(.bottom)
+                    .scrollDismissesKeyboard(.never)
                     .onChange(of: model.draft.transcript.count) { _, _ in withAnimation { reader.scrollTo("bottom", anchor: .bottom) } }
             }
             composer
+        }.toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成编辑") { editing = false }.accessibilityIdentifier("chat-editor-done")
+            }
         }.onDisappear { speech.stop() }
             .onChange(of: speech.transcript) { _, text in
                 guard !text.isEmpty else { return }
@@ -268,7 +285,7 @@ struct DiaryView: View {
                 }
             }.padding(.horizontal, 24).padding(.bottom, 28)
         }.parityScrollMetrics("journey-diary")
-            .scrollDismissesKeyboard(.interactively)
+            .scrollDismissesKeyboard(.never)
             .safeAreaInset(edge: .bottom) {
                 MiloPrimaryButton(title: "收进回忆") { editorFocused = false; editing = false; model.save() }
                     .disabled(!model.isLoaded || model.isSaving || model.isThinking).accessibilityIdentifier("save-past")

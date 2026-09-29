@@ -109,6 +109,21 @@ private final class TextGeometryObserver: UIView {
     }
 }
 
+/// UIKit owns this leaf so parent SwiftUI identifiers cannot replace its identity.
+private struct ParityMetricLabel: UIViewRepresentable {
+    let identifier: String
+    let value: String
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isAccessibilityElement = true
+        view.isUserInteractionEnabled = false
+        view.accessibilityLabel = "Scroll geometry"
+        view.accessibilityIdentifier = identifier
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) { view.accessibilityValue = value }
+}
+
 @available(iOS 18.0, *)
 private struct ParityScrollProbe: ViewModifier {
     let identifier: String
@@ -121,11 +136,9 @@ private struct ParityScrollProbe: ViewModifier {
             }
             .overlay(alignment: .topLeading) {
                 GeometryReader { geometry in
-                    Color.clear.frame(width: 1, height: 1)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("Scroll geometry")
-                        .accessibilityIdentifier("parity-scroll-" + identifier)
-                        .accessibilityValue(sample?.json(frame: geometry.frame(in: .global)) ?? "pending")
+                    ParityMetricLabel(identifier: "parity-scroll-" + identifier,
+                                      value: sample?.json(frame: geometry.frame(in: .global)) ?? "pending")
+                        .frame(width: 1, height: 1)
                         .allowsHitTesting(false)
                 }.allowsHitTesting(false)
             }

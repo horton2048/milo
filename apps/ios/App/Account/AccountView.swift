@@ -53,7 +53,7 @@ struct AccountView: View {
             Button("注销账号") { showDelete = true }
                 .font(.footnote).foregroundStyle(MiloTheme.hint).frame(minHeight: 44)
                 .disabled(account.isBusy).accessibilityIdentifier("account-delete")
-        }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 16).background(MiloBackground())
+        }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 16)
             .alert("退出登录？", isPresented: $showLogout) {
                 Button("取消", role: .cancel) {}
                 Button("退出登录") { Task { if await account.signOut() { onLogout() } } }
@@ -82,6 +82,7 @@ struct AccountView: View {
             }
             .onAppear(perform: applyFixture)
             .onDisappear { code = ""; password = ""; confirmation = "" }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("page-account")
     }
 
@@ -185,7 +186,6 @@ struct AccountView: View {
         }.font(.subheadline).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
             .multilineTextAlignment(.leading)
             .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 12 : 0)
-            .accessibilityIdentifier(identifier)
     }
     private func accountLink(_ title: String, identifier: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Text(title).font(.footnote).foregroundStyle(MiloTheme.dim).frame(minHeight: 44, alignment: .leading) }

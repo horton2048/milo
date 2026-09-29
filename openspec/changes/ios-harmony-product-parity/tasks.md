@@ -26,3 +26,13 @@
 - [ ] 4.3 Run native build, core tests and both user journeys; preserve current logs and screenshot provenance in a new Specdrive run.
 - [ ] 4.4 Independently compare every required screenshot pair, record fidelity and concrete aesthetic improvements, repair findings and recapture affected cases; leave unmatched cases incomplete.
 - [ ] 4.5 Update the draft PR and user-facing acceptance report with actual coverage and outstanding device/service gaps; declare final product parity only when every required behavior and visual case passes.
+
+## 5. Web reference and native polish (user-authorized 2026-09-29)
+
+- [x] 5.1 Consolidate into the current project; verify and archive old evidence, remove obsolete sibling worktrees, preserve user edits.
+- [ ] 5.2 Capture actual Web product pages and motion references; record supported/native-only state mapping.
+- [x] 5.3 Independently review the updated scope and implementation plan. Evidence: `docs/visual-parity/web-native-plan-review.json` (round 2 approved; 53-state mapping and temporal criteria).
+- [ ] 5.4 Restore layered starfield and touch response; verify live and reduced-motion behavior without blocking controls.
+- [ ] 5.5 Refine iOS navigation/actions and repair template transition layout; verify real journeys, accessibility and both switch directions.
+- [ ] 5.6 Capture all 53 native states independently and review actual paired images and motion evidence.
+- [ ] 5.7 Run required current checks, update PR and merge the verified code milestone; report external release gaps separately.
