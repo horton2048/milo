@@ -64,7 +64,7 @@ try {
     run('xcrun',['simctl','terminate',device,'com.milo.echoes.ios']);
     if(action==='account-ui')run('xcrun',['simctl','status_bar',device,'override','--time','09:41','--batteryState','charged','--batteryLevel','100']);
     const resultBundle=path.join(evidence,`${action}-${stamp}.xcresult`);
-    const args=['-project','apps/ios/Milo.xcodeproj','-scheme','Milo','-configuration','Debug','-destination',`platform=iOS Simulator,id=${device}`,'-derivedDataPath','apps/ios/DerivedData','-resultBundlePath',resultBundle,'CODE_SIGNING_ALLOWED=NO','-parallel-testing-enabled','NO','-only-testing:'+(action==='account-tests'?'MiloAccountTests':'MiloUITests/AccountFunctionalTests'),'test-without-building'];
+    const args=['-project','apps/ios/Milo.xcodeproj','-scheme','Milo','-configuration','Debug','-destination',`platform=iOS Simulator,id=${device}`,'-derivedDataPath','apps/ios/DerivedData','-resultBundlePath',resultBundle,'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-','-parallel-testing-enabled','NO','-only-testing:'+(action==='account-tests'?'MiloAccountTests':'MiloUITests/AccountFunctionalTests'),'test-without-building'];
     const result=run('xcodebuild',args);
     const log=result.stdout+result.stderr;
     const logPath=path.join(evidence,`${action}-${stamp}.log`);

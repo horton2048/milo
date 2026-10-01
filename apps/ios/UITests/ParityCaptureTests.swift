@@ -3,7 +3,7 @@ import XCTest
 /// Captures real production views with isolated synthetic stores. These are
 /// candidates for comparison, never an automatic visual approval.
 final class ParityCaptureTests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+    override func setUp() { continueAfterFailure = false; recordTestBundleProvenance(Self.self) }
     @MainActor func test_login__email() { captureCase("login--email") }
     @MainActor func test_login__password() { captureCase("login--password") }
     @MainActor func test_login__code() { captureCase("login--code") }
@@ -111,6 +111,11 @@ final class ParityCaptureTests: XCTestCase {
         let prefix = caseID + (region == "editor" ? "--editor" : "")
         let keyboardRequired = caseID.contains("--keyboard")
         let edge = identifier != "parity-scroll-note-editor"
+        // At accessibility5 the 196pt editor contains 7,923pt of text. A 0.6
+        // pan advances only 104pt after UIKit recognizes it, exhausting the
+        // shared image budget. Use more of this small viewport while retaining
+        // the same measured overlap, screenshot budget and actual-bottom rule.
+        let forwardSpan = region == "editor" ? 0.88 : 0.6
         func measuredViewport() -> ParityMeasuredViewport {
             keyboardRequired ? parityStableViewport(identifier, in: app) : parityViewport(identifier, in: app)
         }
@@ -139,9 +144,29 @@ final class ParityCaptureTests: XCTestCase {
             let previous = measured
             // Even short overflowing pages need a real intermediate position.
             // Use a shorter first gesture, then verify its actual measured result.
-            let distance = step == 1 ? min(measured.frame.height * 0.7, measured.maxOffset / 2) : nil
-            parityDrag(measured.frame, downward: false, in: app, edge: edge, distance: distance)
+            let distance = step == 1 ? min(measured.frame.height * forwardSpan, measured.maxOffset / 2) : nil
+            parityDrag(measured.frame, downward: false, in: app, edge: edge, distance: distance, span: forwardSpan)
             measured = measuredViewport()
+            // A focused editor can cause its outer scroll view to overshoot a
+            // finger movement. Keep that original evidence, then use measured
+            // reverse/forward pans to reach an overlapping position. A bounded
+            // correction must succeed before any screenshot is called coverage.
+            let coverageLimit = previous.frame.height * 0.9 + 1
+            for correction in 0..<6 {
+                let progress = measured.offset - previous.offset
+                if progress > 0.5 && progress <= coverageLimit { break }
+                // Reserve one image for the final measured position; diagnostic
+                // captures consume the same 60-image budget as coverage images.
+                if remainingImages <= 1 { break }
+                attach(prefix + "--adjustment-\(step)-\(correction)", app: app,
+                       metrics: measured, region: region, probe: identifier)
+                remainingImages -= 1
+                let target = min(previous.maxOffset, previous.offset + previous.frame.height * 0.55)
+                let delta = measured.offset - target
+                parityDrag(measured.frame, downward: delta > 0, in: app, edge: edge,
+                           distance: max(24, abs(delta) + 10))
+                measured = measuredViewport()
+            }
             // Store failed geometry too; a capture command must not silently
             // turn an unmeasured gap into successful visual coverage.
             if keyboardRequired {

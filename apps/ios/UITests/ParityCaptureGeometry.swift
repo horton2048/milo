@@ -75,15 +75,28 @@ private func measuredRect(_ values: [String: Double]) -> CGRect {
                                   contentHeight: raw["contentHeight"] ?? 0, offset: max(0, offset))
 }
 
-@MainActor func parityDrag(_ frame: CGRect, downward: Bool, in app: XCUIApplication, edge: Bool, distance: Double? = nil) {
-    let x = edge ? frame.minX + min(12, frame.width * 0.04) : frame.midX
-    let startY = downward ? frame.minY + frame.height * 0.15 : frame.maxY - frame.height * 0.15
-    let movement = min(frame.height * 0.7, max(12, distance ?? frame.height * 0.7))
+@MainActor func parityDrag(_ frame: CGRect, downward: Bool, in app: XCUIApplication, edge: Bool,
+                          distance: Double? = nil, span: Double = 0.6) {
+    let x = edge ? frame.minX + min(22, frame.width * 0.06) : frame.midX
+    // Larger editor pans still begin/end inside its visible frame. The 0.88
+    // span leaves 6% at each edge and stays below the 0.9 coverage threshold;
+    // measured offsets, including pan recognition loss, remain authoritative.
+    let margin = frame.height * min(0.15, (1 - span) / 2)
+    let startY = downward ? frame.minY + margin : frame.maxY - margin
+    let movement = min(frame.height * span, max(12, distance ?? frame.height * span))
     let endY = startY + (downward ? movement : -movement)
     let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: startY))
     let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: endY))
-    start.press(forDuration: 0.08, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+    parityPan(from: start, to: end, distance: movement)
     Thread.sleep(forTimeInterval: 0.25)
+}
+
+/// Bound the touch movement to roughly 0.6 seconds instead of holding a slow
+/// multi-second gesture on long pages. The short stationary release prevents
+/// a flick; actual offsets (never requested distances) still prove coverage.
+@MainActor private func parityPan(from start: XCUICoordinate, to end: XCUICoordinate, distance: Double) {
+    let velocity = XCUIGestureVelocity(rawValue: max(120, abs(distance) / 0.6))
+    start.press(forDuration: 0.01, thenDragTo: end, withVelocity: velocity, thenHoldForDuration: 0.15)
 }
 
 @MainActor func parityAlignEditor(in app: XCUIApplication) {
@@ -101,7 +114,7 @@ private func measuredRect(_ values: [String: Double]) -> CGRect {
         let startY = move > 0 ? outer.frame.minY + 10 : outer.frame.maxY - 10
         let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: outer.frame.minX + 12, dy: startY))
         let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: outer.frame.minX + 12, dy: startY + move))
-        start.press(forDuration: 0.08, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
+        parityPan(from: start, to: end, distance: move)
         Thread.sleep(forTimeInterval: 0.25)
     }
     XCTFail("The complete editor could not be aligned inside the measured outer viewport")

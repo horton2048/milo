@@ -44,3 +44,7 @@ The current reference is the actual public Web experience at https://milo.huangt
 ## 2026-09-30 functional parity continuation
 
 The user explicitly requests a new functional audit against the current HarmonyOS source, especially login, account and settings. Implement the bounded scope and scenarios in docs/operations/ios-functional-parity-plan-2026-09-30.md. Keep the Web visual reference and historical failures; do not launch Harmony or treat functional checks as full visual acceptance. All work stays in the current project. Production email authentication requires the actual supported iOS provider and bundle-specific configuration; distinguish implementation, injected tests and actual remote verification.
+
+## Stability and installation repair
+
+Use Xcode's normal simulator signing and generated simulated entitlement sections, with a project-local clean DerivedData directory. Never attach restricted iOS entitlements directly to the host ad-hoc signature. The installed bundle must match the verified source-bound build. Add a compiled opaque 1024 AppIcon and require actual normal home-screen launch, repeated cold launches and native Keychain round-trip. Follow the three-round plan in docs/operations/ios-stability-plan-2026-09-30.md; preserve older failed runs and user data. No runtime test may modify source, and a build success alone cannot approve delivery.

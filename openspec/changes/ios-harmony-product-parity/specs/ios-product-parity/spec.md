@@ -73,3 +73,14 @@ The iOS client SHALL expose login and account settings through normal navigation
 #### Scenario: Offline exit
 - **WHEN** remote sign-out cleanup fails while local session storage is writable
 - **THEN** the app returns to login and retains the user's local memories and draft content
+
+### Requirement: Simulator installation is launchable and identifiable
+The delivered simulator build SHALL launch from its normal home-screen icon using Xcode-generated signing and SHALL include a compiled opaque MILO AppIcon. Repeated cold launch and foreground/background transitions SHALL preserve the current account and records without unexpected exits. A successful build alone MUST NOT be reported as installation acceptance.
+
+#### Scenario: Restore a previously broken installation
+- **WHEN** a simulator installation is replaced after signing-related launch failure
+- **THEN** installed bytes match the verified build, icon launch reaches login or the retained journal, and repeated cold launches succeed without deleting production data
+
+#### Scenario: Native secure storage
+- **WHEN** isolated personal credentials are saved, read and removed in the simulator test environment
+- **THEN** actual Keychain operations succeed with Xcode-supported signing and failures are not replaced by plaintext or simulated success

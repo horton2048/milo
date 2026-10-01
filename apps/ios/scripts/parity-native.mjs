@@ -71,7 +71,7 @@ try {
             }
         }
         command = 'xcodebuild';
-        args = ['-project', 'apps/ios/Milo.xcodeproj', '-scheme', 'Milo', '-configuration', 'Debug', '-destination', `platform=iOS Simulator,id=${env.device.udid}`, '-derivedDataPath', 'apps/ios/DerivedData', '-resultBundlePath', path.join(evidence, `${action}-${stamp}.xcresult`), 'CODE_SIGNING_ALLOWED=NO', '-parallel-testing-enabled', 'NO', '-jobs', '2'];
+        args = ['-project', 'apps/ios/Milo.xcodeproj', '-scheme', 'Milo', '-configuration', 'Debug', '-destination', `platform=iOS Simulator,id=${env.device.udid}`, '-derivedDataPath', 'apps/ios/DerivedData', '-resultBundlePath', path.join(evidence, `${action}-${stamp}.xcresult`), 'CODE_SIGNING_ALLOWED=YES', 'CODE_SIGN_IDENTITY=-', '-parallel-testing-enabled', 'NO', '-jobs', '2'];
         if (action !== 'build') args.push('-only-testing:MiloUITests/' + (action === 'capture' ? 'ParityCaptureTests' : action === 'motion' ? 'GalaxyMotionTests' : 'MiloUITests'));
         args.push(action === 'build' ? 'build-for-testing' : 'test-without-building');
     }

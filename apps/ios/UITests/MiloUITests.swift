@@ -1,7 +1,7 @@
 import XCTest
 
 final class MiloUITests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+    override func setUp() { continueAfterFailure = false; recordTestBundleProvenance(Self.self) }
 
     @MainActor
     private func launch(id: String = UUID().uuidString, extra: [String] = [], login: Bool = true) -> XCUIApplication {

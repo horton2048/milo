@@ -34,3 +34,7 @@ The current reference is the actual public Web experience at https://milo.huangt
 ## 2026-09-30 functional parity continuation
 
 The user explicitly requests a new functional audit against the current HarmonyOS source, especially login, account and settings. Implement the bounded scope and scenarios in docs/operations/ios-functional-parity-plan-2026-09-30.md. Keep the Web visual reference and historical failures; do not launch Harmony or treat functional checks as full visual acceptance. All work stays in the current project. Production email authentication requires the actual supported iOS provider and bundle-specific configuration; distinguish implementation, injected tests and actual remote verification.
+
+## User-requested stability and installation repair
+
+The user reports immediate simulator launch failure and a missing AppIcon, and explicitly requests a complete plan and multiple unattended iterations. Restore an Xcode-generated runnable installation, add the MILO icon, and verify cold launch, account/Keychain, durable journal journeys, long-text accessibility and motion under docs/operations/ios-stability-plan-2026-09-30.md. The prior signing experiment remained installed after its source rollback; preserve that failure and all earlier states. This explicit continuation authorizes the new bounded multi-round run; all work stays in the current project.

@@ -34,7 +34,7 @@ struct NowNoteView: View {
     @Bindable var model: JournalModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var preferredEditorHeight: CGFloat = 120
-    @FocusState private var editing: Bool
+    @State private var editing = false
     private let editorBottom = "note-editor-bottom"
     var body: some View {
         // The inset reduces this proposal before the editor height is calculated,
@@ -85,11 +85,7 @@ struct NowNoteView: View {
     }
     private func noteEditor(height: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
-            TextEditor(text: $model.draft.note)
-                .font(.body).foregroundStyle(MiloTheme.ink)
-                .scrollContentBackground(.hidden).scrollDismissesKeyboard(.never)
-                .focused($editing)
-                .accessibilityLabel("此刻的感受（选填）").accessibilityIdentifier("note-input")
+            MiloNoteEditor(text: $model.draft.note, isFocused: $editing)
                 .parityTextMetrics("note-editor")
             if model.draft.note.isEmpty {
                 Text("此刻的感受…（选填）").font(.body).foregroundStyle(MiloTheme.hint)

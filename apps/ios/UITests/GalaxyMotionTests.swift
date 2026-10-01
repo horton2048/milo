@@ -3,7 +3,7 @@ import XCTest
 /// Motion fixtures bypass only the static screenshot clock. Reduce Motion is
 /// changed in Settings so these tests exercise SwiftUI's real environment.
 final class GalaxyMotionTests: XCTestCase {
-    override func setUp() { continueAfterFailure = false }
+    override func setUp() { continueAfterFailure = false; recordTestBundleProvenance(Self.self) }
 
     @MainActor private func launch(caseID: String = "home--mood-calm") -> XCUIApplication {
         let app = XCUIApplication()
@@ -19,6 +19,31 @@ final class GalaxyMotionTests: XCTestCase {
         image.name = name; image.lifetime = .keepAlways; add(image)
         let data = XCTAttachment(string: parityProbe("galaxy-motion", in: app).value as? String ?? "missing")
         data.name = name + "-clock"; data.lifetime = .keepAlways; add(data)
+    }
+
+    /// Home is visibly delivered in the source recordings, but polling state
+    /// with Thread.sleep on MainActor failed to observe the async state change.
+    /// Synchronize with SpringBoard and use XCTest's event-pumping public wait
+    /// on a separate observer; never infer background from a Home command alone.
+    @MainActor private func enterVerifiedBackground(_ app: XCUIApplication, name: String) -> XCUIApplication {
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.activate()
+        let desktopVisible = springboard.wait(for: .runningForeground, timeout: 10)
+        let icon = springboard.icons["MILO"].firstMatch
+        let iconExists = icon.waitForExistence(timeout: 5)
+        let observer = XCUIApplication(bundleIdentifier: "com.milo.echoes.ios")
+        let background = observer.wait(for: .runningBackground, timeout: 5)
+            || observer.wait(for: .runningBackgroundSuspended, timeout: 5)
+        // Preserve evidence before any assertion aborts the test.
+        let image = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        image.name = name + "-desktop"; image.lifetime = .keepAlways; add(image)
+        let state = XCTAttachment(string: "original=\(app.state.rawValue), observer=\(observer.state.rawValue), springboard=\(springboard.state.rawValue), iconExists=\(iconExists), iconHittable=\(icon.isHittable)")
+        state.name = name + "-states"; state.lifetime = .keepAlways; add(state)
+        XCTAssertTrue(desktopVisible, "SpringBoard must actually be foreground")
+        XCTAssertTrue(iconExists && icon.isHittable, "The real desktop MILO icon must be visible and hittable")
+        XCTAssertTrue(background, "MILO must actually be running in background or suspended, not terminated")
+        return observer
     }
 
     @MainActor private func hold(_ name: String, in app: XCUIApplication, action: () -> Void) {
@@ -84,17 +109,13 @@ final class GalaxyMotionTests: XCTestCase {
         frame("motion-control-navigated-once", app)
 
         let prior = parityValues("galaxy-motion", in: app)
-        XCUIDevice.shared.press(.home)
-        let backgroundDeadline = Date().addingTimeInterval(10)
-        while Date() < backgroundDeadline, app.state != .runningBackground, app.state != .runningBackgroundSuspended {
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-        XCTAssertTrue(app.state == .runningBackground || app.state == .runningBackgroundSuspended,
-                      "MILO must actually leave the foreground")
+        let backgroundObserver = enterVerifiedBackground(app, name: "motion-actual-background")
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let homeImage = XCTAttachment(screenshot: springboard.screenshot())
         homeImage.name = "motion-actual-background"; homeImage.lifetime = .keepAlways; add(homeImage)
         Thread.sleep(forTimeInterval: 2.5)
+        XCTAssertTrue(backgroundObserver.state == .runningBackground || backgroundObserver.state == .runningBackgroundSuspended,
+                      "MILO must remain alive in the background for the entire pause interval")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
         // activate() returned before the transition finished on iOS 26.5. AX

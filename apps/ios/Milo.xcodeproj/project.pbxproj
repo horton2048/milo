@@ -10,6 +10,7 @@
 		01E96800A651D705FC555C2C /* JournalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6292C7B1EAF5220A936506E9 /* JournalModel.swift */; };
 		0A7B26960D565F08573FF98E /* AGCAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0302E1C2F803081D132C20A2 /* AGCAuthProvider.swift */; };
 		0BF202F187DE9BA084D02594 /* MiloApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF94CE44DC17EA4A9C83FC9 /* MiloApp.swift */; };
+		0F5001679836AB64FC9398A3 /* TestBundleProvenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485136814D1ED376976E6E57 /* TestBundleProvenance.swift */; };
 		1064A855D40E879B7B2A37D0 /* AccountFunctionalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C096BD299483658227477B1 /* AccountFunctionalTests.swift */; };
 		14A0F8346F315B6CCD6515B4 /* ParityScrollMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FBB7B6AB55CDC51F9C6B0BB /* ParityScrollMetrics.swift */; };
 		15A6EBC6312A5B0D9281B8FB /* AISettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7D4640E726EFCCD79596C54 /* AISettingsView.swift */; };
@@ -34,13 +35,16 @@
 		A1381A7FD6DAEBE5E08A7402 /* mood_sheet_03.png in Resources */ = {isa = PBXBuildFile; fileRef = 82E65E18F112770FB00CFA44 /* mood_sheet_03.png */; };
 		AA96473C699EC60F75AD7983 /* SpeechInputModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709FDA63B44B81B458DFB961 /* SpeechInputModel.swift */; };
 		AD1502EDE099A988E812A6B5 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75E43D27D57127C6132765EE /* HomeView.swift */; };
+		B461BE8819B6CE14D17AEA2B /* NativeKeychainTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E08E12833054CE13BF715CDC /* NativeKeychainTests.swift */; };
 		B61AD02FDCCED68524E04857 /* AccountBehaviorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCA0BC6A2D323A24E4E02F49 /* AccountBehaviorTests.swift */; };
 		B9914337634A7730E6E695F7 /* MiloSecureField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B1ABECFBECCD40F1E704713 /* MiloSecureField.swift */; };
 		BCEC2783C74F5A9F209803FF /* mood_sheet_05.png in Resources */ = {isa = PBXBuildFile; fileRef = 8DF7E8AD29B11E6A9C025079 /* mood_sheet_05.png */; };
 		BE36C37EB1DF3B2B28E496E3 /* AGConnectAuth.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81CFECABE91B4ED9849F7208 /* AGConnectAuth.xcframework */; };
 		BF23A8FBCF806834DFEE925A /* RecallViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E9127460BEEEEE9E22C4D22 /* RecallViews.swift */; };
 		C005A0FD0A45DA02CB25B165 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBDAA2B6472FDA7DE79AFEC /* TimelineView.swift */; };
+		C915C4B5C5713EB9331DE716 /* LaunchStabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 879D525447736F92B99410D7 /* LaunchStabilityTests.swift */; };
 		CA1BB1026D417B4891D28F16 /* MiloGalaxy.metal.txt in Resources */ = {isa = PBXBuildFile; fileRef = AD0CD881D88255A38A6942E4 /* MiloGalaxy.metal.txt */; };
+		CD606B07A039088C811AFF5B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77769368CB9C8C2AD75D329C /* Assets.xcassets */; };
 		D0176791BFCD75E9B96E176D /* MiloTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77063930A92E72BFC56298E2 /* MiloTheme.swift */; };
 		D20E2AE093C02CA9C36C9800 /* MiloGalaxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */; };
 		DC868099C8EE46428267FFA8 /* ParityCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0980BD42920B105877E8AA24 /* ParityCaptureTests.swift */; };
@@ -48,6 +52,7 @@
 		DE01EA9AE00C6753D1F58E07 /* AGCResources.bundle in Resources */ = {isa = PBXBuildFile; fileRef = AA0927465CDEF4FC24DA5D14 /* AGCResources.bundle */; };
 		E6F41A508B2C17F1DC814EBA /* ParityStateAssertions.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE18E104E7A0D33E31E0DE91 /* ParityStateAssertions.swift */; };
 		FAA60940DBB27DF4BF82F1D0 /* MemoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41BA0061468AC788E9C640C /* MemoryDetailView.swift */; };
+		FD2AEC48D1E9378E7716FB6F /* MiloNoteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62DCC16F148FE33DAA475ABA /* MiloNoteEditor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -82,18 +87,22 @@
 		3E9127460BEEEEE9E22C4D22 /* RecallViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecallViews.swift; sourceTree = "<group>"; };
 		451EE8691B7C6F8D16860831 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloGalaxy.swift; sourceTree = "<group>"; };
+		485136814D1ED376976E6E57 /* TestBundleProvenance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestBundleProvenance.swift; sourceTree = "<group>"; };
 		4B1ABECFBECCD40F1E704713 /* MiloSecureField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloSecureField.swift; sourceTree = "<group>"; };
 		534C33DA5C4CE057CE30E98E /* MiloAccountTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MiloAccountTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5EE4C9B5C4ED7089663CF3C9 /* HMFoundation.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = HMFoundation.xcframework; path = Vendor/AGConnect/1.9.4.300/HMFoundation.xcframework; sourceTree = "<group>"; };
 		6188CB5F5362EA18346BEA90 /* mood_sheet_02.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_02.png; sourceTree = "<group>"; };
 		6292C7B1EAF5220A936506E9 /* JournalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalModel.swift; sourceTree = "<group>"; };
+		62DCC16F148FE33DAA475ABA /* MiloNoteEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloNoteEditor.swift; sourceTree = "<group>"; };
 		6F2A7D543DA61438138925A8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		709FDA63B44B81B458DFB961 /* SpeechInputModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechInputModel.swift; sourceTree = "<group>"; };
 		75E43D27D57127C6132765EE /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		77063930A92E72BFC56298E2 /* MiloTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloTheme.swift; sourceTree = "<group>"; };
+		77769368CB9C8C2AD75D329C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7BF94CE44DC17EA4A9C83FC9 /* MiloApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiloApp.swift; sourceTree = "<group>"; };
 		81CFECABE91B4ED9849F7208 /* AGConnectAuth.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = AGConnectAuth.xcframework; path = Vendor/AGConnect/1.9.4.300/AGConnectAuth.xcframework; sourceTree = "<group>"; };
 		82E65E18F112770FB00CFA44 /* mood_sheet_03.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_03.png; sourceTree = "<group>"; };
+		879D525447736F92B99410D7 /* LaunchStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchStabilityTests.swift; sourceTree = "<group>"; };
 		8DF7E8AD29B11E6A9C025079 /* mood_sheet_05.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_05.png; sourceTree = "<group>"; };
 		93A44D17BD0C29F449941D9D /* AccountModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountModel.swift; sourceTree = "<group>"; };
 		95522B68E072C458C9FD1C8C /* CardArtworkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardArtworkView.swift; sourceTree = "<group>"; };
@@ -108,6 +117,7 @@
 		DA4FE339D856BDBD9EEE1A6A /* AGConnectCore.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = AGConnectCore.xcframework; path = Vendor/AGConnect/1.9.4.300/AGConnectCore.xcframework; sourceTree = "<group>"; };
 		DC7931D568D3A57506B6777C /* mood_sheet_01.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_01.png; sourceTree = "<group>"; };
 		DCA0BC6A2D323A24E4E02F49 /* AccountBehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountBehaviorTests.swift; sourceTree = "<group>"; };
+		E08E12833054CE13BF715CDC /* NativeKeychainTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKeychainTests.swift; sourceTree = "<group>"; };
 		E622B38DD893C91CFF2D502D /* mood_sheet_04.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = mood_sheet_04.png; sourceTree = "<group>"; };
 		EBAD6C897593680D20ACA11E /* AGConnectCredential.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = AGConnectCredential.xcframework; path = Vendor/AGConnect/1.9.4.300/AGConnectCredential.xcframework; sourceTree = "<group>"; };
 		EE18E104E7A0D33E31E0DE91 /* ParityStateAssertions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParityStateAssertions.swift; sourceTree = "<group>"; };
@@ -159,10 +169,12 @@
 			children = (
 				2C096BD299483658227477B1 /* AccountFunctionalTests.swift */,
 				BCEC0834EA9626ABFB0181B9 /* GalaxyMotionTests.swift */,
+				879D525447736F92B99410D7 /* LaunchStabilityTests.swift */,
 				20FC4A7B64148FA83865CA00 /* MiloUITests.swift */,
 				3C8A6F5E7E437F52994E2F34 /* ParityCaptureGeometry.swift */,
 				0980BD42920B105877E8AA24 /* ParityCaptureTests.swift */,
 				EE18E104E7A0D33E31E0DE91 /* ParityStateAssertions.swift */,
+				485136814D1ED376976E6E57 /* TestBundleProvenance.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -171,6 +183,7 @@
 			isa = PBXGroup;
 			children = (
 				460006D78C15C2D8067E9F23 /* MiloGalaxy.swift */,
+				62DCC16F148FE33DAA475ABA /* MiloNoteEditor.swift */,
 				77063930A92E72BFC56298E2 /* MiloTheme.swift */,
 				1FBB7B6AB55CDC51F9C6B0BB /* ParityScrollMetrics.swift */,
 			);
@@ -214,6 +227,7 @@
 		AC30BAB2FDB063B2F5F1A5CC /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				77769368CB9C8C2AD75D329C /* Assets.xcassets */,
 				AD0CD881D88255A38A6942E4 /* MiloGalaxy.metal.txt */,
 				DC7931D568D3A57506B6777C /* mood_sheet_01.png */,
 				6188CB5F5362EA18346BEA90 /* mood_sheet_02.png */,
@@ -240,6 +254,7 @@
 			isa = PBXGroup;
 			children = (
 				DCA0BC6A2D323A24E4E02F49 /* AccountBehaviorTests.swift */,
+				E08E12833054CE13BF715CDC /* NativeKeychainTests.swift */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -391,6 +406,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DE01EA9AE00C6753D1F58E07 /* AGCResources.bundle in Resources */,
+				CD606B07A039088C811AFF5B /* Assets.xcassets in Resources */,
 				CA1BB1026D417B4891D28F16 /* MiloGalaxy.metal.txt in Resources */,
 				4096FFB016B611F6E1DF0A3B /* PrivacyInfo.xcprivacy in Resources */,
 				190D069FE45F5026DFBC7C74 /* mood_sheet_01.png in Resources */,
@@ -409,6 +425,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B61AD02FDCCED68524E04857 /* AccountBehaviorTests.swift in Sources */,
+				B461BE8819B6CE14D17AEA2B /* NativeKeychainTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -418,10 +435,12 @@
 			files = (
 				1064A855D40E879B7B2A37D0 /* AccountFunctionalTests.swift in Sources */,
 				227909589693F9BF921F38A2 /* GalaxyMotionTests.swift in Sources */,
+				C915C4B5C5713EB9331DE716 /* LaunchStabilityTests.swift in Sources */,
 				DCBDCCD363F7D8795998AA41 /* MiloUITests.swift in Sources */,
 				194F5B521C7CD19911196BDB /* ParityCaptureGeometry.swift in Sources */,
 				DC868099C8EE46428267FFA8 /* ParityCaptureTests.swift in Sources */,
 				E6F41A508B2C17F1DC814EBA /* ParityStateAssertions.swift in Sources */,
+				0F5001679836AB64FC9398A3 /* TestBundleProvenance.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -443,6 +462,7 @@
 				FAA60940DBB27DF4BF82F1D0 /* MemoryDetailView.swift in Sources */,
 				0BF202F187DE9BA084D02594 /* MiloApp.swift in Sources */,
 				D20E2AE093C02CA9C36C9800 /* MiloGalaxy.swift in Sources */,
+				FD2AEC48D1E9378E7716FB6F /* MiloNoteEditor.swift in Sources */,
 				B9914337634A7730E6E695F7 /* MiloSecureField.swift in Sources */,
 				D0176791BFCD75E9B96E176D /* MiloTheme.swift in Sources */,
 				14A0F8346F315B6CCD6515B4 /* ParityScrollMetrics.swift in Sources */,
@@ -501,6 +521,8 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -598,6 +620,8 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphonesimulator*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";

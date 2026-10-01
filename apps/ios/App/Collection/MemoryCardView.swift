@@ -103,6 +103,9 @@ struct MemoryCardView: View {
                             transaction.disablesAnimations = true
                         }
                     }
+                    // Keep a physical margin above fixed actions, including
+                    // fractional-point layout rounding after template changes.
+                    .padding(.bottom, 8)
                     .id("card-template-region")
                 }
                 .padding(.horizontal, 24).padding(.top, 8).padding(.bottom, 20)
