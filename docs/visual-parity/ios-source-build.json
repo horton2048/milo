@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "sourceHash": "4fc10f3fa859991607e07e5b7a1deb92489cb4f8dfca03155ee4910146ee97cc",
+  "build": {
+    "path": "apps/ios/DerivedData/Build/Products/Debug-iphonesimulator/Milo.app",
+    "sha256": "af5adb57de7bbdcbe50c98eee685a6da467b46b7b67d07a41f022d63153dd9a9"
+  },
+  "buildReceipt": {
+    "sourceHashBefore": "4fc10f3fa859991607e07e5b7a1deb92489cb4f8dfca03155ee4910146ee97cc",
+    "sourceHashAfter": "4fc10f3fa859991607e07e5b7a1deb92489cb4f8dfca03155ee4910146ee97cc",
+    "buildHash": "af5adb57de7bbdcbe50c98eee685a6da467b46b7b67d07a41f022d63153dd9a9",
+    "command": [
+      "xcodebuild",
+      "-project",
+      "apps/ios/Milo.xcodeproj",
+      "-scheme",
+      "Milo",
+      "-configuration",
+      "Debug",
+      "-destination",
+      "platform=iOS Simulator,id=EAE7BE56-823B-4B27-93CE-2883A202DC1D",
+      "-derivedDataPath",
+      "apps/ios/DerivedData",
+      "-resultBundlePath",
+      "/Users/hut/Projects/milo/apps/ios/evidence/parity/build-2026-09-29T15-10-16-312Z.xcresult",
+      "CODE_SIGNING_ALLOWED=NO",
+      "-parallel-testing-enabled",
+      "NO",
+      "-jobs",
+      "2",
+      "build-for-testing"
+    ],
+    "startedAt": "2026-09-29T15:10:16.448Z",
+    "finishedAt": "2026-09-29T15:10:32.442Z",
+    "exitCode": 0,
+    "log": {
+      "path": "apps/ios/evidence/parity/build-2026-09-29T15-10-16-312Z.log",
+      "sha256": "2188b728fb4b2dbfb554ef7b57aa53b9911e728d784b49080d4019fd51af07cf"
+    }
+  }
+}
