@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { ensureAcp } from '../lib/acp'
+import { gatewayDiary, hasGatewayConsent, setGatewayConsent } from '../lib/gateway'
 import { buildDiaryPrompt, fallbackDiary } from '../lib/guide'
+import { AI_FEATURE_AVAILABLE } from '../lib/aiAvailability'
 import type { Draft } from '../types'
 
 interface Props {
@@ -18,11 +20,39 @@ export function Diary({ draft, onSave, onBack }: Props) {
 
   useEffect(() => {
     if (!enabled || generatedRef.current) return
-    generatedRef.current = true
     let alive = true
+    const controller = new AbortController()
+
+    const complete = (text: string) => {
+      if (!alive) return
+      setDiary(text)
+      generatedRef.current = true
+      setGenerating(false)
+    }
 
     const gen = async () => {
       setGenerating(true)
+      if (!AI_FEATURE_AVAILABLE) {
+        setGatewayConsent(false)
+        complete(fallbackDiary(draft))
+        return
+      }
+      if (import.meta.env.PROD && window.location.protocol.startsWith('http')) {
+        if (!hasGatewayConsent()) {
+          complete(fallbackDiary(draft))
+          return
+        }
+        try {
+          complete(await gatewayDiary(draft, { signal: controller.signal }))
+        } catch {
+          if (alive) {
+            setGatewayConsent(false)
+            complete(fallbackDiary(draft))
+          }
+        }
+        return
+      }
+
       const client = await ensureAcp()
       if (!alive) return
       if (client) {
@@ -33,19 +63,19 @@ export function Diary({ draft, onSave, onBack }: Props) {
             if (alive) setDiary(acc)
           })
           if (!alive) return
-          setDiary(full.trim())
+          complete(full.trim())
         } catch {
-          if (alive) setDiary(fallbackDiary(draft))
+          complete(fallbackDiary(draft))
         }
       } else {
-        setDiary(fallbackDiary(draft))
+        complete(fallbackDiary(draft))
       }
-      if (alive) setGenerating(false)
     }
 
     void gen()
     return () => {
       alive = false
+      controller.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled])
@@ -63,14 +93,14 @@ export function Diary({ draft, onSave, onBack }: Props) {
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h1 className="title">显影这段回忆</h1>
         <p className="subtitle" style={{ marginTop: 8 }}>
-          我们把刚才的对话，写成了一篇属于你的日记。
+          把你说的，留下来。
         </p>
       </div>
 
       <div className="switch-row glass" style={{ marginBottom: 18 }}>
         <div>
           <div style={{ fontSize: 14.5 }}>沉淀为日记</div>
-          <div className="hint">以你的视角书写；关闭则只保留对话记录</div>
+          <div className="hint">关闭则只保留对话记录</div>
         </div>
         <button
           className={`switch ${enabled ? 'on' : ''}`}

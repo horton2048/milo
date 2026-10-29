@@ -8,6 +8,7 @@ import {
   type ConversationState,
 } from '../conversation/ConversationController';
 import { MiloBackNode, MiloPrimaryButton } from '../ui/MiloButtons';
+import { AI_AVAILABLE } from '../../core/config/FeatureFlags';
 
 /** Web `cubic-bezier(0.22, 1, 0.36, 1)`. */
 const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
@@ -48,7 +49,7 @@ export struct DiaryScreen {
   }
 
   private async generateDiary(): Promise<void> {
-    if (this.controller === null) {
+    if (!AI_AVAILABLE || this.controller === null) {
       this.diary = fallbackDiary(this.draft);
       this.generating = false;
       return;
@@ -70,7 +71,7 @@ export struct DiaryScreen {
   }
 
   private fallbackNotice(): string {
-    if (this.conversationState.lastError === undefined) {
+    if (!AI_AVAILABLE || this.conversationState.lastError === undefined) {
       return '';
     }
     return 'AI 暂时不可用，已为你用本地模板生成。';
@@ -102,7 +103,7 @@ export struct DiaryScreen {
             .fontColor(INK)
             .lineHeight(40)
             .letterSpacing(1)
-          Text('我们把刚才的对话，写成了一篇属于你的日记。')
+          Text('读一读，也可以改一改')
             .fontSize(14.5)
             .fontColor(INK_DIM)
             .lineHeight(28)
@@ -128,7 +129,7 @@ export struct DiaryScreen {
             Text('沉淀为日记')
               .fontSize(14.5)
               .fontColor(INK)
-            Text('以你的视角书写；关闭则只保留对话记录')
+            Text('关闭后只保留对话')
               .fontSize(12)
               .fontColor(INK_FAINT)
               .lineHeight(22)
@@ -210,7 +211,7 @@ export struct DiaryScreen {
           .margin({ bottom: 20 })
 
           if (!this.generating) {
-            Button(this.editing ? '完成编辑' : '修改一下措辞')
+            Button(this.editing ? '完成编辑' : '编辑日记')
               .backgroundColor(Color.Transparent)
               .borderRadius(999)
               .fontColor(INK_DIM)

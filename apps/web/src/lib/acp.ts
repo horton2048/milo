@@ -3,7 +3,9 @@
  * 桥接服务负责把消息转发给 Codex ACP（stdio）。
  */
 
-const BRIDGE_URL = `ws://${location.hostname}:8787`
+import { AI_FEATURE_AVAILABLE, AI_PAUSED_MESSAGE } from './aiAvailability.ts'
+
+const bridgeUrl = () => `ws://${location.hostname}:8787`
 
 type ServerMsg =
   | { type: 'ready' }
@@ -21,9 +23,10 @@ export class AcpClient {
 
   /** 连接并等待 ACP 会话就绪；失败或超时抛错 */
   connect(timeoutMs = 20000): Promise<void> {
+    if (!AI_FEATURE_AVAILABLE) return Promise.reject(new Error(AI_PAUSED_MESSAGE))
     return new Promise((resolve, reject) => {
       let settled = false
-      const ws = new WebSocket(BRIDGE_URL)
+      const ws = new WebSocket(bridgeUrl())
       this.ws = ws
       const timer = setTimeout(() => {
         if (!settled) {
@@ -88,6 +91,7 @@ export class AcpClient {
 
   /** 发送一轮 prompt，流式回调增量文本，返回完整回复 */
   prompt(text: string, onDelta: (t: string) => void = () => {}): Promise<string> {
+    if (!AI_FEATURE_AVAILABLE) return Promise.reject(new Error(AI_PAUSED_MESSAGE))
     const ws = this.ws
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error('未连接'))
@@ -112,6 +116,10 @@ let connecting: Promise<AcpClient | null> | null = null
 
 /** 获取（或建立）共享 ACP 会话；不可用时返回 null */
 export function ensureAcp(): Promise<AcpClient | null> {
+  if (!AI_FEATURE_AVAILABLE) {
+    resetAcp()
+    return Promise.resolve(null)
+  }
   if (singleton) return Promise.resolve(singleton)
   if (connecting) return connecting
   connecting = (async () => {

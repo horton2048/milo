@@ -9,20 +9,18 @@ export function moodWord(valence: number, emotionId?: MoodId): string {
 export function buildOpeningPrompt(draft: Draft): string {
   const labels = draft.mood.labels.length ? draft.mood.labels.join('、') : '未具体命名'
   return [
-    '你现在不是编程助手。你是「回响」——一位温柔、安静的回忆引导者。',
-    '用户此刻的情绪与过去的某段时光有关，你的任务是通过对话，一步一步引导 ta 把当时的情景、困难、快乐、背景，以及那一天对现在的特别之处说出来。',
-    '',
-    '对话规则（务必遵守）：',
-    '- 每次只问一个问题，问题要具体、轻柔，不评判；',
-    '- 回复保持简短（1~3 句话），先简单回应用户说的内容，再提出下一个问题；',
-    '- 不要使用列表、标题或 markdown 格式，只用自然的口语化中文；',
-    '- 不要提及你是 AI 模型、不要谈论代码或工具；',
-    '- 循着这样的脉络推进：当时的情景 → 遇到的困难或快乐 → 为什么会这样、当时的背景 → 那一天对今天的自己有什么特别 → 现在还在延续当时的路吗，如果变了，发生了什么。',
+    '你是「回响」，一个安静的情绪记录伙伴。少说，让用户多说。',
+    '每次只给一句短提示，通常 10~30 字，最多 48 字；最多问一个问题，也可以不提问。',
+    '顺着用户刚说的一个具体细节回应，已说过的事不要重新问。',
+    '让用户选择说什么、说多少；不要按问卷推进，不要求交代原因、人生意义或成长。',
+    '用户说不想说、先停一下或没有了，就简短接受，不再追问；想不起来时也不要催促。',
+    '不替用户判断情绪，不总结分析、说教、给建议或强行鼓励。',
+    '只用自然口语，不用标题、列表、markdown、自我介绍或操作说明。',
     '',
     `用户此刻的情绪：${moodWord(draft.mood.valence, draft.mood.emotionId)}（${labels}）。`,
     `ta 想回到的时光：「${draft.timeMark ?? '过去的某一天'}」。`,
     '',
-    '现在，请说一句开场白，欢迎 ta 回到那段时光，并问出第一个问题。',
+    '请只问一个很短的第一个问题，让用户从最先想起的画面说起。',
   ].join('\n')
 }
 
@@ -32,20 +30,38 @@ export function buildDiaryPrompt(draft: Draft): string {
     .map((m) => `${m.role === 'user' ? '我' : '引导者'}：${m.text}`)
     .join('\n')
   return [
-    '请根据下面这段回忆对话，以用户（“我”）的第一人称视角，写一篇感受日记。',
-    '要求：',
-    '- 完全用“我”的口吻，仿佛是我自己写下的；',
-    '- 只使用对话中出现过的事实与感受，不要编造细节；',
-    '- 温柔、真实、有画面感，200~400 字；',
-    '- 不要使用标题、列表或 markdown，只输出日记正文；',
-    `- 开头可以自然带出那段时光：「${draft.timeMark ?? '过去的某一天'}」。`,
+    '请根据下面这段对话，用用户（“我”）的第一人称，整理一段感受日记。',
+    '只使用用户明确表达的事实和感受，保留原意；引导者的话不能当成用户经历。',
+    '不添加用户没说过的释然、感激、成长或结论，不补背景和细节。',
+    '用户只说了一点，就只写一点，不为凑字数扩写。',
+    '不用标题、列表或 markdown，只输出日记正文。',
+    `回忆的时间：「${draft.timeMark ?? '过去的某一天'}」。`,
     '',
     '对话记录：',
     lines,
   ].join('\n')
 }
 
-/** ACP 不可用时的脚本化引导（兜底） */
+const GUIDE_STEPS = [
+  '那一刻，你是什么感受？',
+  '哪件小事让你记得最清楚？',
+  '现在想起它，心里有什么变化？',
+  '还有什么想说的？',
+  '嗯，我在听。',
+]
+
+/** Recognize a present request to pause, not a memory of a past reluctance. */
+export function wantsToPause(text: string): boolean {
+  const line = text.trim().replace(/[，,。.!！?？\s]/g, '')
+  return /^(我)?(现在|今天|暂时|真的)?(不想说|不想聊|不说了|不聊了|先不说|先不聊|说不下去|聊不下去|先这样|就这样|到这里|算了|没了|没有了)(了|吧)?$/.test(line)
+}
+
+function hasNoWords(text: string): boolean {
+  const line = text.trim().replace(/[，,。.!！?？\s]/g, '')
+  return /^(我)?(也|现在|有点)?(不知道|不知道怎么说|说不上来|想不起来|没什么|没啥)(了|吧)?$/.test(line)
+}
+
+/** Offline guidance leaves the story and its meaning to the user. */
 export class FallbackGuide {
   private step = 0
   private timeMark: string
@@ -55,38 +71,33 @@ export class FallbackGuide {
   }
 
   opening(): string {
-    return `闭上眼睛，我们轻轻回到「${this.timeMark}」。不着急，先告诉我——那段时间里，最先浮现在你眼前的，是怎样的一个画面？`
+    return this.timeMark.length > 18
+      ? '那段时光里，你最先想起什么？'
+      : `「${this.timeMark}」，你最先想起什么？`
   }
 
-  next(): string {
-    const steps = [
-      '嗯，我听到了。在那个画面里，你正在经历什么？是一段困难的时刻，还是一段开心的日子？',
-      '为什么会是那样呢？当时的你，处在怎样的背景里——身边有谁，生活正发生着什么？',
-      '如果回到那一天，你觉得它对今天的你来说，有什么特别的意义？',
-      '现在的你，还走在当时选择的那条路上吗？如果是，是什么让你坚持了下来；如果不是，中间发生了什么样的改变？',
-      '谢谢你愿意说出这些。关于那段时光，还有什么想补充的吗？如果没有了，可以点击下方「沉淀这段回忆」，我们把它写成一篇属于你的日记。',
-    ]
-    const reply = steps[Math.min(this.step, steps.length - 1)]
+  next(userText = ''): string {
+    if (wantsToPause(userText)) {
+      this.step = Math.max(this.step + 1, GUIDE_STEPS.length)
+      return '好，先停在这里。'
+    }
+    const reply = GUIDE_STEPS[Math.min(this.step, GUIDE_STEPS.length - 1)]
     this.step++
-    return reply
+    return hasNoWords(userText) ? '没关系，慢慢来。' : reply
   }
 
   isWrappingUp(): boolean {
-    return this.step >= 5
+    return this.step >= GUIDE_STEPS.length
   }
 }
 
-/** 兜底：本地把对话拼成第一人称日记 */
+/** Preserve the user's own words without inventing relief or a lesson. */
 export function fallbackDiary(draft: Draft): string {
-  const userLines = draft.transcript.filter((m) => m.role === 'user').map((m) => m.text)
-  const mark = draft.timeMark ?? '过去的某一天'
-  const mood = moodWord(draft.mood.valence, draft.mood.emotionId)
-  const body = userLines.join(' ')
-  return (
-    `今天，我的心情有些${mood}，思绪不自觉地飘回了${mark}。\n\n` +
-    `${body}\n\n` +
-    `把这些写下来之后，才发现那一天一直安静地住在我心里。谢谢当时的自己，也谢谢现在愿意回头看的自己。`
-  )
+  const userLines = draft.transcript
+    .filter((m) => m.role === 'user')
+    .map((m) => m.text.trim())
+    .filter(Boolean)
+  return userLines.length > 0 ? userLines.join('\n\n') : '今天的心情，先记在这里。'
 }
 
 export function transcriptToText(transcript: ChatMessage[]): string {

@@ -36,3 +36,4 @@ apps/harmony/.harmony-sdk-bridge-v2/
 .env
 .env.*
 !.env.example
+.vercel

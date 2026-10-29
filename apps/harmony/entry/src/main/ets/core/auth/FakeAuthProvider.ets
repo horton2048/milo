@@ -3,6 +3,7 @@ import {
   type AuthError,
   type AuthSession,
   type CodePurpose,
+  type DeleteAccountResult,
   type ResetPasswordResult,
   type SendCodeResult,
   type SignInResult,
@@ -11,6 +12,7 @@ import {
   invalidPasswordError,
   passwordNotSetError,
   wrongPasswordError,
+  isValidPassword,
 } from './AuthProvider';
 
 /** Fixed code accepted by the fake provider; documented for dev/testing. */
@@ -26,6 +28,8 @@ export class FakeAuthProvider implements AuthProvider {
   private sentPurposes: CodePurpose[] = [];
   private passwords: Map<string, string> = new Map();
   private signOutCalls: number = 0;
+  deleteCalls: number = 0;
+  deleteFails: boolean = false;
 
   async sendCode(email: string, purpose: CodePurpose): Promise<SendCodeResult> {
     if (!isValidEmail(email)) {
@@ -51,7 +55,7 @@ export class FakeAuthProvider implements AuthProvider {
       return failure;
     }
     if (password !== undefined && password.length > 0) {
-      if (password.trim() !== password) {
+      if (!isValidPassword(password)) {
         const failure: SignInResult = { ok: false, error: invalidPasswordError() };
         return failure;
       }
@@ -100,7 +104,7 @@ export class FakeAuthProvider implements AuthProvider {
       const failure: ResetPasswordResult = { ok: false, error: error };
       return failure;
     }
-    if (newPassword.trim() !== newPassword || newPassword.length < 6 || newPassword.length > 32) {
+    if (!isValidPassword(newPassword)) {
       const failure: ResetPasswordResult = { ok: false, error: invalidPasswordError() };
       return failure;
     }
@@ -110,6 +114,14 @@ export class FakeAuthProvider implements AuthProvider {
 
   async signOut(): Promise<void> {
     this.signOutCalls += 1;
+  }
+
+  async deleteAccount(): Promise<DeleteAccountResult> {
+    this.deleteCalls += 1;
+    if (this.deleteFails) {
+      return { ok: false, error: { reason: 'network', message: '网络连接失败，请检查后重试。' } };
+    }
+    return { ok: true };
   }
 
   /** Test helpers. */

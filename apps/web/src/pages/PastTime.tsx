@@ -36,9 +36,9 @@ export function PastTime({ onNext, onBack }: Props) {
       <div style={{ textAlign: 'center', marginTop: 24, marginBottom: 40 }}>
         <h1 className="title">那是什么时候的事？</h1>
         <p className="subtitle" style={{ marginTop: 12 }}>
-          不需要精确的日期，
+          不用记清日期，
           <br />
-          一个模糊的印象就足够了。
+          大概就好。
         </p>
       </div>
 
@@ -62,7 +62,7 @@ export function PastTime({ onNext, onBack }: Props) {
 
       <input
         className="note-input past-time-input"
-        placeholder="或者用自己的话描述，比如「高三的雨季」"
+        placeholder="也可以写，比如「高三的雨季」"
         value={custom}
         onChange={(e) => setCustom(e.target.value)}
       />

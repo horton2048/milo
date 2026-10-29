@@ -1,13 +1,12 @@
 /**
- * Build-time app configuration. Leave the gateway disabled for an
- * offline-only build, or set `GATEWAY_BASE_URL` to the deployed HTTPS
- * gateway before shipping a signed HAP to AppGallery Connect. See
- * `docs/operations/gateway-deploy.md` for how to deploy the gateway.
+ * Public gateway address. The local build credential is loaded separately
+ * by LocalGatewayCredential; never put gateway or provider secrets here.
+ * Builds without that local resource keep the offline fallback available.
  */
 
-export const GATEWAY_BASE_URL: string = '';
+export const GATEWAY_BASE_URL: string = 'https://milomood.xyz';
 export const GATEWAY_BEARER_TOKEN: string = '';
-export const GATEWAY_TIMEOUT_MS: number = 15000;
+export const GATEWAY_TIMEOUT_MS: number = 30000;
 
 export interface AppConfigSnapshot {
   gatewayBaseUrl: string;

@@ -27,6 +27,9 @@ final class MiloUITests: XCTestCase {
         return field
     }
     @MainActor private func tap(_ id: String, in app: XCUIApplication) {
+        if ["save-conversation", "finish-chat", "end-chat"].contains(id), !app.buttons[id].exists {
+            app.buttons["chat-options"].tap()
+        }
         let button = app.buttons[id]
         XCTAssertTrue(button.waitForExistence(timeout: 5))
         func visible() -> Bool {
@@ -120,6 +123,138 @@ final class MiloUITests: XCTestCase {
         }
     }
 
+    @MainActor func testChatCompactLayoutKeyboardAndLargeText() {
+        for largeText in [false, true] {
+            let caseID = largeText ? "chat--long-reply--large-text" : "chat--long-reply"
+            let extra = ["--parity-case", caseID] + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
+            let app = launch(extra: extra, login: false)
+            let root = app.descendants(matching: .any).matching(identifier: "parity-root").firstMatch
+            XCTAssertTrue(root.waitForExistence(timeout: 5))
+            XCTAssertEqual(root.value as? String, largeText ? "accessibility5" : "large")
+            let field = input("chat-input", in: app)
+            XCTAssertTrue(app.buttons["chat-options"].isHittable)
+            XCTAssertFalse(app.buttons["end-chat"].exists)
+            XCTAssertFalse(app.buttons["finish-chat"].exists)
+            field.tap(); field.typeText("我还有一些话想说。")
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            let send = app.buttons["send-message"]
+            XCTAssertTrue(send.isHittable)
+            XCTAssertLessThanOrEqual(send.frame.maxY, app.keyboards.firstMatch.frame.minY + 1)
+            capture(largeText ? "chat-compact-large-text-keyboard" : "chat-compact-keyboard", in: app)
+            tap("chat-editor-done", in: app)
+            XCTAssertFalse(app.keyboards.firstMatch.exists)
+            tap("chat-capability-notice", in: app)
+            XCTAssertTrue(app.staticTexts["chat-connection-detail"].waitForExistence(timeout: 5))
+            capture(largeText ? "chat-compact-large-text-status" : "chat-compact-status", in: app)
+            app.terminate()
+        }
+    }
+
+    @MainActor func testPresentChatHonestOfflineExitResumeAndRawCollection() {
+        let app = launch()
+        tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-now-chat", in: app)
+        XCTAssertFalse(app.buttons["start-chat"].exists)
+        XCTAssertTrue(app.buttons["chat-capability-notice"].label.contains("仅本地记录"))
+        XCTAssertFalse(app.staticTexts["chat-connection-detail"].exists)
+        tap("chat-capability-notice", in: app)
+        XCTAssertTrue(app.staticTexts["chat-connection-detail"].label.contains("未接通"))
+        app.buttons["完成"].tap()
+        let field = input("chat-input", in: app); field.tap(); field.typeText("今天心情不好，想吐槽")
+        tap("send-message", in: app)
+        XCTAssertTrue(app.buttons["chat-options"].isHittable)
+        XCTAssertFalse(app.progressIndicators["chat-thinking-progress"].exists)
+        XCTAssertFalse(app.buttons["retry-reply"].exists)
+        tap("end-chat", in: app)
+        XCTAssertTrue(app.buttons["resume-draft"].waitForExistence(timeout: 5))
+        app.terminate(); app.launch()
+        tap("resume-draft", in: app)
+        XCTAssertTrue(app.staticTexts["今天心情不好，想吐槽"].exists)
+        tap("save-conversation", in: app); tap("card-done", in: app)
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 5)); entry.tap()
+        XCTAssertTrue(app.staticTexts["此刻"].exists)
+        tap("toggle-transcript", in: app)
+        XCTAssertTrue(app.staticTexts["我：今天心情不好，想吐槽"].exists)
+        capture("present-offline-collected-raw-transcript", in: app)
+    }
+
+    @MainActor func testCancelledNewMoodKeepsRetainedConversationMoodAfterRestart() {
+        let app = launch()
+        tap("mood-bright", in: app); tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-now-chat", in: app)
+        let field = input("chat-input", in: app); field.tap(); field.typeText("这份草稿要留着。")
+        tap("send-message", in: app); tap("end-chat", in: app)
+        tap("mood-low", in: app); tap("confirm-mood", in: app)
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+        let cancel = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", "取消", "Cancel")).firstMatch
+        if cancel.exists { cancel.tap() }
+        else {
+            // Native popover-style confirmation hides its cancel-role button.
+            // Tapping the dimmed area outside it is the system's cancel action.
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: sheet.frame.midX, dy: sheet.frame.minY - 24)).tap()
+        }
+        XCTAssertFalse(sheet.exists)
+        app.terminate(); app.launch(); tap("resume-draft", in: app)
+        XCTAssertTrue(app.staticTexts["这份草稿要留着。"].exists)
+        tap("save-conversation", in: app); tap("card-done", in: app)
+        let entry = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "timeline.entry.")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 5)); entry.tap()
+        XCTAssertTrue(app.staticTexts["明亮"].exists, "cancelled home selection cannot persist a different mood in the old draft")
+        XCTAssertFalse(app.staticTexts["低落"].exists)
+        capture("cancel-new-mood-preserves-retained-draft", in: app)
+    }
+
+    @MainActor func testPresentOptionalLocalDiaryAndLongReplyVisibility() {
+        let app = launch()
+        tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-now-chat", in: app)
+        let field = input("chat-input", in: app); field.tap(); field.typeText("今天开了一天会，最后被加活。")
+        tap("send-message", in: app); tap("finish-chat", in: app)
+        XCTAssertTrue(app.staticTexts["整理此刻"].exists)
+        XCTAssertEqual(app.staticTexts["diary-content"].label, "今天开了一天会，最后被加活。")
+        tap("save-past", in: app)
+        XCTAssertTrue(app.buttons["card-done"].waitForExistence(timeout: 5))
+        app.terminate()
+        let longApp = launch(extra: ["--parity-case", "chat--long-reply"], login: false)
+        let expected = "开了一天会之后还被加活，连着几天都是这样，确实没有多少喘口气的时间。\n先把你想说的话说完，不急着给建议。👩🏽‍🚀\n这是完整保留的最后一句。"
+        let reply = longApp.staticTexts.matching(identifier: "message-2").matching(NSPredicate(format: "label == %@", expected)).firstMatch
+        XCTAssertTrue(reply.waitForExistence(timeout: 5))
+        XCTAssertEqual(reply.label, expected)
+        XCTAssertTrue(reply.isHittable)
+        capture("complete-long-reply-with-emoji-and-tail", in: longApp)
+    }
+
+    @MainActor func testContinuedChatKeepsPreviousEditedDiary() {
+        let app = launch()
+        tap("confirm-mood", in: app); tap("confirm-words", in: app); tap("choose-now-chat", in: app)
+        let chat = input("chat-input", in: app); chat.tap(); chat.typeText("今天开了一天会。")
+        tap("send-message", in: app); tap("finish-chat", in: app)
+        tap("edit-diary", in: app)
+        let editor = input("diary-editor", in: app); editor.tap(); editor.typeText("这是我亲手补写的内容。")
+        // Finish the keyboard through its real accessory action before using
+        // the page controls below the expanded multiline editor.
+        let doneButtons = app.buttons.matching(NSPredicate(format: "label == %@", "完成编辑")).allElementsBoundByIndex
+        guard let keyboardDone = doneButtons.first(where: { $0.isHittable }) else {
+            XCTFail("The diary keyboard must expose its completion action"); return
+        }
+        keyboardDone.tap()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        tap("back", in: app)
+        let continued = input("chat-input", in: app); continued.tap(); continued.typeText("后来又被加活了。")
+        tap("send-message", in: app); tap("finish-chat", in: app)
+        XCTAssertTrue(app.staticTexts["diary-content"].label.contains("后来又被加活了。"))
+        tap("previous-diary", in: app)
+        XCTAssertTrue(app.staticTexts["previous-diary-content"].label.contains("这是我亲手补写的内容。"))
+        capture("chat-preserved-edited-diary", in: app)
+        tap("restore-previous-diary", in: app)
+        XCTAssertTrue(app.staticTexts["diary-content"].label.contains("这是我亲手补写的内容。"))
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.staticTexts["diary-content"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["diary-content"].label.contains("这是我亲手补写的内容。"))
+        tap("previous-diary", in: app)
+        XCTAssertTrue(app.staticTexts["previous-diary-content"].label.contains("后来又被加活了。"))
+    }
+
     @MainActor func testPresentJourneyAndRestartPersistence() {
         let app = launch()
         XCTAssertTrue(app.buttons["mood-bright"].waitForExistence(timeout: 10))
@@ -144,7 +279,7 @@ final class MiloUITests: XCTestCase {
         tap("time-去年夏天", in: app); tap("start-chat", in: app)
         let field = input("chat-input", in: app); field.tap(); field.typeText("我记得那天和朋友一起散步。")
         tap("send-message", in: app)
-        XCTAssertTrue(app.buttons["finish-chat"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["chat-options"].isHittable)
         tap("finish-chat", in: app)
         XCTAssertTrue(app.staticTexts["diary-content"].label.contains("和朋友一起散步"))
         tap("edit-diary", in: app)

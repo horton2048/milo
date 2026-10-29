@@ -135,13 +135,13 @@ try {
     const launched = checked('xcrun',['simctl','launch','--terminate-running-process',device,'com.milo.echoes.ios']);
     save(`install-${stamp}.json`,{sourceHash:receipt.sourceHash,app:actual,oldContainer,newContainer,dataContainerRenamed:!!oldContainer&&oldContainer!==newContainer,persistedFilesPreserved:Object.keys(beforeFiles).length,files:beforeFiles,backup:path.relative(root,backup),launch:launched.stdout.trim(),at:new Date().toISOString()});
     console.log('Verified app replaced the broken installation; original data container retained; normal launch accepted. UI checks must still prove visible stability.');
-  } else if (['unit','launch','accounts','journeys','motion','capture'].includes(action)) {
+  } else if (['unit','launch','accounts','journeys','motion','capture','speech','keyboard','voice'].includes(action)) {
     const receipt = prepared();device=receipt.device;
     run('xcrun',['simctl','terminate',device,'com.milo.echoes.ios.uitests.xctrunner']);
     run('xcrun',['simctl','uninstall',device,'com.milo.echoes.ios.uitests.xctrunner']);
     run('xcrun',['simctl','terminate',device,'com.milo.echoes.ios']);
     if (action!=='unit') checked('xcrun',['simctl','status_bar',device,'override','--time','09:41','--batteryState','charged','--batteryLevel','100']);
-    const selection = {unit:'MiloAccountTests',launch:'MiloUITests/LaunchStabilityTests',accounts:'MiloUITests/AccountFunctionalTests',journeys:'MiloUITests/MiloUITests',motion:'MiloUITests/GalaxyMotionTests',capture:'MiloUITests/ParityCaptureTests'}[action];
+    const selection = {unit:'MiloAccountTests',launch:'MiloUITests/LaunchStabilityTests',accounts:'MiloUITests/AccountFunctionalTests',journeys:'MiloUITests/MiloUITests',motion:'MiloUITests/GalaxyMotionTests',capture:'MiloUITests/ParityCaptureTests',speech:'MiloUITests/SpeechInputUITests',keyboard:'MiloUITests/SpeechInputUITests/testCVisibleKeyboardAppendAndSend',voice:'MiloUITests/SpeechInputUITests/testDRealRecordingRemainsActive'}[action];
     const resultBundle=path.join(evidence,`${action}-${stamp}.xcresult`);
     let videoPath;
     if (action==='motion') {
@@ -164,7 +164,7 @@ try {
     requireTrue(provenanceOK,'No current loaded-test provenance');
     requireTrue(source()===receipt.sourceHash&&hashBuild(root,appPath)===receipt.app.sha256,'Source/build changed during tests');
     report.installed=installed(device,receipt);save(`${action}-${stamp}.json`,report);save(`${action}.json`,report);
-  } else throw new Error('Expected preflight/build/install/unit/launch/accounts/journeys/motion/capture');
+  } else throw new Error('Expected preflight/build/install/unit/launch/accounts/journeys/motion/capture/speech');
 } catch(error) {console.error(error.message);process.exitCode=1;}
 finally {
   if(video)video.kill('SIGINT');

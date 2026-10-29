@@ -37,6 +37,7 @@ export interface SendCodeFailure {
 }
 
 export type SendCodeResult = SendCodeSuccess | SendCodeFailure;
+export type DeleteAccountResult = SendCodeSuccess | SendCodeFailure;
 
 export interface SignInSuccess {
   ok: true;
@@ -77,27 +78,36 @@ export function isResetPasswordFailure(result: ResetPasswordResult): boolean {
 }
 
 /**
- * Password policy (mirrors AGC): 6-32 characters, no other constraints so
- * passphrases stay welcome.
+ * Password policy: 6-32 characters, with no accidental leading/trailing
+ * whitespace. Internal spaces are allowed for passphrases.
  */
 export const PASSWORD_MIN_LENGTH = 6;
 export const PASSWORD_MAX_LENGTH = 32;
 
 export function isValidPassword(password: string): boolean {
-  const trimmed = password.trim();
-  return trimmed.length >= PASSWORD_MIN_LENGTH && trimmed.length <= PASSWORD_MAX_LENGTH;
+  return password.trim() === password
+    && password.length >= PASSWORD_MIN_LENGTH
+    && password.length <= PASSWORD_MAX_LENGTH;
 }
 
 export function invalidPasswordError(): AuthError {
-  return { reason: 'invalid-password', message: '密码需要 6-32 位，中间不能有空格。' };
+  return { reason: 'invalid-password', message: '请输入 6–32 位密码，首尾不留空格。' };
 }
 
 export function wrongPasswordError(): AuthError {
-  return { reason: 'wrong-password', message: '邮箱或密码不对，再试一次？' };
+  return { reason: 'wrong-password', message: '邮箱或密码不正确。' };
 }
 
 export function passwordNotSetError(): AuthError {
-  return { reason: 'password-not-set', message: '这个邮箱还没设置过密码，先用验证码登录吧。' };
+  return { reason: 'password-not-set', message: '请用验证码登录，或通过「忘记密码」设置密码。' };
+}
+
+export function isValidVerificationCode(code: string): boolean {
+  return /^[0-9]{6}$/.test(code.trim());
+}
+
+export function invalidCodeError(): AuthError {
+  return { reason: 'invalid-code', message: '请输入 6 位验证码。' };
 }
 
 export interface AuthProvider {
@@ -114,6 +124,8 @@ export interface AuthProvider {
   resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResult>;
   /** Sign out from the remote provider; local state is cleared by the caller. */
   signOut(): Promise<void>;
+  /** Delete the authenticated remote account; failure must preserve local data. */
+  deleteAccount(): Promise<DeleteAccountResult>;
 }
 
 /**
@@ -122,6 +134,9 @@ export interface AuthProvider {
  */
 export function isValidEmail(email: string): boolean {
   const trimmed = email.trim();
+  if (/\s/.test(trimmed)) {
+    return false;
+  }
   const at = trimmed.indexOf('@');
   if (at <= 0 || at !== trimmed.lastIndexOf('@')) {
     return false;
@@ -138,5 +153,5 @@ export function isValidEmail(email: string): boolean {
 }
 
 export function invalidEmailError(): AuthError {
-  return { reason: 'invalid-email', message: '这个邮箱地址看起来不太对，检查一下再试试。' };
+  return { reason: 'invalid-email', message: '请输入有效的邮箱地址。' };
 }

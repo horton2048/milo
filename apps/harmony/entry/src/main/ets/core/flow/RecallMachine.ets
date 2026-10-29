@@ -62,6 +62,19 @@ export class SetDiaryEvent {
   }
 }
 
+export class UpdateChatEvent {
+  readonly type: 'UPDATE_CHAT' = 'UPDATE_CHAT';
+  readonly messages: ChatMessage[];
+  readonly inputText: string;
+  readonly aiEnabled: boolean;
+
+  constructor(messages: ChatMessage[], inputText: string, aiEnabled: boolean) {
+    this.messages = messages;
+    this.inputText = inputText;
+    this.aiEnabled = aiEnabled;
+  }
+}
+
 export class SetDiaryEnabledEvent {
   readonly type: 'SET_DIARY_ENABLED' = 'SET_DIARY_ENABLED';
   readonly value: boolean;
@@ -98,6 +111,7 @@ export type RecallEvent =
   | SetNoteEvent
   | SetTimeMarkEvent
   | AppendMessageEvent
+  | UpdateChatEvent
   | SetDiaryEvent
   | SetDiaryEnabledEvent
   | OpenTimelineEvent
@@ -128,6 +142,10 @@ export class RecallEvents {
 
   static setDiary(value: string): SetDiaryEvent {
     return new SetDiaryEvent(value);
+  }
+
+  static updateChat(messages: ChatMessage[], inputText: string, aiEnabled: boolean): UpdateChatEvent {
+    return new UpdateChatEvent(messages, inputText, aiEnabled);
   }
 
   static setDiaryEnabled(value: boolean): SetDiaryEnabledEvent {
@@ -178,6 +196,8 @@ function copyDraft(draft: Draft): Draft {
     timeMark: draft.timeMark,
     note: draft.note,
     transcript: transcript,
+    aiEnabled: draft.aiEnabled,
+    inputText: draft.inputText,
     diary: draft.diary,
     diaryEnabled: draft.diaryEnabled,
     stickerTemplate: draft.stickerTemplate,
@@ -264,6 +284,11 @@ export function transition(state: RecallState, event: RecallEvent): RecallState 
       return state;
     }
     const draft = copyDraft(state.draft);
+    if (draft.timeMark !== undefined && draft.timeMark !== timeMark) {
+      draft.transcript = [];
+      draft.diary = undefined;
+      draft.inputText = '';
+    }
     draft.timeMark = timeMark;
     return withDraft(Screen.chat(), draft);
   }
@@ -278,6 +303,21 @@ export function transition(state: RecallState, event: RecallEvent): RecallState 
       text: event.message.text,
       ts: event.message.ts,
     });
+    return withDraft(Screen.chat(), draft);
+  }
+
+  if (event instanceof UpdateChatEvent) {
+    if (state.screen.name !== 'chat' || state.draft.kind !== 'past') {
+      return state;
+    }
+    const draft = copyDraft(state.draft);
+    draft.transcript = [];
+    draft.inputText = event.inputText;
+    draft.aiEnabled = event.aiEnabled;
+    for (let index = 0; index < event.messages.length; index += 1) {
+      const message = event.messages[index];
+      draft.transcript.push({ role: message.role, text: message.text, ts: message.ts });
+    }
     return withDraft(Screen.chat(), draft);
   }
 

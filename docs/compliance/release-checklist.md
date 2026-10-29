@@ -1,116 +1,64 @@
-# MILO HarmonyOS Release Checklist
+# MILO 鸿蒙首发验收清单
 
-Reviewers should run every step in order. Do not skip the live-device
-section — automated tests cannot exercise the HarmonyOS speech recognizer
-or the system share sheet.
+本轮范围：本地情绪日记、回忆引导、卡片、账号与导出。AI_AVAILABLE 必须为 false；不开放AI或会员。下列未勾选项不是已验证声明。
 
-## 0. Pre-flight
+## 1. 发布前材料
 
-- [ ] The repository is clean: `git status --short` reports only intended
-      changes (or nothing at all).
-- [ ] No real API keys, signing material, HAP artifacts, or
-      `local.properties` are tracked. See **scan** section below.
-- [ ] Huawei developer account, AppGallery Connect identity, signing
-      material, privacy-policy URL, and MiniMax deployment secret are all
-      supplied **by the user** — never invented or hard-coded.
+- [ ] AGC 实际应用名、包名 com.milo.echoes、版本号、备案号与本次签名包一致。
+- [ ] 备案号为 京ICP备2026067150号-1A；最终发布证书公钥/签名指纹与备案及AGC关联资料一致。
+- [ ] 本次 .app 文件、SHA-256、版本、构建时间和测试记录已留存，不能使用9月旧包替代。
+- [ ] 最终包不含共享内测 gateway-credentials.local.json、真实模型Key或签名私钥。
+- [ ] 隐私政策/用户协议已正式托管；填写真实可匿名打开的HTTPS地址，并与随包全文一致。
+- [ ] 商店介绍、标签和截图均不含AI/付费会员的现成功能宣称，不标榜心理诊疗。
+- [ ] 设备类型与实际测试能力匹配；不存在用未完成平板适配截图假称支持的问题。
 
-## 1. Fresh install
+## 2. 隐私、注册与登录
 
-- [ ] Uninstall any previous MILO build on the device.
-- [ ] Install the freshly built HAP from `apps/harmony/build/default/outputs/default/entry-default-signed.hap` (or the unsigned variant when no signing config is present).
-- [ ] Launch the app. The start window background must match
-      `apps/harmony/entry/src/main/resources/base/element/color.json`
-      (`start_window_background`).
-- [ ] The orbit carousel animates and `HomeScreen` shows entry count `0`.
+- [ ] 新装首先显示隐私说明，可不登录阅读完整隐私政策和用户协议。
+- [ ] 点击“暂不同意”不触发SDK初始化、验证码/登录请求，仍能读全文。
+- [ ] 已有旧版会话也先要求同意本版政策，不删除日记，不静默绕过。
+- [ ] 主动同意后进入邮箱登录；验证码未注册自动建号、密码登录、找回密码均可用。
+- [ ] 登录前及“我的—关于 MILO”均能打开本地全文，断网仍可阅读。
+- [ ] “我的”备案号可点击打开工信部页面。
+- [ ] 首次AGC登录依赖网络；登录成功后重启与断网能继续日记功能。
+- [ ] 同设备切换账号仍保留本机记录，与界面/政策描述一致。
 
-## 2. Privacy policy entry
+## 3. 日记功能与AI关闭
 
-- [ ] Tap the privacy link in the About card.
-- [ ] The page opens in the system browser pointed at the URL provided in
-      the release manifest. No data is sent until the user records anything.
+- [ ] 首页星空和心情选择正常；选择标签 → 现在 → 输入 → 保存可查看。
+- [ ] 过去 → 模糊时间 → 本地引导 → 整理/编辑 → 保存可完整完成。
+- [ ] 第二次新记录没有沿用上次标签、文字或草稿；选中标签颜色与心情一致。
+- [ ] 飞行模式下已登录用户完整完成现在/过去流程，不请求模型。
+- [ ] UI不展示AI开关、Key设置、模型连接测试、会员订阅或购买入口。
+- [ ] 含旧AI开启状态的草稿恢复后仍使用本地引导，网关/上游调用计数为零。
+- [ ] 回忆长廊卡片排列整齐，详情、编辑后保存及应用重启持久化正确。
+- [ ] 详情“放下”并确认可删除单篇；取消不删除。
 
-## 3. Now branch — quick capture
+## 4. 头像、语音、卡片和导出
 
-- [ ] Pick any mood on the orbit carousel.
-- [ ] Choose "现在" → enter text → tap "收进回忆".
-- [ ] Verify the entry appears on the Timeline screen with the correct
-      valence, labels, and note.
+- [ ] 默认星球头像；系统选图、更换、恢复默认正常，原图库图片保留。
+- [ ] 语音只在点击后申请麦克风；拒绝后打字正常；取消/离屏停止收音。
+- [ ] 真机验证中文离线识别及系统资源缺失提示，不能用模拟器测试替代。
+- [ ] 卡片实际通过系统授权保存到图库；失败/取消保留原记录。
+- [ ] 我的 → Markdown/JSON 导出，文件可阅读且含全部已保存记录/对话。
+- [ ] 导出不含邮箱密码、模型Key或未保存草稿；取消/写入失败不删原数据。
 
-## 4. Past branch — AI recall
+## 5. 账号管理与注销
 
-- [ ] Pick a mood → choose "过去" → enter a time mark.
-- [ ] On the chat screen, the AI opening greeting is requested via
-      `POST /v1/recall/open`. With a live `MINIMAX_API_KEY` the AI reply
-      appears within 5 s; otherwise the scripted fallback shows the
-      `FallbackGuide.opening()` line.
-- [ ] Send a reply. Verify the AI/script indicator switches to
-      "回响" / "引导" accordingly.
-- [ ] Trigger a forced failure (point the gateway at an invalid URL or
-      `kill` the gateway mid-session) → the controller flips to the script
-      and a recoverable notice ("AI 暂时不可用，已切换到引导式回响。")
-      appears.
+- [ ] 邮箱验证码修改密码成功；错误验证码、无网络都有提示。
+- [ ] 退出登录保留本机记录，但重新进入需登录。
+- [ ] 使用可注销的测试账号验证远端auth.deleteUser成功后清理本机日记、草稿、会话和账号头像设置。
+- [ ] 远端失败不清空本地；本地清理失败保留待清理状态，不显示已成功。
+- [ ] 本地清理失败后重启可继续重试，不重复请求删除已经注销的远端账号。
+- [ ] 已导出文件、图库图像和系统备份仍由用户另行删除，与说明一致。
 
-## 5. Past branch — diary
+## 6. 构建、审核与留档
 
-- [ ] Finish the scripted dialogue until "✦ 沉淀这段回忆" appears.
-- [ ] The diary screen either shows AI-generated text or the local
-      `fallbackDiary(...)` output. The user can edit before saving.
-- [ ] Save → verify the entry persists across app restart and shows the
-      edited diary on the detail screen.
-
-## 6. Forced offline
-
-- [ ] Toggle airplane mode on the device.
-- [ ] Repeat the past flow; the script should run end-to-end without ever
-      surfacing a network error to the user.
-- [ ] Verify no requests hit the gateway (`tail` the request log) — every
-      call must end with `OFFLINE` and the UI must show the recovery notice.
-
-## 7. Timeline / detail
-
-- [ ] Open Timeline → tap a memory → Detail screen renders the diary,
-      time mark, and mood asset.
-- [ ] Card preview thumbnail matches the selected sticker template.
-
-## 8. Microphone denial
-
-- [ ] Tap the voice button → when the permission prompt appears, choose
-      "拒绝".
-- [ ] The chat input remains usable; typing still composes messages.
-- [ ] No crash, no blocked flow, no retry storm.
-
-## 9. Card generation & share
-
-- [ ] On the share preview screen, tap "✦ 分享到系统".
-- [ ] The system share sheet appears. Picking a target delivers the
-      rendered PNG.
-- [ ] Cancel the share sheet → preview returns without error.
-- [ ] Force a share failure (deny share permission) → the screen shows
-      the failure notice and `ShareService.cleanup()` still removes the
-      temp file.
-
-## 10. Local-data deletion
-
-- [ ] Long-press an entry on the Timeline → confirm removal.
-- [ ] Verify the entry disappears and the in-memory `EntryRepository`
-      list no longer references it.
-- [ ] Clear app data via system settings → confirm no residual mood,
-      transcript, or diary bytes remain on disk.
-
-## 11. Disclosures
-
-MILO is a **personal diary and recall tool**, not a mental-health diagnostic
-or therapeutic service. The AI feature uses **MiniMax** (`api.minimax.chat`)
-as the third-party processor for conversation and diary text. No personal
-data is sold or used for training by MILO; MiniMax's data usage is governed
-by their own privacy terms and the contract between the operator and
-MiniMax.
-
-## 12. Sign-off
-
-- [ ] All steps pass on at least one physical HarmonyOS device running the
-      same HarmonyOS version listed in `apps/harmony/build-profile.json5`.
-- [ ] All automated test commands listed in `apps/harmony/README.md` pass
-      green.
-- [ ] The user has approved the final HAP before submission to
-      AppGallery Connect.
+- [ ] 按 apps/harmony/README.md 运行相关测试和构建；新增隐私前置同意回归通过。
+- [ ] 最终正式包 clean 构建，避免移出内测凭据后增量资源残留。
+- [ ] 真机/发布包验收记录完成；测试包通过不代替正式签名包验证。
+- [ ] AGC 隐私标签填“涉及个人信息”并如实申报邮箱认证SDK与所用权限。
+- [ ] 审核登录说明已填写，审核员能通过说明复现；私人审核说明不进入公开介绍。
+- [ ] 对AI字段按本版关闭的实际功能回答，不沿用旧稿AI标签或介绍。
+- [ ] 内容分级、备案、联系方式验证、包合法性及上架自检状态在本轮控制台确认。
+- [ ] 记录AGC实际提交时间、版本与审核结果；没有提交成功回执，不称“已上线”。

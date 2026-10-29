@@ -5,6 +5,7 @@
  * release app uses HarmonyOS NetworkKit instead of the offline test double.
  */
 import { http } from '@kit.NetworkKit';
+import { AI_AVAILABLE } from '../config/FeatureFlags';
 import {
   type CancelSignal,
   type FetchInit,
@@ -33,6 +34,8 @@ class HarmonyHttpResponse implements FetchResponse {
 /** HTTPS-only NetworkKit transport for the on-device AI gateway. */
 export class HarmonyHttpFetcher implements FetchLike {
   async fetch(input: string, init: FetchInit): Promise<FetchResponse> {
+    // All hosted and personal AI transport stops before creating an HTTP request.
+    if (!AI_AVAILABLE) throw new Error('AI_DISABLED');
     if (!input.startsWith('https://')) {
       throw new Error('The production AI gateway must use HTTPS.');
     }
@@ -52,6 +55,9 @@ export class HarmonyHttpFetcher implements FetchLike {
         extraData: init.body,
         expectDataType: http.HttpDataType.STRING,
         usingCache: false,
+        connectTimeout: 10000,
+        readTimeout: 30000,
+        maxRedirects: 0,
       });
       const body = typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
       return new HarmonyHttpResponse(response.responseCode, body);

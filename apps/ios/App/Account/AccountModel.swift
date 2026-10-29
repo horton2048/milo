@@ -270,7 +270,7 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
             if clean.source == .personal, !key.isEmpty { try keychain.save(key, uid: uid, destination: clean.destination) }
             try write(JSONEncoder().encode(clean), to: preferencesURL(uid: uid))
             aiSettings = clean
-            statusMessage = clean.source == .milo && clean.enabled ? "设置已保存；此安装包尚未接通后台，目前仍是本地引导。" : "设置已保存，下次 AI 请求将使用此配置。"
+            statusMessage = !AIFeaturePolicy.isAvailable ? AIFeaturePolicy.pausedMessage : clean.source == .milo && clean.enabled ? "设置已保存；此安装包尚未接通后台，目前仍是本地引导。" : "设置已保存，下次 AI 请求将使用此配置。"
             return true
         } catch { errorMessage = error.localizedDescription; return false }
     }
@@ -289,6 +289,9 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
     }
 
     func testConnection(settings: PersonalAISettings, newKey: String) async {
+        guard AIFeaturePolicy.isAvailable else {
+            clearMessages(); errorMessage = AIFeaturePolicy.pausedMessage; return
+        }
         guard !isBusy, let uid = identity?.uid else { return }
         clearMessages(); isBusy = true; statusMessage = "正在连接模型，最长等待 30 秒…"
         defer { isBusy = false }
@@ -301,7 +304,21 @@ struct UnconfiguredAGCAuthProvider: MiloAuthProvider {
         } catch { statusMessage = ""; errorMessage = error.localizedDescription }
     }
 
+    /// Configuration-only preflight: never reads credentials or claims a successful connection.
+    var aiUnavailableReason: String? {
+        if !AIFeaturePolicy.isAvailable { return AIFeaturePolicy.pausedMessage }
+        if !aiSettings.enabled { return "AI 已关闭。" }
+        if aiSettings.source == .milo { return "此安装包的 MILO 默认模型尚未接通。" }
+        if identity == nil { return "请先登录后配置自己的模型。" }
+        if !aiSettings.consent { return "请在 AI 设置中确认将当前对话发送给所选模型。" }
+        if aiSettings.endpoint == nil || aiSettings.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "请在 AI 设置中填写有效的 HTTPS 地址和模型名称。"
+        }
+        return nil
+    }
+
     func completeAI(messages: [AIMessage]) async throws -> String {
+        guard AIFeaturePolicy.isAvailable else { throw AccountFailure.message(AIFeaturePolicy.pausedMessage) }
         guard let uid = identity?.uid, aiSettings.enabled else { throw AccountFailure.message("正在使用本地引导。") }
         guard aiSettings.source == .personal else { throw AccountFailure.message("此安装包尚未接通后台，正在使用本地引导。") }
         let key = try keychain.read(uid: uid, destination: aiSettings.destination) ?? ""

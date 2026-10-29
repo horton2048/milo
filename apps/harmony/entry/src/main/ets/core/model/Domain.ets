@@ -113,6 +113,8 @@ export interface Draft {
   timeMark?: string;
   note?: string;
   transcript: ChatMessage[];
+  aiEnabled?: boolean;
+  inputText?: string;
   diary?: string;
   diaryEnabled: boolean;
   stickerTemplate?: StickerTemplateId;

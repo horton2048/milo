@@ -1,8 +1,111 @@
 import { describe, expect, it } from '@ohos/hypium';
 import { initialRecallState, RecallEvents, transition } from '../../../main/ets/core/flow/RecallMachine';
+import { type ChatMessage } from '../../../main/ets/core/model/Domain';
+import { RecallSessionRepository, parseDraft } from '../../../main/ets/core/data/RecallSessionRepository';
+import { MapKVStorage } from '../../../main/ets/core/data/KVStorage';
 
 export default function recallMachineTest() {
   describe('recallMachineTest', () => {
+    it('a second recording never inherits the previous descriptor labels', 0, () => {
+      const selected = ['舒心', '有盼头'];
+      let state = transition(initialRecallState(), RecallEvents.selectMood('okay', selected));
+      selected.push('温暖');
+      expect(state.draft.mood.labels.length).assertEqual(2);
+      state = transition(state, RecallEvents.reset());
+      state = transition(state, RecallEvents.selectMood('calm', ['安稳']));
+      expect(state.draft.mood.labels.join(',')).assertEqual('安稳');
+      state = transition(state, RecallEvents.reset());
+      state = transition(state, RecallEvents.selectMood('okay', []));
+      expect(state.draft.mood.labels.join(',')).assertEqual('还不错');
+    });
+    it('persists each chat turn and replaces a resumed transcript without duplicates', 0, () => {
+      let state = initialRecallState();
+      state = transition(state, RecallEvents.selectMood('calm'));
+      state = transition(state, RecallEvents.classify('past'));
+      state = transition(state, RecallEvents.setTimeMark('昨天'));
+      const messages: ChatMessage[] = [
+        { role: 'ai', text: '最先想起什么？', ts: 1 },
+        { role: 'user', text: '和朋友散步', ts: 2 },
+      ];
+      state = transition(state, RecallEvents.updateChat(messages, '还有一点没写完', false));
+      const repo = new RecallSessionRepository(new MapKVStorage());
+      repo.saveDraft(state);
+      const restored = repo.loadDraft()!;
+      expect(restored.draft.transcript.length).assertEqual(2);
+      expect(restored.draft.aiEnabled).assertEqual(false);
+      expect(restored.draft.inputText).assertEqual('还有一点没写完');
+      state = transition(restored, RecallEvents.setDiary('和朋友散步'));
+      state = transition(state, RecallEvents.back());
+      expect(state.draft.aiEnabled).assertEqual(false);
+      expect(state.draft.inputText).assertEqual('还有一点没写完');
+      state = transition(state, RecallEvents.updateChat(messages, '还有一点没写完', false));
+      expect(state.draft.transcript.length).assertEqual(2);
+      messages[1].text = '改写外部消息';
+      expect(state.draft.transcript[1].text).assertEqual('和朋友散步');
+    });
+
+    it('starts a fresh conversation when selecting a different memory time', 0, () => {
+      let state = initialRecallState();
+      state = transition(state, RecallEvents.selectMood('calm'));
+      state = transition(state, RecallEvents.classify('past'));
+      state = transition(state, RecallEvents.setTimeMark('昨天'));
+      state = transition(state, RecallEvents.appendMessage('user', '去散步', 1));
+      state = transition(state, RecallEvents.updateChat(state.draft.transcript, '散步时还想起', false));
+      state = transition(state, RecallEvents.back());
+      state = transition(state, RecallEvents.setTimeMark('去年'));
+      expect(state.draft.transcript.length).assertEqual(0);
+      expect(state.draft.inputText).assertEqual('');
+      expect(state.draft.aiEnabled).assertEqual(false);
+    });
+
+    it('restores an unsent input exactly and persists both AI toggle positions', 0, () => {
+      const storage = new MapKVStorage();
+      let state = initialRecallState();
+      state = transition(state, RecallEvents.selectMood('calm'));
+      state = transition(state, RecallEvents.classify('past'));
+      state = transition(state, RecallEvents.setTimeMark('昨天'));
+      const input = '  还有一点\n没想好怎么说  ';
+      state = transition(state, RecallEvents.updateChat([], input, false));
+      new RecallSessionRepository(storage).saveDraft(state);
+      let restored = new RecallSessionRepository(storage).loadDraft()!;
+      expect(restored.screen.name).assertEqual('chat');
+      expect(restored.draft.transcript.length).assertEqual(0);
+      expect(restored.draft.inputText).assertEqual(input);
+      expect(restored.draft.aiEnabled).assertEqual(false);
+      restored = transition(restored, RecallEvents.updateChat([], '', true));
+      new RecallSessionRepository(storage).saveDraft(restored);
+      restored = new RecallSessionRepository(storage).loadDraft()!;
+      expect(restored.draft.inputText).assertEqual('');
+      expect(restored.draft.aiEnabled).assertEqual(true);
+    });
+
+    it('keeps chat preferences and unsent input when returning to the same memory time', 0, () => {
+      let state = initialRecallState();
+      state = transition(state, RecallEvents.selectMood('calm'));
+      state = transition(state, RecallEvents.classify('past'));
+      state = transition(state, RecallEvents.setTimeMark('昨天'));
+      state = transition(state, RecallEvents.updateChat([], '刚刚想到', false));
+      state = transition(state, RecallEvents.back());
+      state = transition(state, RecallEvents.setTimeMark(' 昨天 '));
+      expect(state.draft.inputText).assertEqual('刚刚想到');
+      expect(state.draft.aiEnabled).assertEqual(false);
+    });
+
+    it('loads an existing schema 1 draft without the new optional chat fields', 0, () => {
+      const restored = parseDraft('{"schemaVersion":1,"state":{"screenName":"chat","draft":{"valence":0,"labels":[],"kind":"past","timeMark":"昨天","diaryEnabled":true,"transcript":[]}}}');
+      expect(restored !== undefined).assertTrue();
+      expect(restored!.draft.timeMark).assertEqual('昨天');
+      expect(restored!.draft.aiEnabled).assertEqual(undefined);
+      expect(restored!.draft.inputText).assertEqual(undefined);
+    });
+
+    it('rejects invalid persisted chat preference and input types', 0, () => {
+      const badPreference = parseDraft('{"schemaVersion":1,"state":{"screenName":"chat","draft":{"valence":0,"labels":[],"diaryEnabled":true,"transcript":[],"aiEnabled":"false"}}}');
+      const badInput = parseDraft('{"schemaVersion":1,"state":{"screenName":"chat","draft":{"valence":0,"labels":[],"diaryEnabled":true,"transcript":[],"inputText":false}}}');
+      expect(badPreference).assertEqual(undefined);
+      expect(badInput).assertEqual(undefined);
+    });
+
     it('routes a past draft through time and chat', 0, () => {
       let state = initialRecallState();
       state = transition(state, RecallEvents.selectMood('calm'));

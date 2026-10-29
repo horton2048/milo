@@ -17,6 +17,7 @@ final class JournalModel {
     private(set) var isSaving = false
     var isThinking = false
     var guidanceNotice = ""
+    private(set) var guidanceDetail: String?
     var settingsReturnPage = "account"
     let account: AccountModel
     let temporaryExportDirectory: URL
@@ -33,6 +34,9 @@ final class JournalModel {
     private var generation = UUID()
     private enum GenerationKind { case opening, response, diary }
     private var generationKind: GenerationKind?
+    private let injectedAI: Bool
+    private var replyFailed = false
+    private var replyStopped = false
     private let aiCompletion: @MainActor ([AIMessage]) async throws -> String
 
     init(repository: any JournalRepository, directory: URL,
@@ -43,6 +47,7 @@ final class JournalModel {
         draftRepository = JSONDraftRepository(fileURL: directory.appendingPathComponent("draft.json"))
         let account = AccountModel(directory: directory)
         self.account = account
+        injectedAI = aiCompletion != nil
         self.aiCompletion = aiCompletion ?? { messages in try await account.completeAI(messages: messages) }
         draft = RecallDraft(aiEnabled: account.aiSettings.enabled)
         reload()
@@ -86,26 +91,87 @@ final class JournalModel {
         }
         draft.goBack()
     }
-    func openSettings() { settingsReturnPage = draft.page; go("ai-settings") }
-    func chooseKind(_ kind: String) { cancelGeneration(); draft.chooseKind(kind) }
+    func openSettings() {
+        guard aiFeatureAvailable else { return }
+        settingsReturnPage = draft.page; go("ai-settings")
+    }
+    func chooseKind(_ kind: String) {
+        cancelGeneration(); replyFailed = false; replyStopped = false
+        guidanceNotice = ""; guidanceDetail = nil
+        draft.chooseKind(kind)
+    }
+    var hasUnfinishedDraft: Bool { draft.kind != nil && (!draft.transcript.isEmpty || !draft.note.isEmpty || !draft.inputText.isEmpty || draft.diary != nil || draft.previousDiary != nil) }
+    private var aiFeatureAvailable: Bool {
+        #if MILO_AI_COORDINATOR_TESTS
+        // Only the standalone offline coordinator harness compiles this path.
+        // Neither Debug nor Release app builds define this flag.
+        if injectedAI { return true }
+        #endif
+        return AIFeaturePolicy.isAvailable
+    }
+    var aiUnavailableReason: String? {
+        guard aiFeatureAvailable else { return AIFeaturePolicy.pausedMessage }
+        return draft.aiEnabled ? (injectedAI ? nil : account.aiUnavailableReason) : "AI 已关闭。"
+    }
+    var chatNotice: String {
+        if !aiFeatureAvailable { return "仅本地记录" }
+        if isThinking { return guidanceNotice }
+        if aiUnavailableReason != nil { return draft.aiEnabled ? "仅本地记录 · AI 未连接" : "仅本地记录 · AI 已关闭" }
+        return guidanceNotice
+    }
+    var chatDetail: String? { aiUnavailableReason ?? guidanceDetail }
+    var canRetryReply: Bool { !isThinking && aiUnavailableReason == nil && draft.transcript.last?.role == .user && !OfflineGuide.wantsToPause(draft.transcript.last?.text ?? "") }
+    func startPresentConversation() {
+        cancelGeneration(); replyFailed = false; replyStopped = false
+        draft.chooseKind("now")
+        draft.page = "chat"
+        draft.diaryEnabled = false
+        if draft.transcript.isEmpty {
+            draft.transcript.append(TranscriptMessage(role: .ai, text: "想说什么就从那里开始，不用整理好，也可以随时停下。"))
+        }
+        guidanceNotice = ""; guidanceDetail = nil
+    }
+    func endConversation() {
+        go("home")
+        guidanceNotice = ""; guidanceDetail = nil
+        // Retain the raw local draft; ending is neither saving an entry nor generating a diary.
+    }
+    func resumeDraft() {
+        guard hasUnfinishedDraft else { return }
+        go(draft.diary != nil ? "diary" : !draft.transcript.isEmpty ? "chat" : draft.kind == "now" ? "now-note" : "past-time")
+    }
+    func stopReply() { cancelGeneration(); replyStopped = true; guidanceNotice = "已停止"; guidanceDetail = nil }
+    func retryReply() { guard canRetryReply else { return }; replyFailed = false; replyStopped = false; respondToCurrentConversation() }
+    func saveConversation() {
+        guard canFinishConversation else { return }
+        draft.diaryEnabled = false
+        _ = save()
+    }
     func openEntry(_ id: String) { draft.entryID = id; go("detail") }
-    func startHome() { cancelGeneration(); draft = RecallDraft(aiEnabled: account.aiSettings.enabled) }
+    func startHome() {
+        cancelGeneration(); replyFailed = false; replyStopped = false
+        guidanceNotice = ""; guidanceDetail = nil
+        draft = RecallDraft(aiEnabled: account.aiSettings.enabled)
+    }
     func returnHome() { go("home") }
-    func beginMoodWords() {
-        let mood = draft.mood
+    func beginMoodWords(mood selectedMood: Mood? = nil) {
+        let mood = selectedMood ?? draft.mood
         cancelGeneration()
+        guidanceNotice = ""; guidanceDetail = nil
         var next = RecallDraft(mood: mood, aiEnabled: account.aiSettings.enabled); next.page = "home-words"; draft = next
     }
     /// Call only after account settings were successfully persisted. Provider,
     /// model, consent and key changes invalidate a request even if AI stays on.
     func aiSettingsDidSave() {
-        cancelGeneration()
+        cancelGeneration(); replyFailed = false; replyStopped = false
         draft.aiEnabled = account.aiSettings.enabled
-        guidanceNotice = draft.aiEnabled ? "AI 设置已更新，下次请求将使用新配置。" : "正在使用本地引导"
+        guidanceNotice = draft.aiEnabled ? "AI 设置已更新" : "仅本地记录 · AI 已关闭"
+        guidanceDetail = nil
     }
     private func resumeConversationAfterSettings() {
-        guard draft.page == "chat", !isThinking else { return }
-        if draft.transcript.isEmpty, let time = draft.timeMark {
+        guard draft.page == "chat", !isThinking, !replyFailed, !replyStopped else { return }
+        if draft.kind == "now", draft.transcript.isEmpty { startPresentConversation() }
+        else if draft.transcript.isEmpty, let time = draft.timeMark {
             startConversation(time: time)
         } else if draft.transcript.last?.role == .user {
             respondToCurrentConversation()
@@ -115,26 +181,29 @@ final class JournalModel {
         if draft.timeMark != value.trimmingCharacters(in: .whitespacesAndNewlines) { cancelGeneration() }
         var next = draft
         if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            if next.timeMark != nil { next.transcript = []; next.diary = nil; next.inputText = "" }
+            if next.timeMark != nil { next.transcript = []; next.diary = nil; next.previousDiary = nil; next.inputText = "" }
             next.timeMark = nil
             next.pendingEntryID = nil
         } else { _ = next.selectTimeMark(value) }
         next.page = "past-time"; draft = next
     }
     func setAIEnabled(_ enabled: Bool) {
+        guard aiFeatureAvailable else { return }
         draft.aiEnabled = enabled
+        replyFailed = false
+        guidanceDetail = nil
         if !enabled {
             let pending = generationKind
             cancelGeneration()
             if pending == .opening, draft.page == "chat", draft.transcript.isEmpty {
                 draft.transcript.append(TranscriptMessage(role: .ai, text: OfflineGuide.opening(mood: draft.mood, timeMark: draft.timeMark ?? "那段时光")))
             } else if pending == .response, draft.page == "chat", draft.transcript.last?.role == .user {
-                draft.transcript.append(TranscriptMessage(role: .ai, text: OfflineGuide.respond(transcript: draft.transcript)))
+                replyFailed = false
             } else if pending == .diary, draft.page == "diary", draft.diaryEnabled, draft.diary == nil {
                 draft.diary = OfflineGuide.diary(transcript: draft.transcript)
             }
-            guidanceNotice = "正在使用本地引导"
-        }
+            guidanceNotice = "仅本地记录 · AI 已关闭"
+        } else { guidanceNotice = "下次发送将尝试连接 AI" }
     }
     func retryStorage() {
         reload()
@@ -204,13 +273,14 @@ final class JournalModel {
         draftWritable = true
     }
     func startConversation(time: String) {
-        cancelGeneration()
+        cancelGeneration(); replyFailed = false; replyStopped = false
+        guidanceNotice = ""; guidanceDetail = nil
         guard draft.selectTimeMark(time) else { return }
         guard draft.transcript.isEmpty else { return }
         let fallback = OfflineGuide.opening(mood: draft.mood, timeMark: draft.timeMark ?? "那段时光")
-        guard draft.aiEnabled else {
+        guard aiUnavailableReason == nil else {
             draft.transcript.append(TranscriptMessage(role: .ai, text: fallback))
-            guidanceNotice = "正在使用本地引导"
+            guidanceNotice = "仅本地记录 · AI 未连接"
             return
         }
         let messages = [AIMessage(role: .system, content: chatInstruction + "用一句温柔的中文问候开启回忆，问一个具体的小问题。"),
@@ -219,30 +289,47 @@ final class JournalModel {
     }
     func send() {
         let text = draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isThinking else { return }
-        draft.transcript.append(TranscriptMessage(role: .user, text: text))
-        draft.inputText = ""
-        if !draft.aiEnabled || OfflineGuide.wantsToPause(text) {
-            draft.transcript.append(TranscriptMessage(role: .ai, text: OfflineGuide.respond(transcript: draft.transcript)))
-            guidanceNotice = "正在使用本地引导"
+        guard draft.page == "chat", !text.isEmpty, !isThinking else { return }
+        replyStopped = false
+        let pauses = OfflineGuide.wantsToPause(text)
+        // A diary reflects the conversation it was made from. Navigation keeps
+        // edits intact; new content requires a fresh diary, with the previous
+        // body available for recovery. Pausing does not add new diary material.
+        var next = draft
+        if !pauses {
+            if let diary = next.diary { next.previousDiary = diary }
+            next.diary = nil
+        }
+        next.transcript.append(TranscriptMessage(role: .user, text: text))
+        next.inputText = ""
+        draft = next
+        if pauses {
+            guidanceNotice = "已暂停"; guidanceDetail = nil
+            return
+        }
+        if aiUnavailableReason != nil || replyFailed {
+            if replyFailed { guidanceNotice = "回复失败，原话已保留" }
             return
         }
         respondToCurrentConversation()
     }
     private func respondToCurrentConversation() {
-        guard draft.transcript.last?.role == .user else { return }
-        if !draft.aiEnabled {
-            draft.transcript.append(TranscriptMessage(role: .ai, text: OfflineGuide.respond(transcript: draft.transcript)))
-            guidanceNotice = "正在使用本地引导"
-            return
-        }
+        guard draft.page == "chat", draft.transcript.last?.role == .user, !isThinking else { return }
+        guard !OfflineGuide.wantsToPause(draft.transcript.last?.text ?? ""), aiUnavailableReason == nil else { return }
         let conversation = Array(draft.transcript.suffix(24))
         let messages = [AIMessage(role: .system, content: chatInstruction)]
             + conversation.map { AIMessage(role: $0.role == .user ? .user : .assistant, content: $0.text) }
         requestConversationReply(messages: messages, fallback: OfflineGuide.respond(transcript: draft.transcript), kind: .response)
     }
     private var chatInstruction: String {
-        "你是MILO，温柔简短地陪用户回忆。一次只问一个问题，回答不超过48字。不要诊断、不虚构用户经历。用户情绪：\(draft.mood.title)\(draft.labels.joined(separator: "、"))，时间：\(draft.timeMark ?? "过去")。用户说先这样或暂停时尊重停止。"
+        """
+        你是MILO，一个温和、坦诚的倾听伙伴。先回应用户刚说的具体处境，让用户按照自己的节奏把事情说出来，不把对话当作问卷。
+        用户只想吐槽或明确说先别建议时，陪他把话说完，不急着分析、说教、建议、提炼意义、成长或积极结论。可以只回应而不提问；确有必要且用户愿意继续时才追问，一次至多一个，避免重复问已说过的事。
+        区分用户明确说过的事实、感受与推测，不替用户断定别人的动机，不一味附和，也不虚构经历或诊断。用户主动求助或要求建议时，按请求提供适量、具体的帮助；明确要求两个建议就给两个。
+        简洁自然，通常两三句话；复杂处境可稍长，不为字数删掉关键回应。用户说暂停或结束时就接受，不再追问，不擅自总结或生成日记，不催促保存。用户可以只吐槽、聊完就走。
+        用户选择的情绪：\(draft.mood.title)；描述词：\(draft.labels.joined(separator: "、"))。
+        \(draft.kind == "now" ? "场景：用户在说今天或此刻的事情，不要强迫转向过去回忆。" : "场景：用户想回忆，时间：" + (draft.timeMark ?? "过去") + "。顺着用户说的内容，不强求回忆细节。")
+        """
     }
     private func requestConversationReply(messages: [AIMessage], fallback: String, kind: GenerationKind) {
         cancelGeneration()
@@ -251,27 +338,37 @@ final class JournalModel {
         let conversation = draft.transcript
         isThinking = true
         generationKind = kind
-        guidanceNotice = "正在连接 AI…"
+        guidanceNotice = "正在回复…"; guidanceDetail = nil
         conversationTask = Task { [weak self] in
             guard let self, !Task.isCancelled, current == generation else { return }
             defer { finishGeneration(current) }
-            let reply: String
+            let reply: String?
             let notice: String
+            let detail: String?
             do {
-                reply = try await aiCompletion(messages)
-                notice = ""
+                let value = try await aiCompletion(messages)
+                reply = value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : value
+                notice = reply == nil ? "回复失败，原话已保留" : ""
+                detail = reply == nil ? "模型未返回文字，可重试或检查 AI 设置。" : nil
             } catch {
-                reply = fallback
-                notice = "AI 暂时不可用，已切换本地引导"
+                reply = nil
+                notice = "回复失败，原话已保留"
+                detail = error.localizedDescription
             }
             guard !Task.isCancelled, current == generation, draft.page == "chat", draft.aiEnabled,
                   draft.timeMark == time, draft.transcript == conversation else { return }
             guidanceNotice = notice
-            draft.transcript.append(TranscriptMessage(role: .ai, text: Self.shortReply(reply)))
+            guidanceDetail = detail
+            replyFailed = reply == nil
+            if let reply { draft.transcript.append(TranscriptMessage(role: .ai, text: reply)) }
+            else if kind == .opening, draft.transcript.isEmpty {
+                draft.transcript.append(TranscriptMessage(role: .ai, text: fallback))
+            }
         }
     }
     func prepareDiary() {
         guard canFinishConversation else { return }
+        draft.diaryEnabled = true
         go("diary")
         ensureDiary()
     }
@@ -280,7 +377,7 @@ final class JournalModel {
         if enabled { ensureDiary() }
         else {
             cancelGeneration()
-            guidanceNotice = "将保留这段对话，不生成日记。"
+            guidanceNotice = "仅收藏原话"; guidanceDetail = nil
         }
     }
     func editDiary(_ text: String) {
@@ -289,13 +386,23 @@ final class JournalModel {
         if generationKind == .diary { cancelGeneration() }
         draft.diary = text
     }
+    func restorePreviousDiary() {
+        guard let previous = draft.previousDiary else { return }
+        cancelGeneration()
+        var next = draft
+        next.previousDiary = next.diary
+        next.diary = previous
+        draft = next
+        guidanceNotice = "已恢复上一版"; guidanceDetail = nil
+    }
     func ensureDiary() {
         guard draft.page == "diary", draft.diaryEnabled, draft.diary == nil, !isThinking else { return }
         let conversation = draft.transcript
         let fallback = OfflineGuide.diary(transcript: conversation)
-        guard draft.aiEnabled, conversation.count <= 32 else {
+        guard aiUnavailableReason == nil, conversation.count <= 32 else {
             draft.diary = fallback
-            guidanceNotice = conversation.count > 32 ? "对话较长，已用你的原话整理，可以继续修改。" : "已用你的原话整理，可以继续修改。"
+            guidanceNotice = "已按原话整理"
+            guidanceDetail = conversation.count > 32 ? "对话较长，已在本机按你的原话整理。" : aiUnavailableReason
             return
         }
         cancelGeneration()
@@ -303,20 +410,24 @@ final class JournalModel {
         let time = draft.timeMark
         let initialDiary = draft.diary
         isThinking = true; generationKind = .diary
-        guidanceNotice = "正在将你的话整理成日记…"
-        let messages = [AIMessage(role: .system, content: "你是MILO的回忆记录助手。仅使用用户真实说过的事实，整理为第一人称中文日记，200至500字，材料不足时可以更短。不虚构人物、事件、感觉或细节，不诊断、不说教、不写标题，只输出日记正文。回忆时间：\(time ?? "过去")。")]
+        guidanceNotice = "正在整理…"; guidanceDetail = nil
+        let messages = [AIMessage(role: .system, content: "你是MILO的记录助手。仅使用用户明确说过的事实和感受，保留原意与情绪强度，整理为第一人称中文日记。说了一点就写一点，不为凑字数扩写。不虚构人物、事件、感觉、动机或细节，不把推测写成事实，不添加用户没说过的释然、成长或结论。不诊断、不说教、不写标题，只输出日记正文。记录时间：\(time ?? "今天 / 此刻")。")]
             + conversation.filter { $0.role == .user }.map { AIMessage(role: .user, content: $0.text) }
         conversationTask = Task { [weak self] in
             guard let self, !Task.isCancelled, current == generation else { return }
             defer { finishGeneration(current) }
             let text: String
             let notice: String
+            let detail: String?
             do {
                 text = try await aiCompletion(messages)
-                notice = "已整理成日记，请读一读，也可以改一改。"
+                let empty = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                notice = empty ? "已按原话整理" : "日记已整理"
+                detail = empty ? "模型未返回日记正文，已在本机按你的原话整理。" : nil
             } catch {
                 text = fallback
-                notice = "AI 暂时不可用，已用你的原话整理，可以继续修改。"
+                notice = "已按原话整理"
+                detail = error.localizedDescription
             }
             guard !Task.isCancelled, current == generation, draft.page == "diary", draft.diaryEnabled,
                   draft.aiEnabled, draft.timeMark == time, draft.transcript == conversation,
@@ -324,6 +435,7 @@ final class JournalModel {
             let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
             draft.diary = clean.isEmpty ? fallback : clean
             guidanceNotice = notice
+            guidanceDetail = detail
         }
     }
     @discardableResult
@@ -410,13 +522,6 @@ final class JournalModel {
         catch { errorMessage = "导出失败，请稍后重试。"; return nil }
     }
     func exportMarkdown() -> String? { DiaryExport.markdown(entries: entries) }
-    private static func shortReply(_ text: String) -> String {
-        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard clean.count > 48 else { return clean }
-        let prefix = String(clean.prefix(48))
-        if let end = prefix.lastIndex(where: { "。！？!?".contains($0) }) { return String(prefix[...end]) }
-        return String(prefix.prefix(47)) + "。"
-    }
     private func cancelGeneration() {
         if isThinking { guidanceNotice = "" }
         generation = UUID(); conversationTask?.cancel(); conversationTask = nil; generationKind = nil; isThinking = false

@@ -10,7 +10,7 @@ import {
   DRAFT_STORAGE_KEY,
 } from '../../../main/ets/core/data/RecallSessionRepository';
 import { MapKVStorage } from '../../../main/ets/core/data/KVStorage';
-import { type DiaryEntry } from '../../../main/ets/core/model/Domain';
+import { type DiaryEntry, type StickerTemplateId, DEFAULT_STICKER_TEMPLATE } from '../../../main/ets/core/model/Domain';
 import {
   initialRecallState,
   RecallEvents,
@@ -21,6 +21,7 @@ import {
 interface EntryPatch {
   diary?: string;
   diaryEnabled?: boolean;
+  stickerTemplate?: StickerTemplateId;
 }
 
 interface RawEntryRow {
@@ -30,6 +31,7 @@ interface RawEntryRow {
   mood?: RawMood;
   diaryEnabled?: boolean;
   diary?: string;
+  stickerTemplate?: string | number;
 }
 
 interface RawEnvelope {
@@ -137,6 +139,49 @@ function entryRepositorySuite() {
       expect(a!.diary).assertEqual('hello world');
       expect(a!.diaryEnabled).assertTrue();
       expect(b!.diary === undefined).assertTrue();
+    });
+
+    it('keeps the selected card template after invalidating and reopening the repository', 0, () => {
+      const storage = new MapKVStorage();
+      const repo = new EntryRepository(storage);
+      repo.save(entry('a', 'past', 1000, true));
+      const patch: EntryPatch = { stickerTemplate: 'orbit-theatre' };
+      repo.update('a', patch);
+      expect(repo.get('a')!.stickerTemplate).assertEqual('orbit-theatre');
+
+      repo.invalidate();
+      expect(repo.get('a')!.stickerTemplate).assertEqual('orbit-theatre');
+      expect(new EntryRepository(storage).get('a')!.stickerTemplate).assertEqual('orbit-theatre');
+    });
+
+    it('preserves the saved template when editing other diary fields', 0, () => {
+      const storage = new MapKVStorage();
+      const repo = new EntryRepository(storage);
+      const saved = entry('a', 'past', 1000, true);
+      saved.stickerTemplate = 'orbit-theatre';
+      repo.save(saved);
+      repo.invalidate();
+      const patch: EntryPatch = { diary: '换个说法，还是同一段回忆。' };
+      repo.update('a', patch);
+
+      const loaded = new EntryRepository(storage).get('a');
+      expect(loaded!.stickerTemplate).assertEqual('orbit-theatre');
+      expect(loaded!.diary).assertEqual(patch.diary);
+    });
+
+    it('falls back for unknown templates without losing the entry and keeps legacy records readable', 0, () => {
+      const unknown = rawRow('unknown-template', 3000, 'past');
+      unknown.stickerTemplate = 'future-template';
+      const malformed = rawRow('malformed-template', 2000, 'past');
+      malformed.stickerTemplate = 42;
+      const legacy = rawRow('legacy', 1000, 'now');
+      const envelope: RawEnvelope = { schemaVersion: 1, entries: [unknown, malformed, legacy] };
+      const loaded = parseEnvelope(JSON.stringify(envelope));
+
+      expect(loaded.length).assertEqual(3);
+      expect(loaded[0].stickerTemplate).assertEqual(DEFAULT_STICKER_TEMPLATE);
+      expect(loaded[1].stickerTemplate).assertEqual(DEFAULT_STICKER_TEMPLATE);
+      expect(loaded[2].stickerTemplate).assertEqual(undefined);
     });
 
     it('removes an entry by id and tolerates missing ids', 0, () => {

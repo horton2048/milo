@@ -25,11 +25,11 @@ struct AISettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     enabledControl
-                    Text("关闭后使用本地引导，记录与导出始终可用。")
+                    Text("关闭后仅本地记录，不会回复对话；记录与导出始终可用。")
                         .font(.footnote).foregroundStyle(MiloTheme.hint)
                     sourceLayout {
                         sourceButton("自己的模型", source: .personal)
-                        sourceButton("MILO 默认模型", source: .milo)
+                        sourceButton("MILO 默认模型（未接通）", source: .milo)
                     }
                     if settings.source == .personal { personalSettings } else { hostedSettings }
                 }.frame(maxWidth: .infinity, alignment: .leading)

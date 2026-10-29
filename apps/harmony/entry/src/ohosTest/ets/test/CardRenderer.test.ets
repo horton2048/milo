@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@ohos/hypium';
 import {
+  CARD_BODY_FONT_SIZE,
   CARD_THEME,
   STICKER_TEMPLATES,
   cardMoodArtwork,
@@ -192,6 +193,34 @@ function cardSuite() {
       expect(hasHeading).assertTrue();
       expect(hasBody).assertTrue();
       expect(hasTicket).assertTrue();
+    });
+
+    it('card body remains readable when the 1080-unit design is shown at phone width', 0, () => {
+      const layout = renderCardLayout(sampleEntry());
+      for (let index = 0; index < layout.sections.length; index += 1) {
+        const section = layout.sections[index];
+        if (section.kind === 'body') {
+          const previewFontSize: number = (section.fontSize ?? 0) * 320 / layout.width;
+          expect(previewFontSize >= 18).assertTrue();
+        }
+      }
+    });
+
+    it('wraps a long Chinese summary at the visible body width and leaves room for the ticket', 0, () => {
+      const entry = sampleEntry();
+      entry.diary = '那是一个特别漫长的下午我在老家的院子里坐着看云一朵一朵慢慢地飘过去整个人放空了什么都不想做';
+      const layout = renderCardLayout(entry);
+      const lines: string[] = layout.body.split('\n');
+      expect(lines.length >= 4).assertTrue();
+      for (let index = 0; index < layout.sections.length; index += 1) {
+        const section = layout.sections[index];
+        if (section.kind === 'body') {
+          for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+            expect(lines[lineIndex].length * CARD_BODY_FONT_SIZE <= section.bounds.width).assertTrue();
+          }
+          expect(section.bounds.y + section.bounds.height < layout.height - 110).assertTrue();
+        }
+      }
     });
 
     it('renderCardLayout omits the artwork section for legacy valence-only entries', 0, () => {

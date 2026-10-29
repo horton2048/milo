@@ -69,7 +69,7 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, createdAt, kind, mood, note, timeMark, transcript, diary, diaryEnabled, stickerTemplate
+        case id, createdAt, kind, mood, note, timeMark, transcript, diary, diaryEnabled, stickerTemplate, presentDiaryEnabled
     }
     private struct StoredMood: Codable {
         let valence: Int
@@ -83,17 +83,21 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
         guard storedMood.valence == storedMood.emotionId.valence else {
             throw JournalError.invalidEntry("inconsistent mood")
         }
+        let kind = try values.decode(String.self, forKey: .kind)
+        let legacyDiaryEnabled = try values.decode(Bool.self, forKey: .diaryEnabled)
+        let presentDiaryEnabled = try values.decodeIfPresent(Bool.self, forKey: .presentDiaryEnabled) ?? false
+        guard !presentDiaryEnabled || kind == "now" else { throw JournalError.invalidEntry("invalid present diary flag") }
         self.init(
             id: try values.decode(String.self, forKey: .id),
             createdAt: try values.decode(Double.self, forKey: .createdAt),
             mood: storedMood.emotionId,
             note: values.contains(.note) ? try values.decode(String.self, forKey: .note) : "",
             labels: storedMood.labels,
-            kind: try values.decode(String.self, forKey: .kind),
+            kind: kind,
             timeMark: try values.decodeIfPresent(String.self, forKey: .timeMark),
             transcript: try values.decodeIfPresent([TranscriptMessage].self, forKey: .transcript) ?? [],
             diary: try values.decodeIfPresent(String.self, forKey: .diary),
-            diaryEnabled: try values.decode(Bool.self, forKey: .diaryEnabled),
+            diaryEnabled: legacyDiaryEnabled || presentDiaryEnabled,
             stickerTemplate: try values.decodeIfPresent(CardTemplate.self, forKey: .stickerTemplate) ?? .planetLetter
         )
         try validate()
@@ -110,7 +114,10 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
         try values.encodeIfPresent(timeMark, forKey: .timeMark)
         try values.encode(transcript, forKey: .transcript)
         try values.encodeIfPresent(diary, forKey: .diary)
-        try values.encode(diaryEnabled, forKey: .diaryEnabled)
+        // Older iOS rejects kind=now with diaryEnabled=true. Preserve the familiar
+        // kind and all content, and use an additive optional flag that it ignores.
+        try values.encode(kind == "past" && diaryEnabled, forKey: .diaryEnabled)
+        if kind == "now", diaryEnabled { try values.encode(true, forKey: .presentDiaryEnabled) }
         try values.encode(stickerTemplate, forKey: .stickerTemplate)
     }
 
@@ -119,7 +126,9 @@ public struct JournalEntry: Codable, Identifiable, Equatable, Sendable {
         try validateTimestamp(createdAt)
         try validateLabels(labels)
         guard kind == "now" || kind == "past" else { throw JournalError.invalidEntry("unknown kind") }
-        if kind == "now" && diaryEnabled { throw JournalError.invalidEntry("present diary is not supported") }
+        if kind == "now" && diaryEnabled && !transcript.contains(where: { $0.role == .user }) {
+            throw JournalError.invalidEntry("present diary requires user expression")
+        }
         if kind == "past", timeMark?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
             throw JournalError.invalidEntry("missing past time")
         }

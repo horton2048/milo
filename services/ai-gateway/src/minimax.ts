@@ -51,7 +51,7 @@ export function createMiniMaxTransport(deps: TransportDeps): MiniMaxTransport {
             thinking: { type: 'disabled' },
             messages: [
               { role: 'system', content: request.system, name: 'Milo' },
-              ...request.messages.map((m) => ({ role: m.role, content: m.text, name: m.role === 'user' ? 'user' : 'assistant' })),
+              ...request.messages.map((m) => ({ role: m.role === 'ai' ? 'assistant' : 'user', content: m.text, name: m.role === 'user' ? 'user' : 'assistant' })),
             ],
           }),
           signal: controller.signal,

@@ -30,7 +30,7 @@ export struct NowNoteScreen {
           .fontFamily('serif')
           .fontWeight(FontWeight.Medium)
           .fontColor(MILO_COLORS.ink)
-        Text('一句话就够了，甚至可以什么都不写。')
+        Text('想写多少都可以')
           .fontSize(13)
           .fontColor(MILO_COLORS.inkHint)
           .margin({ top: 10 })
@@ -43,7 +43,7 @@ export struct NowNoteScreen {
         MoodPlanet({ moodId: this.mood.emotionId, planetSize: 120 })
       }
 
-      TextArea({ placeholder: '此刻想说点什么吗…（可留空）', text: this.note })
+      TextArea({ placeholder: '此刻的感受…（选填）', text: this.note })
         .onChange((value: string) => {
           this.note = value;
         })
@@ -55,7 +55,7 @@ export struct NowNoteScreen {
         .backgroundColor('rgba(255,255,255,0.05)')
         .border({ width: 1, color: 'rgba(255,255,255,0.10)' })
         .fontColor(MILO_COLORS.ink)
-        .fontSize(14)
+        .fontSize(16)
         .placeholderColor('rgba(234,230,255,0.45)')
 
       Blank()

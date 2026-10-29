@@ -11,14 +11,14 @@ import { createMiniMaxTransport } from '../dist/minimax.js';
 import { loadConfig } from '../dist/config.js';
 
 const config = loadConfig();
-const transport = createMiniMaxTransport({
+const transport = config.aiEnabled ? createMiniMaxTransport({
   apiKey: config.apiKey,
   baseUrl: config.baseUrl,
   model: config.model,
   timeoutMs: config.timeoutMs,
-});
+}) : undefined;
 
-const app = createApp({ transport, rateLimitPerMinute: 60 });
+const app = createApp({ aiEnabled: config.aiEnabled, transport, rateLimitPerMinute: config.rateLimitPerMinute, bearerToken: config.bearerToken });
 
 export default function handler(req, res) {
   // Express handles the (req, res) objects Vercel passes directly.

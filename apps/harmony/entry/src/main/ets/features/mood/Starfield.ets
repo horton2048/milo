@@ -22,6 +22,9 @@ export class StarView {
   dx: number;
   dy: number;
   dim: number;
+  driftX: number = 0;
+  driftY: number = 0;
+  twinkle: number = 1;
 
   constructor(star: Star, dx: number, dy: number, dim: number) {
     this.star = star;
@@ -39,9 +42,9 @@ struct StarItem {
   build() {
     Circle({ width: this.view.star.radius * 2, height: this.view.star.radius * 2 })
       .fill(this.color)
-      .opacity(this.view.star.opacity * (1 - this.view.dim))
+      .opacity(this.view.twinkle * (1 - this.view.dim))
       .position({ x: `${this.view.star.x * 100}%`, y: `${this.view.star.y * 100}%` })
-      .translate({ x: this.view.dx, y: this.view.dy })
+      .translate({ x: this.view.dx + this.view.driftX, y: this.view.dy + this.view.driftY })
   }
 }
 
@@ -74,7 +77,7 @@ export function generateStars(count: number, seed: number): Star[] {
     out.push({
       x: x,
       y: y,
-      radius: 0.6 + size * 1.6,
+      radius: 0.3 + size * 1.3,
       opacity: 0.25 + fade * 0.6,
     });
   }
@@ -87,13 +90,52 @@ const DEFAULT_STARFIELD: Star[] = generateStars(120, 0x5a17c0fe);
 export struct Starfield {
   @Prop count: number = 120;
   @Prop seed: number = 0x5a17c0fe;
-  @Prop color: string = '#ffffff';
+  @Prop color: string = '#dcd6ff';
   @State views: Array<StarView> = [];
   private fieldWidth: number = 0;
   private fieldHeight: number = 0;
   private settleTimer: number = -1;
+  private motionTimer: number = -1;
+  private elapsed: number = 0;
+  private lastFrame: number = 0;
+
+  private startMotion(): void {
+    if (this.motionTimer >= 0) return;
+    this.lastFrame = Date.now();
+    this.motionTimer = setInterval(() => {
+      const now = Date.now();
+      const delta = Math.min((now - this.lastFrame) / 1000, 0.1);
+      this.lastFrame = now;
+      this.elapsed += delta;
+      for (let index = 0; index < this.views.length; index += 1) {
+        const view = this.views[index];
+        const phase = view.star.x * Math.PI * 2;
+        const speed = 0.4 + view.star.y * 1.2;
+        view.twinkle = 0.25 + 0.55 * Math.abs(Math.sin(phase + this.elapsed * speed));
+        // Web drift is per 60 Hz frame; integrate seconds for any refresh rate.
+        const drift = (view.star.opacity - 0.55) * 0.1 * 60 * delta;
+        view.driftX += drift * 0.6;
+        view.driftY -= drift;
+        const x = view.star.x * this.fieldWidth + view.driftX;
+        const y = view.star.y * this.fieldHeight + view.driftY;
+        if (x < -4) view.driftX += this.fieldWidth + 8;
+        if (x > this.fieldWidth + 4) view.driftX -= this.fieldWidth + 8;
+        if (y < -4) view.driftY += this.fieldHeight + 8;
+        if (y > this.fieldHeight + 4) view.driftY -= this.fieldHeight + 8;
+      }
+    }, 33);
+  }
+
+  private stopMotion(): void {
+    if (this.motionTimer >= 0) clearInterval(this.motionTimer);
+    this.motionTimer = -1;
+  }
 
   private computeStars(): Star[] {
+    if (this.count === 0) {
+      if (this.fieldWidth <= 0 || this.fieldHeight <= 0) return [];
+      return generateStars(Math.max(1, Math.floor(this.fieldWidth * this.fieldHeight / 4200)), this.seed);
+    }
     if (this.count === DEFAULT_STARFIELD.length && this.seed === 0x5a17c0fe) {
       return DEFAULT_STARFIELD;
     }
@@ -114,6 +156,7 @@ export struct Starfield {
   }
 
   aboutToDisappear(): void {
+    this.stopMotion();
     if (this.settleTimer >= 0) {
       clearTimeout(this.settleTimer);
       this.settleTimer = -1;
@@ -149,8 +192,8 @@ export struct Starfield {
   private applyScatter(tapX: number, tapY: number): void {
     for (let index = 0; index < this.views.length; index += 1) {
       const view = this.views[index];
-      const ddx = view.star.x * this.fieldWidth - tapX;
-      const ddy = view.star.y * this.fieldHeight - tapY;
+      const ddx = view.star.x * this.fieldWidth + view.driftX - tapX;
+      const ddy = view.star.y * this.fieldHeight + view.driftY - tapY;
       const dist = Math.hypot(ddx, ddy);
       if (dist > 0.001 && dist < SCATTER_RADIUS_VP) {
         const falloff = 1 - dist / SCATTER_RADIUS_VP;
@@ -183,12 +226,19 @@ export struct Starfield {
     }
     .width('100%')
     .height('100%')
+    .clip(true)
+    .onVisibleAreaChange([0], (_visible: boolean, ratio: number) => {
+      if (ratio > 0) this.startMotion();
+      else this.stopMotion();
+    })
     .onClick((event: ClickEvent) => {
       this.handleTap(event);
     })
     .onAreaChange((_oldArea: Area, newArea: Area) => {
       this.fieldWidth = Number(newArea.width);
       this.fieldHeight = Number(newArea.height);
+      if (this.count === 0) this.views = this.zeroedViews();
+      if (this.fieldWidth > 0 && this.fieldHeight > 0) this.startMotion();
     })
   }
 }

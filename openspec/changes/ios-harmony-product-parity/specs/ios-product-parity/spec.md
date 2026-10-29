@@ -14,7 +14,7 @@ The iOS product SHALL expose the same 12 page families and 13 principal views as
 - **THEN** prior descriptors are cleared, the focused and selected words remain legible, and continuing leads to the present/past choice.
 
 ### Requirement: Present and past journeys complete offline
-The app SHALL allow an empty or written present note to save and open its card. Past memories SHALL choose a preset or custom time, converse, optionally form and edit a diary, and save to a card. AI failures MUST preserve user input and fall back to concise local prompts; a local diary MUST only use user-provided facts. Back navigation and unfinished input SHALL remain recoverable.
+The app SHALL allow an empty or written present note to save and open its card. Past memories SHALL choose a preset or custom time, converse, optionally form and edit a diary, and save to a card. AI failures MUST preserve user input and explicitly switch to local recording without fabricated understanding; a local diary MUST only use user-provided facts. Back navigation and unfinished input SHALL remain recoverable.
 
 #### Scenario: Present memory and restart
 - **WHEN** a user saves a present note and restarts the app
@@ -84,3 +84,72 @@ The delivered simulator build SHALL launch from its normal home-screen icon usin
 #### Scenario: Native secure storage
 - **WHEN** isolated personal credentials are saved, read and removed in the simulator test environment
 - **THEN** actual Keychain operations succeed with Xcode-supported signing and failures are not replaced by plaintext or simulated success
+
+
+## 2026-10-03 user-authorized iOS conversation amendment
+
+This phase changes iOS conversational behavior within the existing page families. It supersedes reference parity for the present-chat entry and fixed-turn offline guidance; Web, HarmonyOS and the shared gateway remain outside this phase. It does not authorize publication, new backend services or paid model calls.
+
+### Requirement: Present expression can be a conversation or a free note
+The iOS client SHALL offer present conversation directly from classification without a past-time selection, while retaining the existing free-note path. Both present and past conversations SHALL allow explicit raw-transcript collection and an optional diary made only on user request. Ending SHALL preserve a device-local resumable draft without creating an entry or requesting a diary. Starting a new mood journey with a draft SHALL make replacement explicit.
+
+#### Scenario: Today I want to vent
+- **WHEN** the user chooses present conversation and says “今天心情不好，想吐槽”
+- **THEN** no past-time selection is required; the current conversation context describes today/present expression
+
+#### Scenario: Exit without a diary
+- **WHEN** the user says “先到这里，也不用生成日记” or uses the exit action, including during an outstanding reply
+- **THEN** no diary request or saved entry is created, late replies cannot mutate the draft, and raw text is recoverable after restart from the resume action
+
+#### Scenario: Deliberate optional collection
+- **WHEN** the user chooses raw collection or diary preparation in a present or past conversation
+- **THEN** raw collection performs no diary call, while diary preparation uses user-provided facts only and remains editable and optional; the stored kind and full transcript are preserved
+
+#### Scenario: Cancel new mood selection with an existing draft
+- **WHEN** a retained conversation exists, the user selects another home-ring mood and cancels new-record confirmation
+- **THEN** the retained draft's mood and content remain unchanged on disk and after restart; the new mood is applied only on confirmed new-record creation
+
+### Requirement: Listening-first contextual replies remain intact
+The conversation instruction SHALL prioritize the user's concrete situation and expressed preference. It SHALL permit a response with no question, ask at most one necessary question, avoid unsolicited advice and imposed positive meaning, distinguish facts/feelings from assumptions about others, and provide proportionate help when explicitly requested. The client SHALL preserve full returned text, including emoji, newlines and trailing content, without a 48-character cutoff. Prompt and mock checks SHALL NOT be represented as proof of model semantic quality.
+
+#### Scenario: Venting, uncertainty and requested advice
+- **WHEN** synthetic messages include “开了一天会，最后被加活，只想说说，先别建议”, “最近每天这样”, “同事没回消息肯定看不起我，别一味附和”, then “请给两个建议”
+- **THEN** requests retain the verbatim latest message and the instruction covers listening without a mandatory question, uncertainty and requested help; actual reply quality requires separate multi-sample human evaluation
+
+#### Scenario: Long reply
+- **WHEN** a mock returns more than 48 characters with emoji, newlines and an explicit final sentence
+- **THEN** the coordinator retains an identical string and the native conversation renders its complete content
+
+### Requirement: Unavailable AI is honest and recoverable
+The client SHALL disclose that the default hosted model is unconnected in this build before a user sends. Local recording SHALL not imply semantic understanding or append turn-count scripted responses. Personal-provider requests SHALL retain the current consent/HTTPS/account/Keychain contract. Network, authentication and empty-response failures SHALL preserve user expression, end loading, and offer settings or explicit retry; continued local expression SHALL not automatically repeat failed calls. Duplicate sends and late completions after stop, back, settings, AI-off or exit SHALL not duplicate or corrupt transcript content. No new backend connection is claimed.
+
+#### Scenario: Default or disabled AI
+- **WHEN** the default model is unconnected or AI is disabled
+- **THEN** the client records user text locally without a network request, clearly shows local capability and offers AI settings or raw collection
+
+#### Scenario: Timeout or authentication failure
+- **WHEN** a mock produces timeout or authentication failure, then the user continues writing and deliberately retries
+- **THEN** the failure is visible with no fabricated assistant response, no indefinite loading or repeated automatic call; retry appends at most one reply without duplicating user text
+
+
+
+### Requirement: Additive backward-readable present diary encoding
+Present diaries SHALL keep the existing now/past kind vocabulary, encode the legacy diaryEnabled flag as false for now entries, and record their enabled state in an optional presentDiaryEnabled flag. Prior iOS storage decoders SHALL still read old and new entries together without rejecting the whole file. Current iOS SHALL read old journals and drafts without mutation. Compatibility checks SHALL use synthetic fixtures and the repository's prior decoder, without operating another client or reading personal records.
+
+#### Scenario: Read old files and new exports across decoder versions
+- **WHEN** current iOS reads a prior diary or draft, or the prior iOS decoder reads a current export with present and past entries
+- **THEN** content, kind, transcript, mood and existing records remain readable; no new kind enum is required. A prior client's inability to offer the new present-chat workflow or retain an unknown flag on rewrite SHALL not be described as file import support
+
+
+## 2026-10-04 user-authorized iOS refinement
+
+### Requirement: Original brand artwork and quiet conversation layout
+The iOS AppIcon SHALL reuse the repository's original MILO brand image byte-for-byte. Its preparation script SHALL restore that source rather than draw a replacement. The chat SHALL keep conversation and a keyboard-aware input bar primary. A short capability status SHALL remain visible; provider limitations and error details SHALL be available on demand. Explicit raw collection, diary preparation and exit SHALL remain available through the conversation menu. Native checks SHALL cover large text, keyboard reachability, complete long replies, menu actions and draft persistence.
+
+#### Scenario: Honest capability without persistent instructional clutter
+- **WHEN** an unavailable provider is selected
+- **THEN** the header visibly identifies local recording before send; tapping the status reveals the limitation and a settings action, while exit and optional save actions remain in the menu
+
+### Requirement: Continued conversation invalidates an earlier diary
+- **WHEN** a user returns from a generated or edited diary to chat and sends another message
+- **THEN** the old diary cache is cleared, the transcript is preserved, and the next explicit diary request includes the new user content

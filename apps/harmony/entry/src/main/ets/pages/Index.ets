@@ -1,3 +1,4 @@
+import { KeyboardAvoidMode } from '@kit.ArkUI';
 import {
   type DiaryEntry,
   type MoodId,
@@ -26,18 +27,27 @@ import { CardScreen } from '../features/timeline/CardScreen';
 import { StageBackdrop } from '../features/ui/MiloButtons';
 import {
   type AiGatewayClient,
-  HttpAiGatewayClient,
-  type FetchLike,
 } from '../core/network/AiGatewayClient';
-import { ConversationController } from '../features/conversation/ConversationController';
+import { ConversationController, initialConversationState } from '../features/conversation/ConversationController';
 import { FallbackGuide } from '../features/conversation/FallbackGuide';
-import { isGatewayConfigured, readAppConfig } from '../core/config/AppConfig';
 import { HarmonyHttpFetcher } from '../core/network/HarmonyHttpFetcher';
 import { AuthSessionStore } from '../core/auth/AuthSessionStore';
 import { AgcAuthProvider } from '../core/auth/AgcAuthProvider';
 import { type AuthSession } from '../core/auth/AuthProvider';
 import { AuthController } from '../features/auth/AuthController';
 import { LoginScreen } from '../features/auth/LoginScreen';
+import { AccountScreen } from '../features/auth/AccountScreen';
+import { AiSettingsScreen } from '../features/auth/AiSettingsScreen';
+import { UserAiSettingsRepository } from '../core/config/UserAiSettings';
+import { ApiKeyStore } from '../core/auth/ApiKeyStore';
+import { PersonalAiClient, UnavailableAiClient } from '../core/network/PersonalAiClient';
+import { hostedAiClient } from '../core/network/HostedAiClient';
+import { readLocalGatewayConfig } from '../core/config/LocalGatewayCredential';
+import { AI_AVAILABLE, effectiveAiEnabled } from '../core/config/FeatureFlags';
+import { PersonalFiles } from '../core/system/PersonalFiles';
+import { PrivacyConsentRepository } from '../core/auth/PrivacyConsentRepository';
+import { PrivacyConsentScreen } from '../features/legal/PrivacyConsentScreen';
+import { common } from '@kit.AbilityKit';
 
 type AuthGate = 'checking' | 'signedOut' | 'signedIn';
 
@@ -50,19 +60,28 @@ struct Index {
   @State detailEntry: DiaryEntry | undefined = undefined;
   @State cardEntry: DiaryEntry | undefined = undefined;
   @State authGate: AuthGate = 'checking';
+  @State accountOpen: boolean = false;
+  @State aiSettingsOpen: boolean = false;
+  @State privacyAccepted: boolean = false;
+  @State privacyError: string = '';
   private storage: KVStorage = new PreferencesKVStorage(getContext(this));
+  private privacyRepository: PrivacyConsentRepository = new PrivacyConsentRepository(this.storage);
   private entryRepo: EntryRepository = new EntryRepository(this.storage);
   private draftRepo: RecallSessionRepository = new RecallSessionRepository(this.storage);
   private authController: AuthController = new AuthController({
-    provider: new AgcAuthProvider(getContext(this)),
+    provider: new AgcAuthProvider(getContext(this), () => this.privacyRepository.hasAccepted()),
     store: new AuthSessionStore(this.storage),
   });
   private gateway: AiGatewayClient | null = null;
+  private chatController: ConversationController | null = null;
   private hasRestored: boolean = false;
 
   aboutToAppear(): void {
+    this.getUIContext().setKeyboardAvoidMode(KeyboardAvoidMode.RESIZE);
+    this.privacyAccepted = this.privacyRepository.hasAccepted();
     const session = this.authController.restore();
     this.authGate = session !== undefined ? 'signedIn' : 'signedOut';
+    this.accountOpen = this.authController.isDeletionPending();
     this.refreshEntries();
     if (!this.hasRestored) {
       this.hasRestored = true;
@@ -75,32 +94,44 @@ struct Index {
   }
 
   private buildChatController(): ConversationController {
+    if (this.chatController !== null) return this.chatController;
     if (this.gateway === null) {
       this.gateway = this.createGateway();
     }
     const gateway = this.gateway;
-    return new ConversationController({
+    const conversationState = initialConversationState();
+    conversationState.source = effectiveAiEnabled(this.state.draft.aiEnabled ?? this.aiRepository().load().enabled) ? 'ai' : 'script';
+    this.chatController = new ConversationController({
       gateway: gateway,
       newGuide: (d) => new FallbackGuide(d.timeMark ?? '过去的某一天'),
-    });
+    }, conversationState);
+    return this.chatController;
   }
 
   private createGateway(): AiGatewayClient {
-    const config = readAppConfig();
-    if (!isGatewayConfigured(config)) {
-      return new HttpAiGatewayClient({
-        baseUrl: config.gatewayBaseUrl,
-        bearerToken: config.gatewayBearerToken,
-        timeoutMs: 1500,
-        fetcher: offlineFetcher,
-      });
+    if (!AI_AVAILABLE) return new UnavailableAiClient('');
+    const settings = this.aiRepository().load();
+    if (settings.source === 'milo') {
+      return hostedAiClient(readLocalGatewayConfig(getContext(this)), settings.consent, new HarmonyHttpFetcher());
     }
-    return new HttpAiGatewayClient({
-      baseUrl: config.gatewayBaseUrl,
-      bearerToken: config.gatewayBearerToken,
-      timeoutMs: config.gatewayTimeoutMs,
-      fetcher: new HarmonyHttpFetcher(),
-    });
+    if (!settings.consent) return new UnavailableAiClient('请先到 AI 设置配置模型，并确认发送当前对话。');
+    try {
+      const key = this.apiKeyStore().read(settings.baseUrl);
+      if (!key) return new UnavailableAiClient('尚未填写 API Key，请打开 AI 设置完成配置。');
+      return new PersonalAiClient(settings, key, new HarmonyHttpFetcher());
+    } catch { return new UnavailableAiClient('无法读取 Key，请解锁设备后到 AI 设置重试。'); }
+  }
+
+  private aiRepository(): UserAiSettingsRepository {
+    return new UserAiSettingsRepository(this.storage, this.authController.getSession()?.uid ?? 'guest');
+  }
+
+  private apiKeyStore(): ApiKeyStore {
+    return new ApiKeyStore(this.authController.getSession()?.uid ?? 'guest');
+  }
+
+  private personalFiles(): PersonalFiles {
+    return new PersonalFiles(getContext(this) as common.UIAbilityContext, this.storage, this.authController.getSession()?.uid ?? 'guest');
   }
 
   private refreshEntries(): void {
@@ -133,6 +164,9 @@ struct Index {
     const next = transition(this.state, RecallEvents.selectMood(moodId, labels));
     if (next !== this.state) {
       this.state = next;
+      this.state.draft.aiEnabled = this.aiRepository().load().enabled;
+      this.gateway = null;
+      this.chatController = null;
       this.persistDraft();
     }
   }
@@ -156,6 +190,7 @@ struct Index {
   private setTimeMark(value: string): void {
     const next = transition(this.state, RecallEvents.setTimeMark(value));
     if (next !== this.state) {
+      this.chatController = null;
       this.state = next;
       this.persistDraft();
     }
@@ -223,6 +258,10 @@ struct Index {
 
   private async signOut(): Promise<void> {
     await this.authController.signOut();
+    this.accountOpen = false;
+    this.aiSettingsOpen = false;
+    this.gateway = null;
+    this.chatController = null;
     this.authGate = 'signedOut';
   }
 
@@ -230,7 +269,17 @@ struct Index {
     Stack() {
       StageBackdrop()
 
-      if (this.authGate === 'checking') {
+      if (!this.privacyAccepted) {
+        PrivacyConsentScreen({ errorText: this.privacyError, onAccept: () => {
+          try {
+            this.privacyRepository.accept();
+            this.privacyAccepted = this.privacyRepository.hasAccepted();
+            this.privacyError = this.privacyAccepted ? '' : '无法保存同意状态，请重试。';
+          } catch {
+            this.privacyError = '无法保存同意状态，请检查设备空间后重试。';
+          }
+        } })
+      } else if (this.authGate === 'checking') {
         Column() {
           Text('MILO')
             .fontSize(34)
@@ -249,6 +298,42 @@ struct Index {
             this.authGate = 'signedIn';
           },
         })
+      } else if (AI_AVAILABLE && this.aiSettingsOpen) {
+        AiSettingsScreen({ repository: this.aiRepository(), keyStore: this.apiKeyStore(),
+          onBack: () => { this.aiSettingsOpen = false; },
+          onSaved: () => {
+            this.gateway = null;
+            this.chatController = null;
+            const next = this.state;
+            next.draft.aiEnabled = this.aiRepository().load().enabled;
+            this.state = next;
+            this.persistDraft();
+          },
+        })
+      } else if (this.accountOpen || this.authController.isDeletionPending()) {
+        AccountScreen({
+          controller: this.authController,
+          entryCount: this.entries.length,
+          files: this.personalFiles(),
+          keyStore: this.apiKeyStore(),
+          aiRepository: this.aiRepository(),
+          entries: this.entries,
+          onAiSettings: () => { if (AI_AVAILABLE) this.aiSettingsOpen = true; },
+          onBack: () => { this.accountOpen = false; },
+          onSignOut: () => { void this.signOut(); },
+          onClearLocalData: () => {
+            this.entryRepo.clear();
+            this.clearDraft();
+          },
+          onDeleted: () => {
+            this.state = initialRecallState();
+            this.chatController = null;
+            this.refreshEntries();
+            this.refreshEntryCaches();
+            this.accountOpen = false;
+            this.authGate = 'signedOut';
+          },
+        })
       } else if (this.state.screen.name === 'home') {
         HomeScreen({
           entryCount: this.entries.length,
@@ -256,8 +341,8 @@ struct Index {
           onOpenTimeline: () => {
             this.state = transition(this.state, RecallEvents.openTimeline());
           },
-          onSignOut: () => {
-            void this.signOut();
+          onOpenAccount: () => {
+            this.accountOpen = true;
           },
         })
       } else if (this.state.screen.name === 'classify') {
@@ -279,18 +364,16 @@ struct Index {
         })
       } else if (this.state.screen.name === 'chat') {
         ChatScreen({
+          defaultAiEnabled: this.aiRepository().load().enabled,
+          onAiSettings: () => { if (AI_AVAILABLE) this.aiSettingsOpen = true; },
           draft: this.state.draft,
           controller: this.buildChatController(),
-          onFinish: (transcript: ChatMessage[]) => {
-            let next = this.state;
-            for (let index = 0; index < transcript.length; index += 1) {
-              const message = transcript[index];
-              next = transition(
-                next,
-                RecallEvents.appendMessage(message.role, message.text, message.ts),
-              );
-            }
-            next = transition(next, RecallEvents.setDiary(' '));
+          onChatChange: (transcript: ChatMessage[], inputText: string, aiEnabled: boolean) => {
+            this.state = transition(this.state, RecallEvents.updateChat(transcript, inputText, aiEnabled));
+            this.persistDraft();
+          },
+          onFinish: (_transcript: ChatMessage[]) => {
+            const next = transition(this.state, RecallEvents.setDiary(' '));
             this.state = next;
             this.persistDraft();
           },
@@ -349,11 +432,3 @@ struct Index {
     .height('100%')
   }
 }
-
-class OfflineFetcher implements FetchLike {
-  async fetch(_input: string, _init: Object): Promise<never> {
-    throw new Error('offline');
-  }
-}
-
-const offlineFetcher: FetchLike = new OfflineFetcher();

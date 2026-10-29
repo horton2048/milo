@@ -12,8 +12,8 @@ import {
   type AuthProvider,
   type AuthError,
   type AuthSession,
-  type AuthFailureReason,
   type CodePurpose,
+  type DeleteAccountResult,
   type ResetPasswordResult,
   type SendCodeResult,
   type SignInResult,
@@ -21,6 +21,8 @@ import {
   invalidEmailError,
   isValidPassword,
   invalidPasswordError,
+  passwordNotSetError,
+  wrongPasswordError,
 } from './AuthProvider';
 
 /** Name of the AGC config inside entry/src/main/resources/rawfile/. */
@@ -32,19 +34,21 @@ const AGC_SEND_INTERVAL = 60;
 
 let agcInitialized = false;
 
-function initAgcOnce(context: common.Context): void {
+function initAgcOnce(context: common.Context): boolean {
   if (agcInitialized) {
-    return;
+    return true;
   }
   try {
     const raw = context.resourceManager.getRawFileContentSync(AGC_CONFIG_FILE);
     const json = buffer.from(raw.buffer).toString();
     auth.init(context, json);
     agcInitialized = true;
+    return true;
   } catch (e) {
     // Missing/broken config must never crash startup; auth calls will fail
     // with typed errors instead.
-    console.error(`AgcAuthProvider init failed: ${String(e)}`);
+    console.error('AgcAuthProvider initialization failed');
+    return false;
   }
 }
 
@@ -55,40 +59,60 @@ const AGC_CODE_BAD_LOGIN = 203818032;
 
 /**
  * Translates an error thrown by the AGC auth SDK into the typed AuthError
- * contract. Known codes get friendly copy; unknown ones pass the server
- * message through so device logs stay useful.
+ * contract. SDK details stay in logs; the login form shows actionable copy.
  */
 function mapAgcError(e: Object): AuthError {
   const err = e as BusinessError;
   const code: number = err.code ?? -1;
   const message: string = err.message ?? String(e);
+  const normalized = message.toLowerCase();
+  console.error(`AgcAuthProvider request failed: ${code}`);
   if (code === AGC_CODE_BAD_LOGIN) {
-    return { reason: 'wrong-password', message: '邮箱或密码不对，再试一次？' };
+    return wrongPasswordError();
   }
   if (code === AGC_CODE_BAD_CREDENTIALS) {
-    if (message.indexOf('password') >= 0) {
-      return { reason: 'wrong-password', message: '邮箱或密码不对，再试一次？' };
+    if (normalized.indexOf('password') >= 0) {
+      return wrongPasswordError();
     }
-    return { reason: 'invalid-code', message: '验证码不对，再检查一下邮件里的数字。' };
+    return { reason: 'invalid-code', message: '验证码不正确或已过期，请重试。' };
   }
-  let reason: AuthFailureReason = 'unknown';
-  if (message.indexOf('frequent') >= 0 || message.indexOf('频繁') >= 0) {
-    reason = 'rate-limited';
-  } else if (message.indexOf('network') >= 0 || message.indexOf('Failed to connect') >= 0) {
-    reason = 'network';
-  } else if (message.indexOf('password') >= 0 && message.indexOf('not set') >= 0) {
-    reason = 'password-not-set';
+  if (normalized.indexOf('frequent') >= 0 || normalized.indexOf('too many') >= 0
+    || message.indexOf('频繁') >= 0) {
+    return { reason: 'rate-limited', message: '操作过于频繁，请稍后再试。' };
   }
-  return { reason: reason, message: `AGC ${code}: ${message}` };
+  if (normalized.indexOf('network') >= 0 || normalized.indexOf('failed to connect') >= 0
+    || normalized.indexOf('timeout') >= 0 || normalized.indexOf('timed out') >= 0) {
+    return { reason: 'network', message: '网络连接失败，请检查后重试。' };
+  }
+  if (normalized.indexOf('password') >= 0 && normalized.indexOf('not set') >= 0) {
+    return passwordNotSetError();
+  }
+  return { reason: 'unknown', message: '暂时无法完成，请稍后重试。' };
 }
 
 /** Production auth provider backed by AGC 认证服务 (email + code / password). */
 export class AgcAuthProvider implements AuthProvider {
-  constructor(context: common.Context) {
-    initAgcOnce(context);
+  private context: common.Context;
+  private hasPrivacyConsent: () => boolean;
+
+  constructor(context: common.Context, hasPrivacyConsent: () => boolean = () => false) {
+    this.context = context;
+    this.hasPrivacyConsent = hasPrivacyConsent;
+  }
+
+  private prepare(): AuthError | undefined {
+    if (!this.hasPrivacyConsent()) {
+      return { reason: 'unknown', message: '请先阅读并同意隐私政策和用户协议。' };
+    }
+    if (!initAgcOnce(this.context)) {
+      return { reason: 'unknown', message: '认证服务暂时无法初始化，请稍后重试。' };
+    }
+    return undefined;
   }
 
   async sendCode(email: string, purpose: CodePurpose): Promise<SendCodeResult> {
+    const consentError = this.prepare();
+    if (consentError !== undefined) return { ok: false, error: consentError };
     if (!isValidEmail(email)) {
       const failure: SendCodeResult = { ok: false, error: invalidEmailError() };
       return failure;
@@ -112,6 +136,8 @@ export class AgcAuthProvider implements AuthProvider {
   }
 
   async signIn(email: string, code: string, password?: string): Promise<SignInResult> {
+    const consentError = this.prepare();
+    if (consentError !== undefined) return { ok: false, error: consentError };
     if (!isValidEmail(email)) {
       const failure: SignInResult = { ok: false, error: invalidEmailError() };
       return failure;
@@ -139,6 +165,8 @@ export class AgcAuthProvider implements AuthProvider {
   }
 
   async signInWithPassword(email: string, password: string): Promise<SignInResult> {
+    const consentError = this.prepare();
+    if (consentError !== undefined) return { ok: false, error: consentError };
     if (!isValidEmail(email)) {
       const failure: SignInResult = { ok: false, error: invalidEmailError() };
       return failure;
@@ -169,6 +197,8 @@ export class AgcAuthProvider implements AuthProvider {
   }
 
   async resetPassword(email: string, code: string, newPassword: string): Promise<ResetPasswordResult> {
+    const consentError = this.prepare();
+    if (consentError !== undefined) return { ok: false, error: consentError };
     if (!isValidEmail(email)) {
       const failure: ResetPasswordResult = { ok: false, error: invalidEmailError() };
       return failure;
@@ -193,11 +223,27 @@ export class AgcAuthProvider implements AuthProvider {
   }
 
   async signOut(): Promise<void> {
+    if (this.prepare() !== undefined) return;
     try {
       await auth.signOut();
     } catch (e) {
       // Never block local sign-out on remote cleanup failures.
       console.error(`AgcAuthProvider.signOut: ${String(e)}`);
+    }
+  }
+
+  async deleteAccount(): Promise<DeleteAccountResult> {
+    const consentError = this.prepare();
+    if (consentError !== undefined) return { ok: false, error: consentError };
+    try {
+      const user = await auth.getCurrentUser();
+      if (user === null) {
+        return { ok: false, error: { reason: 'unknown', message: '请重新登录后注销账号。' } };
+      }
+      await auth.deleteUser();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: mapAgcError(e) };
     }
   }
 }

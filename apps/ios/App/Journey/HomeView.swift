@@ -3,12 +3,18 @@ import MiloCore
 
 struct HomeView: View {
     @Bindable var model: JournalModel
+    @State private var confirmNewDraft = false
+    @State private var pendingMood: Mood = .calm
     @Environment(\.dynamicTypeSize) private var textSize
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 0) {
                     header
+                    if model.hasUnfinishedDraft && model.draft.page == "home" {
+                        Button("继续未收藏的草稿", action: model.resumeDraft)
+                            .frame(minHeight: 44).accessibilityIdentifier("resume-draft")
+                    }
                     if model.draft.page == "home-words" {
                         wordContent
                     } else {
@@ -17,6 +23,11 @@ struct HomeView: View {
                 }.font(.subheadline).foregroundStyle(MiloTheme.dim).padding(.horizontal, 24).padding(.top, 8)
                     .frame(minHeight: max(500, geometry.size.height - 20), alignment: .top)
             }.parityScrollMetrics("home").scrollIndicators(.hidden)
+        }.onAppear { pendingMood = model.draft.mood }
+        .confirmationDialog("开始新记录会替换未收藏的草稿。", isPresented: $confirmNewDraft, titleVisibility: .visible) {
+            Button("开始新的记录", role: .destructive) { model.beginMoodWords(mood: pendingMood) }
+            Button("继续草稿") { model.resumeDraft() }
+            Button("取消", role: .cancel) {}
         }
     }
 
@@ -39,14 +50,14 @@ struct HomeView: View {
 
     private var moodContent: some View {
         VStack(spacing: 0) {
-            MoodOrbit(mood: $model.draft.mood)
+            MoodOrbit(mood: $pendingMood)
                 .frame(height: 400)
                 .padding(.top, 36)
                 .padding(.horizontal, -24)
             Text("沿圆环旋转，或点击任意情绪直接切换")
                 .font(.caption).foregroundStyle(MiloTheme.hint).multilineTextAlignment(.center).padding(.top, 12).padding(.bottom, 22)
-            MiloPrimaryButton(title: "就是这种感觉") {
-                model.beginMoodWords()
+            MiloPrimaryButton(title: model.hasUnfinishedDraft ? "开始新的记录" : "就是这种感觉") {
+                if model.hasUnfinishedDraft { confirmNewDraft = true } else { model.beginMoodWords(mood: pendingMood) }
             }.accessibilityIdentifier("confirm-mood").frame(maxWidth: 240).padding(.bottom, 24)
         }.frame(maxWidth: .infinity)
     }
@@ -124,6 +135,8 @@ private struct DescriptorOrbit: View {
     @Binding var selected: [String]
     @State private var angle: Double = 0
     @State private var lastAngle: Double?
+    @State private var confirmNewDraft = false
+    @State private var pendingMood: Mood = .calm
     @Environment(\.dynamicTypeSize) private var textSize
     private var words: [String] { mood.descriptorWords }
     private var focus: Int { (Int((-angle / 30).rounded()) % 12 + 12) % 12 }

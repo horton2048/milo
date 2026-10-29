@@ -23,7 +23,7 @@ export function NowNote({ mood, onSave, onBack }: Props) {
       <div style={{ textAlign: 'center' }}>
         <h1 className="title">记下此刻</h1>
         <p className="subtitle" style={{ marginTop: 10 }}>
-          一句话就够了，甚至可以什么都不写。
+          写一句，或留空。
         </p>
       </div>
 

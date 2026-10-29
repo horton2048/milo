@@ -11,14 +11,34 @@ import { Diary } from './pages/Diary'
 import { Card } from './pages/Card'
 import { Timeline } from './pages/Timeline'
 import { Detail } from './pages/Detail'
+import { Landing } from './pages/Landing'
+import { Privacy } from './pages/Privacy'
 import { addEntry, getEntry, uid, useEntries } from './store'
 import { resetAcp } from './lib/acp'
 import type { ChatMessage, Draft, Entry, Screen } from './types'
 
 const EMPTY_DRAFT: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true }
-const BLACK_HOLE_DEMO = isBlackHoleGalaxyDemo(window.location.search)
+const EXPERIENCE_PATH = /\/app\/?$/.test(window.location.pathname)
+const BACKGROUND_DEMO = new URLSearchParams(window.location.search).get('bgDemo')
+// The legacy background helper treats an absent `bgDemo` as the black-hole
+// demo. Scope that default to `/app` so the public root can remain the site.
+const BLACK_HOLE_DEMO = EXPERIENCE_PATH
+  ? isBlackHoleGalaxyDemo(window.location.search)
+  : BACKGROUND_DEMO === 'black-hole'
+
+function shouldOpenExperience() {
+  // The public site is the default entry. `/app` keeps the actual diary
+  // experience separate so the same deployment can serve both surfaces.
+  return EXPERIENCE_PATH || BLACK_HOLE_DEMO
+}
 
 export default function App() {
+  if (/\/privacy\/?$/.test(window.location.pathname)) return <Privacy />
+  if (!shouldOpenExperience()) return <Landing />
+  return <AppExperience />
+}
+
+function AppExperience() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' })
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const entries = useEntries()

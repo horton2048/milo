@@ -5,6 +5,7 @@ import {
   type SpeechPlatform,
   type SpeechPermissionState,
   type SpeechListener,
+  speechFeedback,
 } from '../../../main/ets/core/system/SpeechInput';
 import { Haptics, type HapticEvent, type HapticPlatform } from '../../../main/ets/core/system/Haptics';
 import {
@@ -20,12 +21,14 @@ class FakeSpeechPlatform implements SpeechPlatform {
   destroyed: number = 0;
   startHandler: ((listener: SpeechListener) => Promise<void>) | null = null;
   cancelHandler: (() => Promise<void>) | null = null;
+  permissionHandler: (() => Promise<SpeechPermissionState>) | null = null;
 
   checkPermission(): SpeechPermissionState {
     return this.permission;
   }
 
   async requestPermission(): Promise<SpeechPermissionState> {
+    if (this.permissionHandler !== null) return await this.permissionHandler();
     return this.permission;
   }
 
@@ -42,6 +45,8 @@ class FakeSpeechPlatform implements SpeechPlatform {
       await this.cancelHandler();
     }
   }
+
+  async finish(): Promise<void> {}
 
   async destroy(): Promise<void> {
     this.destroyed += 1;
@@ -131,6 +136,69 @@ function systemSuite() {
         const speech = new SpeechInput({ platform });
         await speech.begin();
         expect(speech.getState()).assertEqual('idle');
+      });
+
+      it('cancel during the permission prompt never starts recording afterward', 0, async () => {
+        const platform = new FakeSpeechPlatform();
+        let grant: ((state: SpeechPermissionState) => void) = () => {};
+        platform.permissionHandler = () => new Promise<SpeechPermissionState>((resolve) => { grant = resolve; });
+        const speech = new SpeechInput({ platform });
+        const pending = speech.begin();
+        await speech.cancel();
+        grant('granted');
+        const result = await pending;
+        expect(platform.started).assertEqual(0);
+        expect(result.state).assertEqual('cancelled');
+      });
+
+      it('engine exceptions become a visible retryable error and allow another attempt', 0, async () => {
+        const platform = new FakeSpeechPlatform();
+        platform.permission = 'granted';
+        platform.startHandler = async () => { throw new Error('synthetic engine failure'); };
+        const speech = new SpeechInput({ platform });
+        const failed = await speech.begin();
+        expect(failed.state).assertEqual('error');
+        expect(speechFeedback(failed).length > 0).assertTrue();
+        platform.startHandler = async (listener) => { listener.onFinal('再次记录'); };
+        const retried = await speech.begin();
+        expect(retried.text).assertEqual('再次记录');
+      });
+
+      it('late callbacks after disposal cannot overwrite input or reopen recording', 0, async () => {
+        const platform = new FakeSpeechPlatform();
+        platform.permission = 'granted';
+        let callback: SpeechListener | null = null;
+        let complete: (() => void) = () => {};
+        platform.startHandler = (listener) => {
+          callback = listener;
+          return new Promise<void>((resolve) => { complete = resolve; });
+        };
+        const updates: string[] = [];
+        const speech = new SpeechInput({ platform });
+        const pending = speech.begin((result) => { updates.push(result.text); });
+        await speech.dispose();
+        if (callback !== null) (callback as SpeechListener).onFinal('过期识别');
+        complete();
+        expect((await pending).state).assertEqual('cancelled');
+        expect(updates.length).assertEqual(0);
+        expect((await speech.begin()).state).assertEqual('cancelled');
+        expect(platform.started).assertEqual(1);
+      });
+
+      it('streams text to the input and explains denied permission and empty speech', 0, async () => {
+        const platform = new FakeSpeechPlatform();
+        platform.permission = 'granted';
+        platform.startHandler = async (listener) => {
+          listener.onPartial('今天');
+          listener.onFinal('今天的回忆');
+        };
+        const updates: string[] = [];
+        const speech = new SpeechInput({ platform });
+        const result = await speech.begin((update) => { updates.push(update.text); });
+        expect(updates.length).assertEqual(2);
+        expect(result.isFinal).assertTrue();
+        expect(speechFeedback({ state: 'denied', text: '', isFinal: false }).includes('麦克风权限')).assertTrue();
+        expect(speechFeedback({ state: 'idle', text: '', isFinal: false }).includes('没有听清')).assertTrue();
       });
 
       it('mergeRecognizedText joins on a single space and trims edges', 0, () => {

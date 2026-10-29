@@ -4,6 +4,7 @@ import { MoodOrbitCarousel } from '../mood/MoodOrbitCarousel';
 import { MoodPlanet } from '../mood/MoodPlanet';
 import { MiloBackLink, MiloBackNode, MiloPrimaryButton, MILO_EASE } from '../ui/MiloButtons';
 import { Haptics } from '../../core/system/Haptics';
+import { gestureLocalPoint } from '../mood/GesturePoint';
 
 // Web word ring: 360px dial, 136px word radius — scaled to the 377vp screen.
 const RING_SIZE = 330;
@@ -29,10 +30,10 @@ export struct HomeScreen {
   @State pickedWords: string[] = [];
   onNext: (moodId: MoodId, labels: string[]) => void = () => {};
   onOpenTimeline: () => void = () => {};
-  /** Owner affordance: long-press the wordmark to sign out of the login gate. */
-  onSignOut: () => void = () => {};
+  onOpenAccount: () => void = () => {};
   private haptics: Haptics = new Haptics();
   private lastDragAngle: number = 0;
+  private hasDragPoint: boolean = false;
 
   private activeMood(): MoodDefinition {
     return ECHO_SELECTOR_MOODS[this.activeMoodIndex];
@@ -95,12 +96,10 @@ export struct HomeScreen {
     }
   }
 
-  private dragAngle(event: GestureEvent): number {
-    if (event.fingerList.length === 0) {
-      return this.lastDragAngle;
-    }
-    const finger = event.fingerList[0];
-    return Math.atan2(finger.localY - RING_CENTER, finger.localX - RING_CENTER) * 180 / Math.PI;
+  private dragAngle(event: GestureEvent): number | null {
+    const point = gestureLocalPoint(event);
+    if (point === null || Math.hypot(point.y - RING_CENTER, point.x - RING_CENTER) < 12) return null;
+    return Math.atan2(point.y - RING_CENTER, point.x - RING_CENTER) * 180 / Math.PI;
   }
 
   private settleRing(): void {
@@ -113,6 +112,8 @@ export struct HomeScreen {
   }
 
   private goStep(step: HomeStep): void {
+    // Every trip from the mood dial begins a fresh word selection.
+    this.pickedWords = [];
     this.getUIContext().animateTo({ duration: 420, curve: MILO_EASE }, () => {
       this.step = step;
     });
@@ -129,18 +130,13 @@ export struct HomeScreen {
           .fontSize(MILO_TYPOGRAPHY.eyebrowSize)
           .fontColor(MILO_COLORS.inkHint)
           .letterSpacing(5)
-          .gesture(
-            LongPressGesture()
-              .onAction(() => {
-                this.haptics.selection();
-                this.onSignOut();
-              }),
-          )
         Blank()
         MiloBackLink({
           label: this.entryCount > 0 ? `回忆 · ${this.entryCount}` : '回忆',
           onTap: () => this.onOpenTimeline(),
         })
+        MiloBackLink({ label: '我的', onTap: () => this.onOpenAccount() })
+          .margin({ left: 16 })
       }
       .width('100%')
       .padding({ left: 24, right: 24, top: 16, bottom: 8 })
@@ -210,16 +206,19 @@ export struct HomeScreen {
           ForEach(this.descriptorWords(), (word: string, index: number) => {
             Stack({ alignContent: Alignment.TopEnd }) {
               Text(word)
-                .fontSize(index === this.focusIndex() ? 19 : 14)
-                .fontFamily(index === this.focusIndex() ? 'serif' : 'sans-serif')
-                .fontWeight(index === this.focusIndex() ? FontWeight.Medium : FontWeight.Normal)
+                .fontSize(this.wordHighlighted(word, index) ? 19 : 14)
+                .fontFamily(this.wordHighlighted(word, index) ? 'serif' : 'sans-serif')
+                .fontWeight(this.wordHighlighted(word, index) ? FontWeight.Medium : FontWeight.Normal)
                 .fontColor(this.wordColor(word, index))
-                .shadow(
-                  index === this.focusIndex()
+                .textShadow(
+                  this.wordHighlighted(word, index)
                     ? { radius: 18, color: 'rgba(255,255,255,0.45)' }
                     : { radius: 0, color: 'rgba(0,0,0,0)' },
                 )
                 .letterSpacing(1)
+                .width('100%')
+                .height('100%')
+                .textAlign(TextAlign.Center)
                 .padding({ left: 10, right: 10, top: 6, bottom: 6 })
               if (this.isPicked(word)) {
                 Circle({ width: 5, height: 5 })
@@ -228,6 +227,8 @@ export struct HomeScreen {
                   .offset({ x: -4, y: 4 })
               }
             }
+            .width(84)
+            .height(40)
             .markAnchor({ x: '50%', y: '50%' })
             .position({ x: this.wordX(index), y: this.wordY(index) })
             .onClick(() => {
@@ -241,10 +242,18 @@ export struct HomeScreen {
           PanGesture({ fingers: 1 })
             .onActionStart((event: GestureEvent) => {
               this.smooth = false;
-              this.lastDragAngle = this.dragAngle(event);
+              const angle = this.dragAngle(event);
+              this.hasDragPoint = angle !== null;
+              if (angle !== null) this.lastDragAngle = angle;
             })
             .onActionUpdate((event: GestureEvent) => {
               const angle = this.dragAngle(event);
+              if (angle === null) return;
+              if (!this.hasDragPoint) {
+                this.hasDragPoint = true;
+                this.lastDragAngle = angle;
+                return;
+              }
               let delta = angle - this.lastDragAngle;
               if (delta > 180) {
                 delta -= 360;
@@ -256,6 +265,11 @@ export struct HomeScreen {
               this.lastDragAngle = angle;
             })
             .onActionEnd(() => {
+              this.hasDragPoint = false;
+              this.settleRing();
+            })
+            .onActionCancel(() => {
+              this.hasDragPoint = false;
               this.settleRing();
             }),
         )
@@ -279,7 +293,10 @@ export struct HomeScreen {
         MiloPrimaryButton({
           label: '继续',
           onTap: () => {
-            this.onNext(this.activeMood().id, this.pickedWords.slice());
+            const labels = this.pickedWords.slice();
+            this.pickedWords = [];
+            this.step = 'feel';
+            this.onNext(this.activeMood().id, labels);
           },
         })
           .margin({ left: 24, right: 24 })
@@ -296,13 +313,14 @@ export struct HomeScreen {
   }
 
   private wordColor(word: string, index: number): string {
-    if (this.isPicked(word)) {
-      return '#c9befc';
-    }
-    if (index === this.focusIndex()) {
+    if (this.wordHighlighted(word, index)) {
       return '#ffffff';
     }
     return 'rgba(234,230,255,0.60)';
+  }
+
+  private wordHighlighted(word: string, index: number): boolean {
+    return this.isPicked(word) || index === this.focusIndex();
   }
 
   private wordX(index: number): number {

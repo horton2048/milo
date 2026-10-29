@@ -1,6 +1,6 @@
 /**
  * Permission-aware Chinese speech input. The runtime entry point is the
- * HarmonyOS `voiceRecognizer` engine; this module wraps it so callers never
+ * HarmonyOS `speechRecognizer` engine; this module wraps it so callers never
  * see platform exceptions. Cancellation and permission denial are normal
  * outcomes — never auto-sent text — and the recognized string is normalised
  * into the active `input` value.
@@ -25,6 +25,7 @@ export interface SpeechResult {
   text: string;
   /** True when the recognizer delivered the final text fragment. */
   isFinal: boolean;
+  errorMessage?: string;
 }
 
 export interface SpeechPlatform {
@@ -34,6 +35,8 @@ export interface SpeechPlatform {
   requestPermission(): Promise<SpeechPermissionState>;
   /** Begin recognition; the listener receives incremental results. */
   start(listener: SpeechListener): Promise<void>;
+  /** Stop recording and request a final result, without discarding speech. */
+  finish(): Promise<void>;
   /** Cancel an in-flight recognition without emitting text. */
   cancel(): Promise<void>;
   /** Tear down platform resources. */
@@ -41,6 +44,7 @@ export interface SpeechPlatform {
 }
 
 export interface SpeechListener {
+  onReady?(): void;
   onPartial(text: string): void;
   onFinal(text: string): void;
   onError(message: string): void;
@@ -57,7 +61,9 @@ export class SpeechInput {
   private platform: SpeechPlatform;
   private locale: string;
   private state: SpeechState = 'idle';
-  private currentListener: SpeechListener | null = null;
+  private generation: number = 0;
+  private capture: SpeechCapture | null = null;
+  private disposed: boolean = false;
 
   constructor(options: SpeechInputOptions = {}) {
     this.platform = options.platform ?? defaultSpeechPlatform();
@@ -68,35 +74,49 @@ export class SpeechInput {
     return this.state;
   }
 
-  async begin(): Promise<SpeechResult> {
+  async begin(onUpdate?: (result: SpeechResult) => void): Promise<SpeechResult> {
+    if (this.disposed) return { state: 'cancelled', text: '', isFinal: false };
     const currentState: SpeechState = this.state;
-    if (currentState === 'listening' || currentState === 'recognizing') {
+    if (this.capture !== null || currentState === 'requesting_permission' || currentState === 'listening' || currentState === 'recognizing') {
       return { state: currentState, text: '', isFinal: false };
     }
-    const permission = this.platform.checkPermission();
-    if (permission === 'denied') {
-      this.state = 'denied';
-      return { state: 'denied', text: '', isFinal: false };
-    }
-    if (permission === 'never_asked') {
-      this.state = 'requesting_permission';
-      const granted = await this.platform.requestPermission();
-      if (granted !== 'granted') {
+    const generation = ++this.generation;
+    const captured = new SpeechCapture();
+    this.capture = captured;
+    const stateBox = new SpeechStateBox('listening');
+    try {
+      let permission = this.platform.checkPermission();
+      if (permission === 'never_asked') {
+        this.state = 'requesting_permission';
+        permission = await this.platform.requestPermission();
+      }
+      if (generation !== this.generation) return { state: 'cancelled', text: '', isFinal: false };
+      if (permission !== 'granted') {
         this.state = 'denied';
         return { state: 'denied', text: '', isFinal: false };
       }
+      this.state = 'listening';
+      const listener = new InlineSpeechListener(captured, stateBox, (result: SpeechResult) => {
+        this.state = result.state;
+        if (onUpdate) onUpdate(result);
+      });
+      await this.platform.start(listener);
+    } catch (e) {
+      if (generation === this.generation) {
+        captured.errorMessage = '语音识别暂不可用，请重试或使用键盘输入。';
+        stateBox.set('error');
+      }
+    } finally {
+      captured.active = false;
+      if (generation === this.generation) this.capture = null;
     }
-    this.state = 'listening';
-    const captured = new SpeechCapture();
-    const stateBox = new SpeechStateBox('listening');
-    const listener = new InlineSpeechListener(captured, stateBox);
-    this.currentListener = listener;
-    await this.platform.start(listener);
+    if (generation !== this.generation) return { state: 'cancelled', text: '', isFinal: false };
     const resolvedState: SpeechState = stateBox.value;
     const result: SpeechResult = {
       state: resolvedState,
       text: captured.text,
       isFinal: resolvedState === 'finalized',
+      errorMessage: captured.errorMessage,
     };
     this.state = resolvedState;
     if (resolvedState === 'listening') {
@@ -104,21 +124,34 @@ export class SpeechInput {
       this.state = 'idle';
       result.state = 'idle';
     }
-    this.currentListener = null;
     return result;
   }
 
-  async cancel(): Promise<void> {
-    if (this.state !== 'listening' && this.state !== 'recognizing') {
+  async finish(): Promise<void> {
+    if (this.state === 'requesting_permission') {
+      await this.cancel();
       return;
     }
-    await this.platform.cancel();
+    if (this.state !== 'listening' && this.state !== 'recognizing') return;
+    try {
+      await this.platform.finish();
+    } catch (e) {
+      // The session watchdog will resolve a missing final callback.
+    }
+  }
+
+  async cancel(): Promise<void> {
+    this.generation += 1;
+    if (this.capture !== null) this.capture.active = false;
+    this.capture = null;
     this.state = 'cancelled';
-    this.currentListener = null;
+    try { await this.platform.cancel(); } catch (e) { /* Cancellation is best effort. */ }
   }
 
   async dispose(): Promise<void> {
-    await this.platform.destroy();
+    this.disposed = true;
+    await this.cancel();
+    try { await this.platform.destroy(); } catch (e) { /* Already released. */ }
     this.state = 'idle';
   }
 }
@@ -151,10 +184,12 @@ class NoopSpeechPlatform implements SpeechPlatform {
     // Intentional no-op for unsupported environments.
   }
   async cancel(): Promise<void> {}
+  async finish(): Promise<void> {}
   async destroy(): Promise<void> {}
 }
 
 class SpeechCapture {
+  active: boolean = true;
   text: string = '';
   errorMessage: string = '';
 }
@@ -172,24 +207,45 @@ class SpeechStateBox {
 class InlineSpeechListener implements SpeechListener {
   private capture: SpeechCapture;
   private stateBox: SpeechStateBox;
+  private onUpdate: (result: SpeechResult) => void;
 
-  constructor(capture: SpeechCapture, stateBox: SpeechStateBox) {
+  constructor(capture: SpeechCapture, stateBox: SpeechStateBox, onUpdate: (result: SpeechResult) => void) {
     this.capture = capture;
     this.stateBox = stateBox;
+    this.onUpdate = onUpdate;
+  }
+
+  onReady(): void {
+    if (!this.capture.active) return;
+    this.onUpdate({ state: 'listening', text: '', isFinal: false });
   }
 
   onPartial(text: string): void {
+    if (!this.capture.active) return;
     this.capture.text = text;
     this.stateBox.set('recognizing');
+    this.onUpdate({ state: 'recognizing', text: text, isFinal: false });
   }
 
   onFinal(text: string): void {
+    if (!this.capture.active) return;
     this.capture.text = text;
     this.stateBox.set('finalized');
+    this.onUpdate({ state: 'finalized', text: text, isFinal: true });
   }
 
   onError(message: string): void {
+    if (!this.capture.active) return;
     this.capture.errorMessage = message;
     this.stateBox.set('error');
+    this.onUpdate({ state: 'error', text: this.capture.text, isFinal: false, errorMessage: message });
   }
+}
+
+export function speechFeedback(result: SpeechResult): string {
+  if (result.state === 'denied') return '未获得麦克风权限，可在系统设置中允许，或继续打字。';
+  if (result.state === 'error') return '语音识别暂不可用，请重试或使用键盘输入。';
+  if (result.state === 'cancelled') return '';
+  if (result.text.trim().length === 0) return '没有听清，请再试一次，或使用键盘输入。';
+  return '';
 }

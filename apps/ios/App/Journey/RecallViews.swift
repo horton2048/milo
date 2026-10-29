@@ -8,13 +8,14 @@ struct ClassifyView: View {
             VStack(spacing: 28) {
                 MiloPageHeader(title: "这份感受，来自哪里？", subtitle: "此刻，还是过去？", back: model.back)
                 VStack(spacing: 18) {
-                    choice("它属于此刻", subtitle: "记下现在的心情", past: false) { model.chooseKind("now") }
+                    choice("说说此刻", subtitle: "可以只吐槽，聊完就走", past: false, identifier: "choose-now-chat") { model.startPresentConversation() }
+                    choice("自己写下来", subtitle: "安静地记下现在的心情", past: false) { model.chooseKind("now") }
                     choice("它来自过去", subtitle: "聊聊想起的那段时光", past: true) { model.chooseKind("past") }
                 }.padding(.top, 8)
             }.padding(.horizontal, 24).padding(.bottom, 28)
         }.parityScrollMetrics("journey-classify")
     }
-    private func choice(_ title: String, subtitle: String, past: Bool, action: @escaping () -> Void) -> some View {
+    private func choice(_ title: String, subtitle: String, past: Bool, identifier: String? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
                 VStack(alignment: .leading, spacing: 10) {
@@ -26,7 +27,7 @@ struct ClassifyView: View {
             }.padding(24).frame(maxWidth: .infinity, minHeight: 114, alignment: .leading)
                 .background(past ? MiloTheme.accent.opacity(0.09) : .white.opacity(0.05), in: RoundedRectangle(cornerRadius: 28))
                 .overlay(RoundedRectangle(cornerRadius: 28).stroke(past ? MiloTheme.accent.opacity(0.40) : .white.opacity(0.09), lineWidth: 0.8))
-        }.buttonStyle(MiloPressStyle()).accessibilityIdentifier(past ? "choose-past" : "choose-now")
+        }.buttonStyle(MiloPressStyle()).accessibilityIdentifier(identifier ?? (past ? "choose-past" : "choose-now"))
     }
 }
 
@@ -148,115 +149,215 @@ struct PastTimeView: View {
 
 struct ChatView: View {
     @Bindable var model: JournalModel
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var speech = SpeechInputModel()
     @State private var speechPrefix = ""
-    private var aiBinding: Binding<Bool> { Binding(get: { model.draft.aiEnabled }, set: { model.setAIEnabled($0) }) }
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showConnection = false
     @FocusState private var editing: Bool
+    private var aiBinding: Binding<Bool> { Binding(get: { model.draft.aiEnabled }, set: { model.setAIEnabled($0) }) }
+    private var statusText: String {
+        if speech.isRecording { return "正在听" }
+        if model.isThinking { return "正在回复" }
+        if model.aiUnavailableReason != nil { return "仅本地记录" }
+        return model.chatNotice.isEmpty ? "此刻，慢慢说" : model.chatNotice
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                MiloBackButton(action: model.back)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(model.draft.timeMark ?? "那段时光").font(.caption).foregroundStyle(MiloTheme.hint)
-                    Text(model.draft.aiEnabled ? "回响" : "引导").font(MiloTheme.serif(24)).foregroundStyle(MiloTheme.ink)
-                }
-                Spacer(minLength: 8)
-                Toggle("AI", isOn: aiBinding).font(.caption).fixedSize().accessibilityIdentifier("chat-ai-toggle")
-            }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 10)
-            if !model.guidanceNotice.isEmpty {
-                guidanceNotice
-            }
+            header
             ScrollViewReader { reader in
                 ScrollView {
-                    LazyVStack(spacing: 18) {
+                    LazyVStack(alignment: .leading, spacing: 28) {
                         ForEach(Array(model.draft.transcript.enumerated()), id: \.offset) { index, message in
-                            HStack(alignment: .top, spacing: 14) {
-                                if message.role == .user { Spacer(minLength: 40) }
-                                VStack(alignment: .leading, spacing: 7) {
-                                    if message.role == .ai { Text("MILO").font(.system(size: 10)).tracking(2).foregroundStyle(MiloTheme.hint) }
-                                    Text(message.text).font(.body).lineSpacing(7).foregroundStyle(MiloTheme.ink)
-                                        .padding(18).background(message.role == .user ? MiloTheme.accent.opacity(0.15) : .white.opacity(0.045), in: RoundedRectangle(cornerRadius: 23))
-                                        .overlay(RoundedRectangle(cornerRadius: 23).stroke(.white.opacity(0.075), lineWidth: 0.7))
-                                }
-                                if message.role == .ai { Spacer(minLength: 35) }
-                            }.id(index).accessibilityIdentifier("message-\(index)")
+                            messageRow(message, index: index)
                         }
-                        if model.isThinking { HStack { ProgressView().tint(MiloTheme.dim).accessibilityLabel("正在生成回复").accessibilityIdentifier("chat-thinking-progress"); Text("回响正在靠近…").font(.caption).foregroundStyle(MiloTheme.hint); Spacer() } }
+                        if model.isThinking {
+                            ProgressView().controlSize(.small).tint(MiloTheme.accent)
+                                .padding(.leading, 4).accessibilityLabel("正在生成回复")
+                                .accessibilityIdentifier("chat-thinking-progress")
+                        }
                         Color.clear.frame(height: 1).id("bottom")
-                    }.padding(.horizontal, 24).padding(.vertical, 20)
+                    }.padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 16)
                 }.parityScrollMetrics("journey-chat")
                     .defaultScrollAnchor(.bottom)
-                    .scrollDismissesKeyboard(.never)
-                    .onChange(of: model.draft.transcript.count) { _, _ in withAnimation { reader.scrollTo("bottom", anchor: .bottom) } }
+                    .scrollDismissesKeyboard(.interactively)
+                    .onChange(of: model.draft.transcript.count) { _, _ in
+                        withAnimation(.easeOut(duration: 0.2)) { reader.scrollTo("bottom", anchor: .bottom) }
+                    }
+                    .onChange(of: editing) { _, focused in
+                        if focused { reader.scrollTo("bottom", anchor: .bottom) }
+                    }
             }
-            composer
-        }.toolbar {
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("完成编辑") { editing = false }.accessibilityIdentifier("chat-editor-done")
+                Button("完成") { editing = false }.accessibilityIdentifier("chat-editor-done")
             }
-        }.onDisappear { speech.stop() }
-            .onChange(of: speech.transcript) { _, text in
-                guard !text.isEmpty else { return }
-                model.draft.inputText = speechPrefix + (speechPrefix.isEmpty ? "" : "\n") + text
-            }
+        }
+        .sheet(isPresented: $showConnection) { connectionDetails }
+        .onDisappear { speech.stop() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { speech.stop() }
+        }
+        .onChange(of: speech.transcript) { _, text in
+            guard !text.isEmpty else { return }
+            model.draft.inputText = speechPrefix + (speechPrefix.isEmpty ? "" : "\n") + text
+        }
     }
-    private var guidanceNotice: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(model.guidanceNotice).font(.caption).foregroundStyle(MiloTheme.dim)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("AI 设置", action: model.openSettings).font(.caption)
-                        .frame(minHeight: 44)
-                }.frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HStack {
-                    Text(model.guidanceNotice).font(.caption).foregroundStyle(MiloTheme.dim)
-                    Spacer(minLength: 4)
-                    Button("AI 设置", action: model.openSettings).font(.caption)
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Button { speech.stop(); editing = false; model.back() } label: {
+                Image(systemName: "chevron.left").font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.accessibilityLabel("返回").accessibilityIdentifier("back")
+            Button { editing = false; showConnection = true } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("MILO").font(.system(size: 19, weight: .medium, design: .rounded)).tracking(1.4)
+                    HStack(spacing: 5) {
+                        Circle().fill(model.aiUnavailableReason == nil ? MiloTheme.accent : MiloTheme.hint)
+                            .frame(width: 4, height: 4)
+                        Text(statusText).font(.caption).lineLimit(2)
+                        Image(systemName: "chevron.down").font(.system(size: 8, weight: .medium))
+                    }.foregroundStyle(MiloTheme.hint)
+                }.frame(minHeight: 44, alignment: .leading).contentShape(Rectangle())
+            }.accessibilityIdentifier("chat-capability-notice")
+                .accessibilityHint(AIFeaturePolicy.isAvailable ? "查看模型状态和设置" : "查看本地记录说明")
+            Spacer(minLength: 8)
+            if model.canRetryReply {
+                Button { speech.stop(); model.retryReply() } label: {
+                    Image(systemName: "arrow.clockwise").frame(width: 44, height: 44)
+                }.accessibilityLabel("重试回复").accessibilityIdentifier("retry-reply")
+            }
+            Menu {
+                if model.canFinishConversation && !speech.isRecording {
+                    Button { editing = false; model.saveConversation() } label: {
+                        Label("收藏原话", systemImage: "bookmark")
+                    }.disabled(!model.isLoaded || model.isSaving).accessibilityIdentifier("save-conversation")
+                    Button { editing = false; model.prepareDiary() } label: {
+                        Label("整理成日记", systemImage: "square.and.pencil")
+                    }.accessibilityIdentifier("finish-chat")
+                    Divider()
                 }
-            }
-        }.padding(.horizontal, 24).padding(.vertical, 8)
+                if AIFeaturePolicy.isAvailable {
+                    Toggle("使用 AI", isOn: aiBinding).accessibilityIdentifier("chat-ai-toggle")
+                    Button { editing = false; model.openSettings() } label: { Label("AI 设置", systemImage: "slider.horizontal.3") }
+                    Divider()
+                }
+                Button { speech.stop(); editing = false; model.endConversation() } label: {
+                    Label("先聊到这里", systemImage: "arrow.uturn.backward")
+                }.accessibilityIdentifier("end-chat")
+            } label: {
+                Image(systemName: "ellipsis").font(.system(size: 20, weight: .medium))
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }.accessibilityLabel("对话选项").accessibilityIdentifier("chat-options")
+        }.foregroundStyle(MiloTheme.ink).buttonStyle(.plain)
+            .padding(.horizontal, 12).padding(.top, 4).padding(.bottom, 10)
+            .background(MiloTheme.background.opacity(0.78))
+            .overlay(alignment: .bottom) { Rectangle().fill(.white.opacity(0.06)).frame(height: 0.5) }
     }
+
+    private func messageRow(_ message: TranscriptMessage, index: Int) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            if message.role == .user { Spacer(minLength: 44) }
+            Text(message.text).font(.body).lineSpacing(6).foregroundStyle(MiloTheme.ink.opacity(0.94))
+                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, message.role == .user ? 17 : 0)
+                .padding(.vertical, message.role == .user ? 13 : 4)
+                .background {
+                    if message.role == .user {
+                        RoundedRectangle(cornerRadius: 22).fill(MiloTheme.accent.opacity(0.18))
+                    }
+                }
+                .accessibilityIdentifier("message-\(index)")
+            if message.role == .ai { Spacer(minLength: 28) }
+        }.id(index)
+    }
+
     private var composer: some View {
-        VStack(spacing: 10) {
-            if let error = speech.errorMessage { Text(error).font(.caption).foregroundStyle(MiloTheme.dim).frame(maxWidth: .infinity, alignment: .leading) }
-            HStack(alignment: .bottom, spacing: 8) {
-                TextField("说说那一刻…", text: $model.draft.inputText, axis: .vertical)
-                    .lineLimit(1...6).font(.body).foregroundStyle(MiloTheme.ink).focused($editing)
-                    .disabled(speech.isRecording)
-                    .padding(14).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 22)).accessibilityIdentifier("chat-input")
+        VStack(spacing: 8) {
+            if let error = speech.errorMessage {
+                Text(error).font(.caption).foregroundStyle(MiloTheme.hint)
+                    .accessibilityIdentifier("speech-error")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(alignment: .bottom, spacing: 4) {
                 Button {
-                    if speech.isRecording { speech.stop() }
+                    if speech.isActive { speech.stop() }
                     else { editing = false; speechPrefix = model.draft.inputText; Task { await speech.start() } }
                 } label: {
-                    Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic").font(.title3).frame(width: 44, height: 48)
-                }.accessibilityLabel(speech.isRecording ? "停止录音" : "语音输入").disabled(model.isThinking)
-                Button { speech.stop(); model.send() } label: {
-                    Image(systemName: "arrow.up").font(.body.weight(.medium)).foregroundStyle(.white).frame(width: 44, height: 44)
-                        .background(MiloTheme.accent.opacity(0.75), in: Circle())
-                }.disabled(model.isThinking || model.draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isRecording)
-                    .accessibilityLabel("发送").accessibilityIdentifier("send-message")
-            }
-            if model.canFinishConversation && !speech.isRecording {
-                MiloPrimaryButton(title: "保存这段回忆") { editing = false; model.prepareDiary() }.accessibilityIdentifier("finish-chat")
-            }
-        }.padding(.horizontal, 20).padding(.vertical, 12).background(MiloTheme.background.opacity(0.97))
+                    Image(systemName: speech.isActive ? "stop.circle.fill" : "waveform")
+                        .font(.system(size: 20)).frame(width: 44, height: 44)
+                }.foregroundStyle(MiloTheme.dim)
+                    .accessibilityLabel(speech.isStarting ? "取消语音授权" : speech.isRecording ? "停止录音" : "语音输入")
+                    .accessibilityIdentifier("speech-input")
+                    .accessibilityValue(speech.isStarting ? "starting" : speech.isRecording ? "recording" : "idle")
+                    .disabled(model.isThinking)
+                TextField(speech.isRecording ? "正在听…" : "说说你的想法…", text: $model.draft.inputText, axis: .vertical)
+                    .lineLimit(1...5).font(.body).foregroundStyle(MiloTheme.ink).focused($editing)
+                    .disabled(speech.isActive).padding(.vertical, 12)
+                    .accessibilityIdentifier("chat-input")
+                if model.isThinking {
+                    Button(action: model.stopReply) {
+                        Image(systemName: "stop.fill").font(.system(size: 13))
+                            .frame(width: 38, height: 38).background(.white.opacity(0.10), in: Circle())
+                    }.accessibilityLabel("停止回复").accessibilityIdentifier("stop-reply")
+                        .frame(width: 44, height: 44)
+                } else {
+                    Button { speech.stop(); model.send() } label: {
+                        Image(systemName: "arrow.up").font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(MiloTheme.background).frame(width: 38, height: 38)
+                            .background(MiloTheme.dim, in: Circle())
+                    }.disabled(model.draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || speech.isRecording)
+                        .opacity(model.draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.35 : 1)
+                        .accessibilityLabel("发送").accessibilityIdentifier("send-message")
+                        .frame(width: 44, height: 44)
+                }
+            }.padding(.horizontal, 7).padding(.vertical, 4)
+                .background(MiloTheme.surface, in: RoundedRectangle(cornerRadius: 28))
+                .overlay(RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.09), lineWidth: 0.7))
+        }.buttonStyle(.plain).padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 12)
+            .background(MiloTheme.background.opacity(0.96))
+    }
+
+    private var connectionDetails: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    Text(model.aiUnavailableReason == nil ? "模型与对话" : "仅本地记录")
+                        .font(MiloTheme.serif(25)).foregroundStyle(MiloTheme.ink)
+                    Text(model.chatDetail ?? "对话将尝试使用你在 AI 设置中选择的模型。连接失败时会保留原话，并明确提示。").font(.body).foregroundStyle(MiloTheme.dim)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("chat-connection-detail")
+                    Text("离开会保留草稿。收藏原话或整理日记，都由你决定。")
+                        .font(.subheadline).foregroundStyle(MiloTheme.hint)
+                    if model.canRetryReply {
+                        MiloGlassButton(title: "重试回复") { speech.stop(); showConnection = false; model.retryReply() }
+                    }
+                    if AIFeaturePolicy.isAvailable {
+                        MiloPrimaryButton(title: "AI 设置") { showConnection = false; model.openSettings() }
+                    }
+                }.padding(24)
+            }.background(MiloTheme.background).navigationTitle("对话状态").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showConnection = false } } }
+        }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+            .preferredColorScheme(.dark)
     }
 }
 
 struct DiaryView: View {
     @Bindable var model: JournalModel
     @State private var editing = false
+    @State private var showPreviousDiary = false
     @FocusState private var editorFocused: Bool
     private var diaryText: Binding<String> { Binding(get: { model.draft.diary ?? "" }, set: { model.editDiary($0) }) }
     private var diaryEnabled: Binding<Bool> { Binding(get: { model.draft.diaryEnabled }, set: { model.setDiaryEnabled($0) }) }
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                MiloPageHeader(title: "显影这段回忆", subtitle: "读一读，也可以改一改", back: model.back)
+                MiloPageHeader(title: model.draft.kind == "now" ? "整理此刻" : "显影这段回忆", subtitle: "读一读，也可以改一改", back: model.back)
                 if !model.guidanceNotice.isEmpty { Text(model.guidanceNotice).font(.caption).foregroundStyle(MiloTheme.dim).frame(maxWidth: .infinity, alignment: .leading).padding(12).background(MiloTheme.accent.opacity(0.1), in: RoundedRectangle(cornerRadius: 12)) }
                 Toggle(isOn: diaryEnabled) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -276,8 +377,16 @@ struct DiaryView: View {
                                 .focused($editorFocused).accessibilityIdentifier("diary-editor")
                         } else { Text(model.draft.diary ?? "").frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).accessibilityIdentifier("diary-content") }
                     }.font(MiloTheme.serif(17, relativeTo: .body)).foregroundStyle(MiloTheme.ink).lineSpacing(14).miloPanel(padding: 24) }
-                    Button(editing ? "完成编辑" : "编辑日记") { editing.toggle(); editorFocused = editing }.font(.body).foregroundStyle(MiloTheme.dim).frame(minHeight: 44)
-                        .disabled(model.isThinking).accessibilityIdentifier("edit-diary")
+                    HStack(spacing: 24) {
+                        Button(editing ? "完成编辑" : "编辑日记") { editing.toggle(); editorFocused = editing }
+                            .font(.body).foregroundStyle(MiloTheme.dim).frame(minHeight: 44)
+                            .disabled(model.isThinking).accessibilityIdentifier("edit-diary")
+                        if model.draft.previousDiary != nil {
+                            Button("上一版") { editorFocused = false; showPreviousDiary = true }
+                                .font(.subheadline).foregroundStyle(MiloTheme.hint).frame(minHeight: 44)
+                                .disabled(model.isThinking).accessibilityIdentifier("previous-diary")
+                        }
+                    }
                 }
             }.padding(.horizontal, 24).padding(.bottom, 28)
         }.parityScrollMetrics("journey-diary")
@@ -292,6 +401,21 @@ struct DiaryView: View {
                     Spacer()
                     Button("完成编辑") { editorFocused = false; editing = false }
                 }
+            }
+            .sheet(isPresented: $showPreviousDiary) {
+                NavigationStack {
+                    ScrollView {
+                        Text(model.draft.previousDiary ?? "").font(.body).lineSpacing(8).foregroundStyle(MiloTheme.ink)
+                            .frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled).padding(24)
+                            .accessibilityIdentifier("previous-diary-content")
+                    }.background(MiloTheme.background).navigationTitle("上一版日记").navigationBarTitleDisplayMode(.inline)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完成") { showPreviousDiary = false } } }
+                        .safeAreaInset(edge: .bottom) {
+                            MiloGlassButton(title: "使用这一版") {
+                                model.restorePreviousDiary(); editing = false; showPreviousDiary = false
+                            }.accessibilityIdentifier("restore-previous-diary").padding(20).background(MiloTheme.background)
+                        }
+                }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible).preferredColorScheme(.dark)
             }
             .onAppear {
                 model.ensureDiary()

@@ -3,16 +3,15 @@
  * through the injected transport, and emits a single error envelope shape
  * (`ErrorEnvelope`) on every failure path.
  */
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import express, { type Request, type Response, type NextFunction, type Express } from 'express';
 import {
   buildDiaryPrompt,
   buildOpeningPrompt,
+  buildRespondSystem,
+  CONVERSATION_SYSTEM,
 } from './prompts.js';
-import {
-  createMiniMaxTransport,
-  type MiniMaxTransport,
-} from './minimax.js';
+import { type MiniMaxTransport } from './minimax.js';
 import {
   isValidMoodId,
   isValidRole,
@@ -26,9 +25,12 @@ import {
 } from './contracts.js';
 
 export interface ServerDeps {
-  transport: MiniMaxTransport;
+  aiEnabled?: boolean;
+  transport?: MiniMaxTransport;
   rateLimitPerMinute: number;
   requestLog?: (entry: RequestLog) => void;
+  bearerToken?: string;
+  trustLoopbackProxy?: boolean;
 }
 
 export interface RequestLog {
@@ -40,16 +42,19 @@ export interface RequestLog {
   blocked: boolean;
 }
 
-const SYSTEM_OPENING = '你是「回响」——温柔、安静的回忆引导者。每次只问一个问题。';
-const SYSTEM_RESPOND = '你是「回响」。顺着上一轮的脉络继续引导，保持 1~3 句。';
-const SYSTEM_DIARY = '你是「回响」。把对话改写成用户第一人称的感受日记，200~400 字，只输出正文。';
+const SYSTEM_DIARY = '你是「回响」。忠实整理用户自己的话为第一人称日记，不编造，只输出正文。';
 
 interface RouteDeps extends ServerDeps {}
 
 export function createApp(deps: RouteDeps): Express {
-  bindTransport(deps.transport);
+  const aiEnabled = deps.aiEnabled === true;
+  const transport = deps.transport;
+  if (aiEnabled && transport === undefined) {
+    throw new Error('Enabled AI requires a configured transport.');
+  }
   const app = express();
-  app.use(express.json({ limit: '64kb' }));
+  app.disable('x-powered-by');
+  if (deps.trustLoopbackProxy) app.set('trust proxy', 'loopback');
 
   // Request id + basic access log; never logs the body.
   app.use((req, res, next) => {
@@ -68,6 +73,31 @@ export function createApp(deps: RouteDeps): Express {
     next();
   });
 
+  // Pause before parsing legacy/malformed payloads or consulting upstream credentials.
+  // Existing clients get the same explicit response, even with an expired app token.
+  app.use('/v1/recall', (_req, res, next) => {
+    if (!aiEnabled) {
+      respondError(res, 503, 'AI_DISABLED', 'AI 功能已暂时下架，仍可正常记录和保存日记。',
+        res.getHeader('x-request-id') as string);
+      return;
+    }
+    next();
+  });
+  app.use(express.json({ limit: '64kb' }));
+
+  // The client token is separate from the upstream MiniMax secret.
+  app.use('/v1', (req, res, next) => {
+    if (deps.bearerToken) {
+      const expected = Buffer.from(`Bearer ${deps.bearerToken}`);
+      const supplied = Buffer.from(req.header('authorization') ?? '');
+      if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) {
+        respondError(res, 401, 'INVALID_REQUEST', '请更新应用后重试。', res.getHeader('x-request-id') as string);
+        return;
+      }
+    }
+    next();
+  });
+
   // Per-IP token bucket; simple in-memory. One window per minute.
   const buckets = new Map<string, { count: number; resetAt: number }>();
   app.use((req, res, next) => {
@@ -77,6 +107,9 @@ export function createApp(deps: RouteDeps): Express {
     }
     const key = req.ip ?? 'unknown';
     const now = Date.now();
+    for (const [ip, entry] of buckets) {
+      if (entry.resetAt <= now) buckets.delete(ip);
+    }
     const bucket = buckets.get(key);
     if (!bucket || bucket.resetAt < now) {
       buckets.set(key, { count: 1, resetAt: now + 60_000 });
@@ -95,6 +128,8 @@ export function createApp(deps: RouteDeps): Express {
     const requestId = req.header('x-request-id') ?? randomUUID();
     res.json({
       ok: true,
+      aiEnabled,
+      aiStatus: aiEnabled ? 'enabled' : 'paused',
       model: 'gateway',
       baseUrl: 'gateway',
       requestId,
@@ -108,7 +143,9 @@ export function createApp(deps: RouteDeps): Express {
       respondError(res, 400, 'INVALID_REQUEST', parsed.reason, requestId);
       return;
     }
-    await runCompletion(res, requestId, SYSTEM_OPENING, parsed.value, buildOpeningPrompt);
+    await runCompletion(transport, res, requestId, CONVERSATION_SYSTEM, [
+      { role: 'user', text: buildOpeningPrompt(parsed.value), ts: Date.now() },
+    ]);
   });
 
   app.post('/v1/recall/respond', async (req, res) => {
@@ -128,9 +165,13 @@ export function createApp(deps: RouteDeps): Express {
       return;
     }
     const draft = parsed.value;
-    const messages: ChatMessage[] = draft.transcript.concat([{ role: 'user', text: userText, ts: Date.now() }]);
-    const enriched: DraftSummary = { ...draft, transcript: messages };
-    await runCompletion(res, requestId, SYSTEM_RESPOND, enriched, (d) => userText);
+    // Current clients include the latest user line; older clients send it separately.
+    const messages = draft.transcript.slice();
+    const last = messages.at(-1);
+    if (last?.role !== 'user' || last.text !== userText) {
+      messages.push({ role: 'user', text: userText, ts: Date.now() });
+    }
+    await runCompletion(transport, res, requestId, buildRespondSystem(draft), messages);
   });
 
   app.post('/v1/recall/diary', async (req, res) => {
@@ -140,7 +181,9 @@ export function createApp(deps: RouteDeps): Express {
       respondError(res, 400, 'INVALID_REQUEST', parsed.reason, requestId);
       return;
     }
-    await runCompletion(res, requestId, SYSTEM_DIARY, parsed.value, buildDiaryPrompt);
+    await runCompletion(transport, res, requestId, SYSTEM_DIARY, [
+      { role: 'user', text: buildDiaryPrompt(parsed.value), ts: Date.now() },
+    ]);
   });
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
@@ -229,18 +272,17 @@ function readString(value: unknown): string | undefined {
 }
 
 async function runCompletion(
+  transport: MiniMaxTransport | undefined,
   res: Response,
   requestId: string,
   system: string,
-  draft: DraftSummary,
-  prompt: (d: DraftSummary) => string,
+  messages: ChatMessage[],
 ): Promise<void> {
   try {
-    const result = await depsTransport(res).chat({
+    if (transport === undefined) throw new Error('AI transport is not configured.');
+    const result = await transport.chat({
       system,
-      messages: [
-        { role: 'user', text: prompt(draft), ts: Date.now() },
-      ],
+      messages,
       temperature: 0.6,
     });
     if (result.blocked) {
@@ -258,24 +300,10 @@ async function runCompletion(
   }
 }
 
-function depsTransport(_res: Response): MiniMaxTransport {
-  // Server-side dependency access; `createApp` captures `deps` in closure.
-  // We re-export through a module-level binding so the route handlers can
-  // call it without threading the reference through every signature.
-  return gatewayTransport!;
-}
-
-let gatewayTransport: MiniMaxTransport | undefined;
-
-export function bindTransport(transport: MiniMaxTransport): void {
-  gatewayTransport = transport;
-}
-
-export function startServer(deps: ServerDeps & { port: number }): void {
-  bindTransport(deps.transport);
+export function startServer(deps: ServerDeps & { port: number; host?: string }) {
   const app = createApp(deps);
-  app.listen(deps.port, () => {
-    process.stdout.write(`AI gateway listening on :${deps.port}\n`);
+  return app.listen(deps.port, deps.host ?? '127.0.0.1', () => {
+    process.stdout.write(`AI gateway listening on ${deps.host ?? '127.0.0.1'}:${deps.port}\n`);
   });
 }
 

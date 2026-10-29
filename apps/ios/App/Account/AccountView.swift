@@ -33,14 +33,16 @@ struct AccountView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     profile
                     securityPanel
-                    VStack(alignment: .leading, spacing: 10) {
-                        panelTitle("AI 与会员")
-                        Text("连接自己的大模型，或了解 MILO 星球会员。")
-                            .font(.footnote).foregroundStyle(MiloTheme.dim)
-                        accountLink("AI 设置与月订阅方案  ›", identifier: "account-ai-settings") {
-                            account.clearMessages(); onAISettings()
-                        }
-                    }.frame(maxWidth: .infinity, alignment: .leading).miloPanel(padding: 18)
+                    if AIFeaturePolicy.isAvailable {
+                        VStack(alignment: .leading, spacing: 10) {
+                            panelTitle("AI 与会员")
+                            Text("连接自己的大模型，或了解 MILO 星球会员。")
+                                .font(.footnote).foregroundStyle(MiloTheme.dim)
+                            accountLink("AI 设置与月订阅方案  ›", identifier: "account-ai-settings") {
+                                account.clearMessages(); onAISettings()
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading).miloPanel(padding: 18)
+                    }
                     dataPanel
                     Text("MILO 米洛 · 留住每一份感受").font(.caption).foregroundStyle(MiloTheme.hint)
                         .frame(maxWidth: .infinity).padding(.bottom, 12)

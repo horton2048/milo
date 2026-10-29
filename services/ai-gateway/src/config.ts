@@ -1,6 +1,6 @@
 /**
  * Validates environment configuration at startup. Exits with a non-zero code
- * when the gateway is started without the required secret.
+ * when enabled AI is started without the required secret. AI is paused by default.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -25,33 +25,57 @@ function readDotenv(): void {
 }
 
 export interface GatewayConfig {
+  aiEnabled: boolean;
   apiKey: string;
   baseUrl: string;
   model: string;
   port: number;
   timeoutMs: number;
+  host: string;
+  rateLimitPerMinute: number;
+  bearerToken: string;
+  trustLoopbackProxy: boolean;
 }
 
 export function loadConfig(): GatewayConfig {
   readDotenv();
-  const apiKey = process.env.MINIMAX_API_KEY ?? '';
-  const baseUrl = process.env.MINIMAX_BASE_URL ?? 'https://api.minimaxi.com/v1';
-  const model = process.env.MINIMAX_MODEL ?? 'MiniMax-M3';
-  const port = Number(process.env.PORT ?? 8788);
-  const timeoutMs = Number(process.env.AI_TIMEOUT_MS ?? 20000);
-  if (apiKey.trim().length === 0) {
+  return configFromEnv(process.env);
+}
+
+export function configFromEnv(env: NodeJS.ProcessEnv): GatewayConfig {
+  const aiSetting = env.AI_ENABLED?.trim().toLowerCase() ?? 'false';
+  if (aiSetting !== 'true' && aiSetting !== 'false') {
+    throw new Error('Invalid AI_ENABLED; use true or false.');
+  }
+  const aiEnabled = aiSetting === 'true';
+  const apiKey = env.MINIMAX_API_KEY ?? '';
+  const baseUrl = env.MINIMAX_BASE_URL ?? 'https://api.minimax.chat/v1';
+  const model = env.MINIMAX_MODEL ?? 'MiniMax-M3';
+  const port = Number(env.PORT ?? 8787);
+  const timeoutMs = Number(env.MINIMAX_TIMEOUT_MS ?? env.AI_TIMEOUT_MS ?? 20000);
+  const host = env.HOST ?? '127.0.0.1';
+  const rateLimitPerMinute = Number(env.RATE_LIMIT_PER_MINUTE ?? 60);
+  const bearerToken = env.GATEWAY_BEARER_TOKEN?.trim() ?? '';
+  const trustLoopbackProxy = env.TRUST_LOOPBACK_PROXY === 'true';
+  if (aiEnabled && apiKey.trim().length === 0) {
     throw new Error('Missing MINIMAX_API_KEY. Set it in the environment or .env before starting the gateway.');
   }
-  if (!Number.isFinite(port) || port <= 0 || port >= 65536) {
+  if (!Number.isInteger(port) || port <= 0 || port >= 65536) {
     throw new Error('Invalid PORT.');
   }
   if (!Number.isFinite(timeoutMs) || timeoutMs < 1000) {
-    throw new Error('Invalid AI_TIMEOUT_MS; must be ≥ 1000.');
+    throw new Error('Invalid MINIMAX_TIMEOUT_MS; must be ≥ 1000.');
   }
   if (baseUrl.length === 0 || !baseUrl.startsWith('http')) {
     throw new Error('Invalid MINIMAX_BASE_URL.');
   }
-  return { apiKey, baseUrl, model, port, timeoutMs };
+  if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1) {
+    throw new Error('Invalid RATE_LIMIT_PER_MINUTE.');
+  }
+  if (aiEnabled && env.NODE_ENV === 'production' && bearerToken.length < 32) {
+    throw new Error('Production requires GATEWAY_BEARER_TOKEN with at least 32 characters.');
+  }
+  return { aiEnabled, apiKey, baseUrl, model, port, timeoutMs, host, rateLimitPerMinute, bearerToken, trustLoopbackProxy };
 }
 
 /** Replaces the key with a redacted marker suitable for logs and error responses. */

@@ -303,7 +303,7 @@ export function Home({ echoVoid = false, onNext, onTimeline, entryCount }: Props
 
           <div className="dial-hint" style={{ marginTop: 18 }}>
             <span className="arc">⟳</span>
-            <span>旋转词环，轻点收下最贴切的词（最多 3 个）</span>
+            <span>旋转词环，点选最多 3 个词</span>
           </div>
 
           <div style={{ textAlign: 'center', minHeight: 30, marginTop: 12, marginBottom: 14 }}>
@@ -325,7 +325,7 @@ export function Home({ echoVoid = false, onNext, onTimeline, entryCount }: Props
             继续
           </button>
           <p className="hint" style={{ textAlign: 'center', marginTop: 12 }}>
-            也可以不选任何词，感受不必都有名字
+            不选也可以。
           </p>
         </>
       )}

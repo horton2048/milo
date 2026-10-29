@@ -12,6 +12,9 @@ public struct RecallDraft: Codable, Equatable, Sendable {
     public var aiEnabled: Bool
     public var inputText: String
     public var diary: String?
+    /// Previous body retained when more conversation invalidates the current
+    /// diary. Optional so drafts from before revision backup remain readable.
+    public var previousDiary: String?
     public var diaryEnabled: Bool
     public var stickerTemplate: CardTemplate
     public var page: String
@@ -23,6 +26,7 @@ public struct RecallDraft: Codable, Equatable, Sendable {
     public init(mood: Mood = .calm, labels: [String] = [], kind: String? = nil,
                 timeMark: String? = nil, note: String = "", transcript: [TranscriptMessage] = [],
                 aiEnabled: Bool = true, inputText: String = "", diary: String? = nil,
+                previousDiary: String? = nil,
                 diaryEnabled: Bool = true, stickerTemplate: CardTemplate = .planetLetter,
                 page: String = "home", entryID: String? = nil, pendingEntryID: String? = nil) {
         self.mood = mood
@@ -34,6 +38,7 @@ public struct RecallDraft: Codable, Equatable, Sendable {
         self.aiEnabled = aiEnabled
         self.inputText = inputText
         self.diary = diary
+        self.previousDiary = previousDiary
         self.diaryEnabled = diaryEnabled
         self.stickerTemplate = stickerTemplate
         self.page = page
@@ -60,6 +65,7 @@ public struct RecallDraft: Codable, Equatable, Sendable {
             transcript = []
             inputText = ""
             diary = nil
+            previousDiary = nil
             pendingEntryID = nil
         }
         kind = value
@@ -72,6 +78,7 @@ public struct RecallDraft: Codable, Equatable, Sendable {
         if timeMark != nil && timeMark != value {
             transcript = []
             diary = nil
+            previousDiary = nil
             inputText = ""
             pendingEntryID = nil
         }
@@ -85,7 +92,7 @@ public struct RecallDraft: Codable, Equatable, Sendable {
         case "classify", "timeline": page = "home"
         case "home-words", "words": page = "home"; labels = []
         case "now-note", "past-time": page = "classify"
-        case "chat": page = "past-time"
+        case "chat": page = kind == "now" ? "classify" : "past-time"
         case "diary": page = "chat"
         case "card", "detail": page = "timeline"; entryID = nil
         default: break
@@ -100,11 +107,12 @@ public struct RecallDraft: Codable, Equatable, Sendable {
         if kind == "past" && !transcript.contains(where: { $0.role == .user && !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
             throw JournalError.invalidEntry("missing user expression")
         }
+        let hasConversation = !transcript.isEmpty
         let entry = JournalEntry(id: id, createdAt: createdAt, mood: mood, note: kind == "now" ? note : "",
                                  labels: labels, kind: kind, timeMark: kind == "past" ? timeMark : nil,
-                                 transcript: kind == "past" ? transcript : [],
-                                 diary: kind == "past" && diaryEnabled ? diary : nil,
-                                 diaryEnabled: kind == "past" && diaryEnabled,
+                                 transcript: transcript,
+                                 diary: hasConversation && diaryEnabled ? diary : nil,
+                                 diaryEnabled: hasConversation && diaryEnabled,
                                  stickerTemplate: stickerTemplate)
         try entry.validate()
         return entry

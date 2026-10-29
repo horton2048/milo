@@ -52,6 +52,48 @@ import CryptoKit
     }
     private func login(_ f: Fixture) async -> Bool { await f.model.signIn(email: "person@example.com", password: "test-password") }
 
+    func testProductPauseOverridesEverySavedConfigurationWithoutReadingKeysOrRequestingModel() throws {
+        XCTAssertTrue(AppStorage.directory.path.contains("/MILO-UITests/"), "native unit-test host must never initialize the production journal store")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("MILO-UITests").appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let model = AccountModel(directory: directory, authProvider: ControlledAuth())
+        XCTAssertFalse(AIFeaturePolicy.isAvailable)
+        XCTAssertEqual(model.aiUnavailableReason, AIFeaturePolicy.pausedMessage)
+        model.configureFixture(state: "personal")
+        XCTAssertEqual(model.aiUnavailableReason, AIFeaturePolicy.pausedMessage)
+        model.configureFixture(state: "consent")
+        XCTAssertEqual(model.aiUnavailableReason, AIFeaturePolicy.pausedMessage)
+        let name = Data("milo-local-owner".utf8).base64EncodedString().replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "+", with: "-")
+        var settings = PersonalAISettings(); settings.source = .personal; settings.consent = true
+        for provider in AIProvider.allCases {
+            settings.provider = provider; settings.baseURL = provider.baseURL; settings.model = provider.model
+            try JSONEncoder().encode(settings).write(to: directory.appendingPathComponent("ai-\(name).json"))
+            model.configureFixture()
+            XCTAssertEqual(model.aiUnavailableReason, AIFeaturePolicy.pausedMessage)
+            XCTAssertEqual(model.aiSettings, settings, "pause must not erase the saved provider or consent")
+        }
+        settings.enabled = false
+        try JSONEncoder().encode(settings).write(to: directory.appendingPathComponent("ai-\(name).json"))
+        model.configureFixture()
+        XCTAssertEqual(model.aiUnavailableReason, AIFeaturePolicy.pausedMessage)
+    }
+
+    func testPausedAccountCompletionAndConnectionTestStopBeforeCredentials() async throws {
+        let f = try fixture(); defer { f.clean() }
+        // No identity or key exists: the product pause must win even before the
+        // login/configuration/Keychain preflight.
+        do {
+            _ = try await f.model.completeAI(messages: [AIMessage(role: .user, content: "synthetic pause check")])
+            XCTFail("Paused completion must not succeed")
+        } catch { XCTAssertEqual(error.localizedDescription, AIFeaturePolicy.pausedMessage) }
+        await f.model.testConnection(settings: PersonalAISettings(), newKey: "")
+        XCTAssertEqual(f.model.errorMessage, AIFeaturePolicy.pausedMessage)
+        XCTAssertFalse(f.model.isBusy)
+        XCTAssertTrue(f.model.statusMessage.isEmpty)
+        XCTAssertTrue(f.provider.calls.isEmpty)
+    }
+
     func testFirstLaunchRequiresLoginAndOwnerSessionRestores() throws {
         let f = try fixture(); defer { f.clean() }
         XCTAssertFalse(f.model.isAuthenticated)

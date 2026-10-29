@@ -13,3 +13,5 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+/entry/src/main/resources/rawfile/gateway-credentials.local.json
+/.release-private/

@@ -39,42 +39,50 @@ function labelForEmotionId(id: string): string | undefined {
   return known[id];
 }
 
-/** Verbatim port of `buildOpeningPrompt` in `apps/web/src/lib/guide.ts`. */
-export function buildOpeningPrompt(draft: DraftSummary): string {
+export const CONVERSATION_SYSTEM = [
+  '你是「回响」，一个安静的情绪记录伙伴。少说，让用户多说。',
+  '每次只给一句短提示，通常 10~30 字，最多 48 字；最多问一个问题，也可以不提问。',
+  '优先接住用户刚说的一个具体细节，轻轻追问；已说过的事不要重新问。',
+  '让用户选择说什么、说多少；不要按固定问卷推进，不要求交代原因、人生意义或成长。',
+  '用户说不想说、先停一下或没有了，就简短接受，不再追问；想不起来时也不要催促。',
+  '不替用户判断情绪，不说“我完全理解”，不总结分析、说教、给建议或强行鼓励。',
+  '只用自然口语，不用标题、列表、markdown、自我介绍或操作说明。',
+].join('\n');
+
+function conversationContext(draft: DraftSummary): string {
   const labels = draft.mood.labels.length > 0 ? draft.mood.labels.join('、') : '未具体命名';
-  const lines: string[] = [
-    '你现在不是编程助手。你是「回响」——一位温柔、安静的回忆引导者。',
-    '用户此刻的情绪与过去的某段时光有关，你的任务是通过对话，一步一步引导 ta 把当时的情景、困难、快乐、背景，以及那一天对现在的特别之处说出来。',
-    '',
-    '对话规则（务必遵守）：',
-    '- 每次只问一个问题，问题要具体、轻柔，不评判；',
-    '- 回复保持简短（1~3 句话），先简单回应用户说的内容，再提出下一个问题；',
-    '- 不要使用列表、标题或 markdown 格式，只用自然的口语化中文；',
-    '- 不要提及你是 AI 模型、不要谈论代码或工具；',
-    '- 循着这样的脉络推进：当时的情景 → 遇到的困难或快乐 → 为什么会这样、当时的背景 → 那一天对今天的自己有什么特别 → 现在还在延续当时的路吗，如果变了，发生了什么。',
-    '',
-    `用户此刻的情绪：${moodWord(draft.mood.valence, draft.mood.emotionId)}（${labels}）。`,
-    `ta 想回到的时光：「${draft.timeMark ?? '过去的某一天'}」。`,
-    '',
-    '现在，请说一句开场白，欢迎 ta 回到那段时光，并问出第一个问题。',
-  ];
-  return lines.join('\n');
+  return [
+    `用户此刻选择的情绪：${moodWord(draft.mood.valence, draft.mood.emotionId)}（${labels}）。`,
+    `想起的时光：「${draft.timeMark ?? '过去的某一天'}」。`,
+  ].join('\n');
 }
 
-/** Verbatim port of `buildDiaryPrompt` in `apps/web/src/lib/guide.ts`. */
-export function buildDiaryPrompt(draft: DraftSummary): string {
-  const lines: string[] = draft.transcript.map((m) => `${m.role === 'user' ? '我' : '引导者'}：${m.text}`);
-  const transcript = lines.join('\n');
+export function buildOpeningPrompt(draft: DraftSummary): string {
   return [
-    '请根据下面这段回忆对话，以用户（"我"）的第一人称视角，写一篇感受日记。',
-    '要求：',
-    '- 完全用"我"的口吻，仿佛是我自己写下的；',
-    '- 只使用对话中出现过的事实与感受，不要编造细节；',
-    '- 温柔、真实、有画面感，200~400 字；',
-    '- 不要使用标题、列表或 markdown，只输出日记正文；',
-    `- 开头可以自然带出那段时光：「${draft.timeMark ?? '过去的某一天'}」。`,
+    conversationContext(draft),
+    '请只问一个很短的第一个问题，让用户从最先想起的画面说起。',
+  ].join('\n');
+}
+
+export function buildRespondSystem(draft: DraftSummary): string {
+  return [CONVERSATION_SYSTEM, conversationContext(draft), '顺着下面的对话回应最后一句，不要重新开场。'].join('\n');
+}
+
+export function buildDiaryPrompt(draft: DraftSummary): string {
+  const transcript = draft.transcript
+    .filter((m) => m.role === 'user' && m.text.trim().length > 0)
+    .map((m) => `我：${m.text.trim()}`)
+    .join('\n');
+  return [
+    '请根据下面的用户原话，用用户（“我”）的第一人称，整理一段感受日记。',
+    '只使用用户明确表达的事实和感受，保留原意；不得推导用户没说过的情绪或结论。',
+    '保持原话的情绪强度；没有明确表述时，不添加最高级、比较级或因果关系。',
+    '不添加用户没说过的释然、感激、成长或结论，不补背景和细节。',
+    '用户只说了一点，就只写一点，不为凑字数扩写。',
+    '不用标题、列表或 markdown，只输出日记正文。',
+    `回忆的时间：「${draft.timeMark ?? '过去的某一天'}」。`,
     '',
-    '对话记录：',
+    '用户原话：',
     transcript,
   ].join('\n');
 }

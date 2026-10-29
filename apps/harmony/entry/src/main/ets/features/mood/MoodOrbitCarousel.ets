@@ -17,6 +17,7 @@ import {
 import { MoodPlanet } from './MoodPlanet';
 import { MOOD_SHEET_HEIGHT, MOOD_SHEET_WIDTH } from '../../core/model/MoodAssets';
 import { Haptics } from '../../core/system/Haptics';
+import { gestureLocalPoint } from './GesturePoint';
 
 // Web reference: 300px dial scaled by 240/300 = 0.8.
 const RING_DIAMETER = 240;
@@ -133,20 +134,9 @@ export struct MoodOrbitCarousel {
     this.samples = this.samples.filter((sample: RotationSample) => time - sample.time <= VELOCITY_WINDOW_MS);
   }
 
-  /** Finger position relative to the carousel; the center when unavailable. */
-  private pointerLocalPoint(event: GestureEvent): Point {
-    const fingers = event.fingerList;
-    if (fingers.length === 0) {
-      const center: Point = { x: RING_CENTER, y: RING_CENTER };
-      return center;
-    }
-    const finger = fingers[0];
-    const point: Point = { x: finger.localX, y: finger.localY };
-    return point;
-  }
-
   private trackPointer(event: GestureEvent, emit: boolean): void {
-    const point = this.pointerLocalPoint(event);
+    const point = gestureLocalPoint(event);
+    if (point === null) return;
     const dx = point.x - RING_CENTER;
     const dy = point.y - RING_CENTER;
     if (Math.hypot(dx, dy) < DRAG_DEAD_ZONE_VP) {

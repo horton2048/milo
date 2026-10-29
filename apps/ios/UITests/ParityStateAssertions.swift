@@ -138,8 +138,8 @@ func assertParityState(_ caseID: String, in app: XCUIApplication) {
 
     case "chat--opening", "chat--conversation", "chat--offline", "chat--keyboard", "chat--busy":
         check.toggle("chat-ai-toggle", isOn: parts[1] != "offline")
-        check.require(app.staticTexts[parts[1] == "offline" ? "引导" : "回响"])
-        check.require(app.staticTexts["AI 暂时不可用，已切换本地引导"])
+        check.require(app.staticTexts["本地记录"])
+        check.require(app.staticTexts["chat-capability-notice"])
         check.require(app.buttons["AI 设置"])
         let input = check.require(check.element("chat-input"))
         if parts[1] == "keyboard" {

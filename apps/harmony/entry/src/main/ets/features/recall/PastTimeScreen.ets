@@ -53,7 +53,7 @@ export struct PastTimeScreen {
           .fontFamily('serif')
           .fontWeight(FontWeight.Medium)
           .fontColor(MILO_COLORS.ink)
-        Text('不需要精确的日期，\n一个模糊的印象就足够了。')
+        Text('大概的时间就好')
           .fontSize(13)
           .lineHeight(23.4)
           .fontColor(MILO_COLORS.inkHint)
@@ -93,7 +93,7 @@ export struct PastTimeScreen {
       .padding({ left: 28, right: 28 })
       .margin({ bottom: 26 })
 
-      TextInput({ placeholder: '或者用自己的话描述，比如「高三的雨季」', text: this.custom })
+      TextInput({ placeholder: '比如，高三的雨季', text: this.custom })
         .onChange((value: string) => {
           this.custom = value;
         })

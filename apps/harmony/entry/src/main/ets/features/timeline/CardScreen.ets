@@ -30,7 +30,8 @@ const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
 const INK: string = '#eae6ff';
 const INK_FAINT: string = 'rgba(234,230,255,0.60)';
 const INK_INTERACTIVE: string = 'rgba(238,234,255,0.78)';
-const GLASS_BG: string = 'rgba(255,255,255,0.06)';
+// Security components force backgrounds below 10% opacity to fully opaque.
+const SAVE_BUTTON_BG: string = '#252237';
 
 const SHEET_RESOURCES: Record<MoodAssetSheetName, Resource> = {
   'mood_sheet_01': $r('app.media.mood_sheet_01'),
@@ -41,9 +42,8 @@ const SHEET_RESOURCES: Record<MoodAssetSheetName, Resource> = {
 };
 
 /**
- * Share-card screen, rebuilt 1:1 after the Web `Card.tsx` page. Both sticker
- * templates are rendered live on ArkUI canvases with the exact design
- * coordinates of `apps/web/src/lib/card.ts` (see `CardArt.ets`). The main
+ * Both sticker templates are rendered live on ArkUI canvases with a shared
+ * design grid and density-independent typography (see `CardArt.ets`). The main
  * preview can be saved into the system gallery through the SaveButton
  * security component; template choice is persisted via `onSelect`.
  */
@@ -72,7 +72,7 @@ export struct CardScreen {
   aboutToAppear(): void {
     const win: display.Display = display.getDefaultDisplaySync();
     const winVp: number = win.width / win.densityPixels;
-    this.previewWidth = Math.min(winVp * 0.92, 460);
+    this.previewWidth = Math.min(winVp - 48, 460);
     this.thumbWidth = Math.floor((winVp - 48 - 10) / 2) - 14;
     this.selected = normalizeStickerTemplate(
       this.entry !== undefined ? this.entry.stickerTemplate : undefined,
@@ -133,7 +133,7 @@ export struct CardScreen {
     ctx.clearRect(0, 0, this.previewWidth, this.previewHeight);
     ctx.save();
     ctx.scale(scale, scale);
-    drawCardArt(ctx, designHeight, entry, this.selected, this.artworkImage, scale);
+    drawCardArt(ctx, designHeight, entry, this.selected, this.artworkImage);
     ctx.restore();
   }
 
@@ -161,15 +161,16 @@ export struct CardScreen {
     ctx.clearRect(0, 0, width, height);
     ctx.save();
     ctx.scale(scale, scale);
-    drawCardArt(ctx, baseHeight, entry, templateId, this.artworkImage, scale);
+    drawCardArt(ctx, baseHeight, entry, templateId, this.artworkImage);
     ctx.restore();
   }
 
   private selectTemplate(templateId: StickerTemplateId): void {
-    if (templateId === this.selected) {
+    if (templateId === this.selected || this.saveState === 'saving') {
       return;
     }
     this.selected = templateId;
+    this.saveState = '';
     this.onSelect(templateId);
     this.drawPreview();
   }
@@ -194,16 +195,22 @@ export struct CardScreen {
   }
 
   private async saveToGallery(): Promise<void> {
-    if (this.saveState === 'saving') {
+    if (this.saveState === 'saving' || this.entry === undefined || !this.previewReady) {
       return;
     }
     this.saveState = 'saving';
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const pixelMap: image.PixelMap = await componentSnapshot.get('miloCardPreview');
+      const density: number = display.getDefaultDisplaySync().densityPixels;
+      const exportScale: number = Math.max(1, CARD_DESIGN_WIDTH / (this.previewWidth * density));
+      const pixelMap: image.PixelMap = await componentSnapshot.get('miloCardPreview', {
+        scale: exportScale,
+        waitUntilRenderFinished: true,
+      });
       const packer: image.ImagePacker = image.createImagePacker();
       const data: ArrayBuffer = await packer.packing(pixelMap, { format: 'image/png', quality: 100 });
-      packer.release();
+      await packer.release();
+      await pixelMap.release();
       const path: string = `${context.cacheDir}/milo-card-${Date.now()}.png`;
       const file = fs.openSync(path, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
       fs.writeSync(file.fd, data);
@@ -293,6 +300,17 @@ export struct CardScreen {
           .alignItems(HorizontalAlign.Center)
           .padding({ top: 12, bottom: 12 })
           .margin({ bottom: 20 })
+          .onAreaChange((oldValue: Area, newValue: Area) => {
+            const width: number = Number(newValue.width);
+            const previewWidth: number = Math.min(width, 460);
+            if (width > 0 && Math.abs(this.previewWidth - previewWidth) > 0.5) {
+              this.previewWidth = previewWidth;
+              this.thumbWidth = Math.floor((width - 10) / 2) - 14;
+              this.drawPreview();
+              this.drawThumb(0);
+              this.drawThumb(1);
+            }
+          })
 
           Row() {
             Column() {
@@ -341,7 +359,7 @@ export struct CardScreen {
                       this.drawThumb(index);
                     })
                   Text(template.name)
-                    .fontSize(12)
+                    .fontSize(14)
                     .fontFamily('serif')
                     .fontColor(INK)
                     .letterSpacing(0.4)
@@ -349,7 +367,7 @@ export struct CardScreen {
                     .maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                   Text(template.tone)
-                    .fontSize(8)
+                    .fontSize(12)
                     .fontColor(INK_FAINT)
                     .letterSpacing(0.6)
                     .margin({ left: 2, right: 2, bottom: 2 })
@@ -422,7 +440,7 @@ export struct CardScreen {
             .width('100%')
             .height(48)
             .borderRadius(999)
-            .backgroundColor(GLASS_BG)
+            .backgroundColor(SAVE_BUTTON_BG)
             .borderWidth(1)
             .borderColor('rgba(255,255,255,0.14)')
             .borderStyle(BorderStyle.Solid)

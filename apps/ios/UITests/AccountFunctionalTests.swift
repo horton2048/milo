@@ -36,11 +36,8 @@ final class AccountFunctionalTests: XCTestCase {
     }
     @MainActor private func openAccount(_ app: XCUIApplication) {
         tap("open-account", in: app)
-        XCTAssertTrue(app.buttons["account-ai-settings"].waitForExistence(timeout: 10))
-    }
-    @MainActor private func aiToggle(_ app: XCUIApplication) -> XCUIElement {
-        let control = app.switches["ai-enabled"]
-        XCTAssertTrue(control.waitForExistence(timeout: 10)); return control
+        XCTAssertTrue(app.buttons["account-export-json"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["account-ai-settings"].exists)
     }
     @MainActor func testFirstLaunchLoginModesAndPasswordVisibility() {
         let app = launch(UUID().uuidString)
@@ -63,34 +60,38 @@ final class AccountFunctionalTests: XCTestCase {
         ownerLogin(app)
         capture("functional-login-owner-home", app)
     }
-    @MainActor func testSettingsPersistThroughNormalNavigationRestartAndLogout() {
+    @MainActor func testPausedAIStaysHiddenThroughNormalNavigationRestartAndLogout() {
         let id = UUID().uuidString
         let app = launch(id); ownerLogin(app); openAccount(app)
         capture("functional-account-normal-entry", app)
-        tap("account-ai-settings", in: app)
-        let toggle = aiToggle(app)
-        XCTAssertEqual(toggle.value as? String, "1")
-        toggle.tap(); XCTAssertEqual(toggle.value as? String, "0")
-        tap("ai-save", in: app)
-        XCTAssertTrue(app.staticTexts["account-status"].waitForExistence(timeout: 5))
-        capture("functional-settings-saved-disabled", app)
-        tap("back", in: app); tap("back", in: app)
+        XCTAssertFalse(app.staticTexts["AI 与会员"].exists)
+        XCTAssertTrue(app.buttons["account-export-markdown"].exists)
+        tap("back", in: app)
         app.terminate(); app.launchArguments = ["--uitest-id", id]; app.launch()
         XCTAssertTrue(app.buttons["confirm-mood"].waitForExistence(timeout: 10))
-        openAccount(app); tap("account-ai-settings", in: app)
-        XCTAssertEqual(aiToggle(app).value as? String, "0")
-        tap("back", in: app)
+        openAccount(app)
         tap("account-logout", in: app)
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
         app.alerts.buttons["取消"].tap()
-        XCTAssertTrue(app.buttons["account-ai-settings"].exists)
+        XCTAssertFalse(app.buttons["account-ai-settings"].exists)
+        XCTAssertTrue(app.buttons["account-export-json"].exists)
         tap("account-logout", in: app); app.alerts.buttons["退出登录"].tap()
         XCTAssertTrue(app.textFields["login-email"].waitForExistence(timeout: 10))
         capture("functional-logged-out", app)
         app.terminate(); app.launchArguments = ["--uitest-id", id]; app.launch()
         XCTAssertTrue(app.textFields["login-email"].waitForExistence(timeout: 10))
-        ownerLogin(app); openAccount(app); tap("account-ai-settings", in: app)
-        XCTAssertEqual(aiToggle(app).value as? String, "0")
+        ownerLogin(app); openAccount(app)
+        XCTAssertFalse(app.switches["ai-enabled"].exists)
+    }
+    @MainActor func testRestoredAISettingsRouteOffersLocalRecordingOnly() {
+        let app = launch(UUID().uuidString, fixture: "ai-settings--consent")
+        XCTAssertTrue(app.staticTexts["AI 功能暂时下架"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["ai-test-connection"].exists)
+        XCTAssertFalse(app.buttons["ai-save"].exists)
+        XCTAssertFalse(app.secureTextFields["ai-api-key"].exists)
+        XCTAssertFalse(app.staticTexts["MILO 星球会员"].exists)
+        app.buttons["继续本地记录"].tap()
+        XCTAssertTrue(app.buttons["confirm-mood"].waitForExistence(timeout: 10))
     }
     @MainActor func testEditingPasswordClearsPreviousFeedbackWithoutRemoteRequest() {
         // Explicit error fixtures only: no provider succeeds and no code is sent.

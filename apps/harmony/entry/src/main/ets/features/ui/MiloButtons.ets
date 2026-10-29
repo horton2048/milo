@@ -71,6 +71,7 @@ export struct MiloPrimaryButton {
     .width('100%')
     .height(52)
     .borderRadius(999)
+    .clip(true)
     .border({ width: 1, color: 'rgba(255,255,255,0.28)' })
     .shadow({ radius: 32, color: 'rgba(139,124,246,0.4)', offsetY: 8 })
     .opacity(this.active ? 1 : 0.48)
@@ -277,11 +278,11 @@ export struct StageBackdrop {
         .width('130%')
         .height('42%')
         .borderRadius(999)
-        .linearGradient({
-          angle: 120,
-          colors: [['rgba(139,124,246,0.32)', 0], ['rgba(126,232,250,0.13)', 1]],
+        .radialGradient({
+          center: ['50%', '50%'],
+          radius: '60%',
+          colors: [['rgba(139,124,246,0.32)', 0], ['rgba(126,232,250,0.10)', 0.45], ['rgba(126,232,250,0)', 1]],
         })
-        .blur(44)
         .opacity(0.5)
         .position({ x: '-30%', y: '-14%' })
         .translate({ x: this.blobAX, y: this.blobAY })
@@ -290,16 +291,16 @@ export struct StageBackdrop {
         .width('120%')
         .height('36%')
         .borderRadius(999)
-        .linearGradient({
-          angle: 300,
-          colors: [['rgba(240,166,202,0.28)', 0], ['rgba(255,217,160,0.10)', 1]],
+        .radialGradient({
+          center: ['50%', '50%'],
+          radius: '60%',
+          colors: [['rgba(240,166,202,0.28)', 0], ['rgba(255,217,160,0.08)', 0.45], ['rgba(255,217,160,0)', 1]],
         })
-        .blur(44)
         .opacity(0.5)
         .position({ x: '-15%', y: '74%' })
         .translate({ x: this.blobBX, y: this.blobBY })
 
-      Starfield({ count: 120, seed: 0x5a17c0fe, color: '#ffffff' })
+      Starfield({ count: 0, seed: 0x5a17c0fe, color: '#dcd6ff' })
     }
     .width('100%')
     .height('100%')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium';
-import { ConversationController, initialConversationState, type OpenResult, type RespondResult } from '../../../main/ets/features/conversation/ConversationController';
+import { ConversationController, initialConversationState, conciseReply, type OpenResult, type RespondResult } from '../../../main/ets/features/conversation/ConversationController';
 import { FallbackGuide } from '../../../main/ets/features/conversation/FallbackGuide';
 import {
   type AiGatewayClient,
@@ -19,6 +19,8 @@ class FakeGateway implements AiGatewayClient {
   openCalls: number = 0;
   respondCalls: number = 0;
   diaryCalls: number = 0;
+  throwOnRespond: boolean = false;
+  lastRespond: RespondArg | undefined = undefined;
 
   async open(_request: OpenArg): Promise<GatewayResult> {
     this.openCalls += 1;
@@ -27,7 +29,8 @@ class FakeGateway implements AiGatewayClient {
 
   async respond(request: RespondArg): Promise<GatewayResult> {
     this.respondCalls += 1;
-    void request;
+    this.lastRespond = request;
+    if (this.throwOnRespond) throw new Error('provider failed');
     return this.respondReply;
   }
 
@@ -61,6 +64,7 @@ function draft(timeMark: string): Draft {
 function newController(gateway: FakeGateway): ConversationController {
   return new ConversationController({
     gateway: gateway,
+    aiAvailable: true,
     newGuide: (d: Draft) => new FallbackGuide(d.timeMark ?? '过去的某一天'),
   });
 }
@@ -141,8 +145,7 @@ function conversationSuite() {
       };
       const result = await controller.createDiary(draftWithChat);
       expect(result.usedAi).assertEqual(false);
-      expect(result.diary.indexOf('我') >= 0).assertTrue();
-      expect(result.diary.indexOf('去年夏天') >= 0).assertTrue();
+      expect(result.diary).assertEqual('那天是雨季');
     });
 
     it('preserves the user message even when the AI call fails', 0, async () => {
@@ -170,8 +173,8 @@ function conversationSuite() {
       const restored = newController(new FakeGateway());
       restored.restoreState(savedState);
       const reply: ChatMessage = (await restored.respond(draft('去年夏天'), '新答案', 99)).message;
-      // 恢复的 step 是 2，下一条是第 4 题（步骤 3），可见不是步骤 0/1 的内容
-      expect(reply.text.indexOf('回到那一天') >= 0 || reply.text.indexOf('现在的你') >= 0 || reply.text.indexOf('谢谢你愿意说出这些') >= 0).assertTrue();
+      expect(reply.text).assertEqual('现在想起它，心里有什么变化？');
+      expect(restored.getState().fallbackStep).assertEqual(3);
     });
 
     it('marks isScriptComplete after five scripted turns', 0, async () => {
@@ -184,6 +187,80 @@ function conversationSuite() {
         await controller.respond(draft('去年夏天'), `回答 ${index}`, index + 1);
       }
       expect(controller.isScriptComplete()).assertEqual(true);
+    });
+
+    it('preserves context and continues the guide after a later AI failure', 0, async () => {
+      const gateway = new FakeGateway();
+      const controller = newController(gateway);
+      const ongoing = draft('去年夏天');
+      const first = await controller.respond(ongoing, '那天是雨季', 1);
+      ongoing.transcript = [
+        { role: 'user', text: '那天是雨季', ts: 1 }, first.message,
+      ];
+      gateway.respondReply = failure('OFFLINE');
+      const reply = await controller.respond(ongoing, '和朋友去了河边', 3);
+      expect(reply.message.text).assertEqual('哪件小事让你记得最清楚？');
+      expect(reply.state.fallbackStep).assertEqual(2);
+      expect(gateway.lastRespond!.draft.transcript.length).assertEqual(3);
+      expect(gateway.lastRespond!.draft.transcript[0].text).assertEqual('那天是雨季');
+      expect(gateway.lastRespond!.draft.transcript[2].text).assertEqual('和朋友去了河边');
+    });
+
+    it('accepts an explicit pause before calling AI', 0, async () => {
+      const gateway = new FakeGateway();
+      const controller = newController(gateway);
+      const reply = await controller.respond(draft('去年夏天'), '现在不想聊了', 1);
+      expect(reply.message.text).assertEqual('好，先停在这里。');
+      expect(gateway.respondCalls).assertEqual(0);
+    });
+
+    it('uses a complete short AI question instead of displaying a long paragraph', 0, async () => {
+      const gateway = new FakeGateway();
+      gateway.respondReply = success('听起来那是一段让人难忘的时光。河边有什么让你记得很清楚？你和朋友后来还有联系吗？');
+      const controller = newController(gateway);
+      const reply = await controller.respond(draft('去年夏天'), '和朋友去了河边', 1);
+      expect(reply.usedAi).assertTrue();
+      expect(reply.message.text).assertEqual('河边有什么让你记得很清楚？');
+      expect(conciseReply('很长的内容'.repeat(20))).assertEqual(undefined);
+    });
+
+    it('falls back on oversized replies and thrown provider errors', 0, async () => {
+      const gateway = new FakeGateway();
+      gateway.respondReply = success('很长的内容'.repeat(20));
+      const oversized = await newController(gateway).respond(draft('去年夏天'), '那天是雨季', 1);
+      expect(oversized.usedAi).assertEqual(false);
+      expect(oversized.message.text.length <= 24).assertTrue();
+      gateway.throwOnRespond = true;
+      const failed = await newController(gateway).respond(draft('去年夏天'), '那天是雨季', 1);
+      expect(failed.usedAi).assertEqual(false);
+      expect(failed.message.text).assertEqual('那一刻，你是什么感受？');
+    });
+
+    it('saves locally without requesting AI after AI is disabled or unavailable', 0, async () => {
+      const gateway = new FakeGateway();
+      const controller = newController(gateway);
+      controller.restoreState({ source: 'script', fallbackStep: 1, lastError: undefined });
+      const local = draft('去年夏天');
+      local.transcript = [{ role: 'user', text: '那天是雨季', ts: 1 }];
+      const result = await controller.createDiary(local);
+      expect(result.usedAi).assertEqual(false);
+      expect(result.diary.indexOf('那天是雨季') >= 0).assertTrue();
+      expect(gateway.diaryCalls).assertEqual(0);
+    });
+
+    it('preserves every user line when a long diary exceeds the gateway context limit', 0, async () => {
+      const gateway = new FakeGateway();
+      const controller = newController(gateway);
+      const longDraft = draft('去年夏天');
+      for (let index = 0; index < 17; index += 1) {
+        longDraft.transcript.push({ role: 'user', text: `我的第 ${index} 段回忆`, ts: index * 2 });
+        longDraft.transcript.push({ role: 'ai', text: '嗯，我在听。', ts: index * 2 + 1 });
+      }
+      const result = await controller.createDiary(longDraft);
+      expect(result.usedAi).assertEqual(false);
+      expect(result.diary.indexOf('我的第 0 段回忆') >= 0).assertTrue();
+      expect(result.diary.indexOf('我的第 16 段回忆') >= 0).assertTrue();
+      expect(gateway.diaryCalls).assertEqual(0);
     });
 
     it('exposes initialConversationState for first-launch defaults', 0, () => {

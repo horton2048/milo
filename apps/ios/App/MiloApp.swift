@@ -21,10 +21,15 @@ struct MiloApp: App {
 }
 
 enum AppStorage {
+    #if DEBUG
+    // Native unit-test hosts otherwise launch the app without --uitest-id.
+    // Keep their coordinator away from the user's Application Support/MILO store too.
+    private static let unitTestStoreID: UUID? = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil || NSClassFromString("XCTestCase") != nil ? UUID() : nil
+    #endif
     static var directory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         #if DEBUG
-        if let id = ParityFixture.id {
+        if let id = ParityFixture.id ?? unitTestStoreID {
             return support.appendingPathComponent("MILO-UITests", isDirectory: true).appendingPathComponent(id.uuidString, isDirectory: true)
         }
         #endif
@@ -92,6 +97,10 @@ enum ParityFixture {
         if ["chat", "diary"].contains(route) {
             draft.kind = "past"; draft.timeMark = "去年夏天"
             draft.transcript = state == "opening" ? [transcript[0]] : transcript
+            if state == "long-reply" {
+                draft.kind = "now"; draft.timeMark = nil
+                draft.transcript[2].text = "开了一天会之后还被加活，连着几天都是这样，确实没有多少喘口气的时间。\n先把你想说的话说完，不急着给建议。👩🏽‍🚀\n这是完整保留的最后一句。"
+            }
             draft.aiEnabled = state != "offline"
             draft.diary = state == "long" ? long : note
             draft.diaryEnabled = state != "disabled"

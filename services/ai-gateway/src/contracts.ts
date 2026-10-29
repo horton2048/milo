@@ -35,6 +35,7 @@ export const MAX_LABELS = 6;
 export const MAX_LABEL_LENGTH = 32;
 
 export type ErrorCode =
+  | 'AI_DISABLED'
   | 'AI_UNAVAILABLE'
   | 'RATE_LIMITED'
   | 'INVALID_REQUEST'
@@ -77,6 +78,8 @@ export interface DiaryResponse {
 
 export interface HealthResponse {
   ok: boolean;
+  aiEnabled: boolean;
+  aiStatus: 'enabled' | 'paused';
   model: string;
   baseUrl: string;
   requestId: string;

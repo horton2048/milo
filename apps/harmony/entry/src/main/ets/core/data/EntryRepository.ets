@@ -1,4 +1,11 @@
-import { type DiaryEntry, type MoodId, type MoodState } from '../model/Domain';
+import {
+  type DiaryEntry,
+  type MoodId,
+  type MoodState,
+  type StickerTemplateId,
+  DEFAULT_STICKER_TEMPLATE,
+  VALID_STICKER_TEMPLATES,
+} from '../model/Domain';
 import { type KVStorage } from './KVStorage';
 
 /** Persisted shape; bump `schemaVersion` whenever the layout changes. */
@@ -47,6 +54,12 @@ export class EntryRepository {
   /** Return every saved entry, newest first. Tolerates malformed records. */
   list(): DiaryEntry[] {
     return this.refresh().slice();
+  }
+
+  /** Clear persisted entries and their in-memory cache after account deletion. */
+  clear(): void {
+    this.storage.remove(ENTRIES_STORAGE_KEY);
+    this.cache = [];
   }
 
   /** Look up a single entry by id; returns `undefined` when missing. */
@@ -136,6 +149,9 @@ function mergeEntry(base: DiaryEntry, patch: Partial<DiaryEntry>): DiaryEntry {
   if (base.transcript !== undefined) {
     next.transcript = base.transcript;
   }
+  if (base.stickerTemplate !== undefined) {
+    next.stickerTemplate = normalizeEntryTemplate(base.stickerTemplate);
+  }
   if (patch.mood !== undefined) {
     next.mood = patch.mood;
   }
@@ -160,7 +176,20 @@ function mergeEntry(base: DiaryEntry, patch: Partial<DiaryEntry>): DiaryEntry {
   if (patch.transcript !== undefined) {
     next.transcript = patch.transcript;
   }
+  if (patch.stickerTemplate !== undefined) {
+    next.stickerTemplate = normalizeEntryTemplate(patch.stickerTemplate);
+  }
   return next;
+}
+
+/** Unknown templates fall back without discarding the user's diary. */
+function normalizeEntryTemplate(value: Object): StickerTemplateId {
+  for (let index = 0; index < VALID_STICKER_TEMPLATES.length; index += 1) {
+    if (value === VALID_STICKER_TEMPLATES[index]) {
+      return VALID_STICKER_TEMPLATES[index];
+    }
+  }
+  return DEFAULT_STICKER_TEMPLATE;
 }
 
 /**
@@ -255,6 +284,9 @@ function validateDiaryEntry(value: Object): DiaryEntry | undefined {
       return undefined;
     }
     entry.transcript = transcript;
+  }
+  if (record['stickerTemplate'] !== undefined) {
+    entry.stickerTemplate = normalizeEntryTemplate(record['stickerTemplate']);
   }
   return entry;
 }

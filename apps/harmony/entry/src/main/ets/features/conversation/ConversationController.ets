@@ -1,4 +1,4 @@
-import { type Draft, type ChatMessage, type MoodId, type MoodState } from '../../core/model/Domain';
+import { type Draft, type ChatMessage, type MoodState } from '../../core/model/Domain';
 import {
   type AiGatewayClient,
   type GatewayError,
@@ -8,7 +8,8 @@ import {
   isFailure,
   type DraftSummary,
 } from '../../core/network/AiGatewayClient';
-import { FallbackGuide, fallbackDiary } from './FallbackGuide';
+import { FallbackGuide, fallbackDiary, wantsToPause } from './FallbackGuide';
+import { AI_AVAILABLE } from '../../core/config/FeatureFlags';
 
 export type ConversationSource = 'ai' | 'script';
 
@@ -17,7 +18,7 @@ export interface ConversationState {
   source: ConversationSource;
   /** Persistable script step so the guide resumes where it left off. */
   fallbackStep: number;
-  /** Last failure surfaced to the user, or `undefined` when healthy. */
+  /** Last gateway failure, retained for diagnostics without interrupting chat. */
   lastError: GatewayError | undefined;
 }
 
@@ -48,6 +49,8 @@ export type DiaryResult = CompleteDiary;
 
 export interface ConversationControllerDeps {
   gateway: AiGatewayClient;
+  /** Test seam for fake gateways; the device transport still enforces AI_AVAILABLE. */
+  aiAvailable?: boolean;
   /** Returns the local fallback guide for the current draft. */
   newGuide: (draft: Draft) => FallbackGuide;
 }
@@ -56,10 +59,13 @@ export class ConversationController {
   private deps: ConversationControllerDeps;
   private state: ConversationState;
   private guide: FallbackGuide | undefined;
+  private aiAvailable: boolean;
 
   constructor(deps: ConversationControllerDeps, state?: ConversationState) {
     this.deps = deps;
     this.state = state ?? initialConversationState();
+    this.aiAvailable = deps.aiAvailable ?? AI_AVAILABLE;
+    this.enforceAvailability();
   }
 
   /** Read-only snapshot for tests and persistence. */
@@ -82,6 +88,7 @@ export class ConversationController {
       fallbackStep: state.fallbackStep,
       lastError: state.lastError,
     };
+    this.enforceAvailability();
     if (this.guide !== undefined) {
       this.guide.restoreStep(state.fallbackStep);
     }
@@ -114,16 +121,24 @@ export class ConversationController {
    */
   async respond(draft: Draft, userText: string, ts: number): Promise<RespondResult> {
     this.ensureGuide(draft);
+    this.restoreTranscriptProgress(draft);
+    if (wantsToPause(userText)) {
+      const reply = this.guide!.next(userText);
+      this.syncFallbackStep();
+      return { state: this.state, message: this.assistantMessage(reply), usedAi: false };
+    }
     const enriched: Draft = cloneDraftWith(draft, this.withUserLine(draft, userText, ts));
     const aiText = await this.tryAi(enriched, () => this.deps.gateway.respond({ draft: this.toSummary(enriched) as DraftSummary, userText: userText }));
     if (aiText !== undefined) {
+      this.guide!.restoreStep(this.guide!.currentStep() + 1);
+      this.syncFallbackStep();
       return {
         state: this.state,
         message: this.assistantMessage(aiText),
         usedAi: true,
       };
     }
-    const scripted = this.guide!.next();
+    const scripted = this.guide!.next(userText);
     this.syncFallbackStep();
     return {
       state: this.state,
@@ -134,16 +149,19 @@ export class ConversationController {
 
   /** Generate the diary; falls back to the local first-person generator. */
   async createDiary(draft: Draft): Promise<DiaryResult> {
-    const result = await this.deps.gateway.createDiary({ draft: this.toSummary(draft) as DraftSummary });
-    if (result.ok === true) {
-      const success: GatewaySuccess = result as GatewaySuccess;
-      const trimmed = success.text.trim();
-      if (trimmed.length > 0) {
-        return {
-          state: this.state,
-          diary: trimmed,
-          usedAi: true,
-        };
+    this.enforceAvailability();
+    if (this.state.source !== 'script' && draft.transcript.length <= 32) {
+      try {
+        const result = await this.deps.gateway.createDiary({ draft: this.toSummary(draft, false) as DraftSummary });
+        if (result.ok === true) {
+          const success: GatewaySuccess = result as GatewaySuccess;
+          const trimmed = success.text.trim();
+          if (trimmed.length > 0) {
+            return { state: this.state, diary: trimmed, usedAi: true };
+          }
+        }
+      } catch {
+        // A provider exception must not prevent saving the local diary.
       }
     }
     return {
@@ -153,7 +171,7 @@ export class ConversationController {
     };
   }
 
-  /** True once the user has answered every scripted question. */
+  /** Soft progress checkpoint; callers must keep saving and input available. */
   isScriptComplete(): boolean {
     if (this.guide === undefined) {
       return false;
@@ -173,6 +191,16 @@ export class ConversationController {
     }
   }
 
+  /** The supplied transcript ends before the current user message. */
+  private restoreTranscriptProgress(draft: Draft): void {
+    let userTurns = 0;
+    for (let index = 0; index < draft.transcript.length; index += 1) {
+      if (draft.transcript[index].role === 'user') userTurns += 1;
+    }
+    this.guide!.restoreStep(Math.max(this.guide!.currentStep(), userTurns));
+    this.syncFallbackStep();
+  }
+
   private syncFallbackStep(): void {
     if (this.guide !== undefined) {
       this.state.fallbackStep = this.guide.currentStep();
@@ -184,10 +212,20 @@ export class ConversationController {
     call: () => Promise<GatewayResult>,
   ): Promise<string | undefined> {
     void draft;
+    this.enforceAvailability();
     if (this.state.source === 'script') {
       return undefined;
     }
-    const result = await call();
+    let result: GatewayResult;
+    try {
+      result = await call();
+    } catch {
+      const error: GatewayError = {
+        code: 'AI_UNAVAILABLE', retryable: true, requestId: '', message: 'AI 服务暂时不可用。',
+      };
+      this.state = { source: 'script', fallbackStep: this.state.fallbackStep, lastError: error };
+      return undefined;
+    }
     if (isFailure(result)) {
       const failure: GatewayFailure = result as GatewayFailure;
       this.state = {
@@ -198,13 +236,13 @@ export class ConversationController {
       return undefined;
     }
     const success: GatewaySuccess = result as GatewaySuccess;
-    const reply = success.text.trim();
-    if (reply.length === 0) {
+    const reply = conciseReply(success.text);
+    if (reply === undefined) {
       const emptyError: GatewayError = {
         code: 'AI_UNAVAILABLE',
         retryable: true,
         requestId: success.requestId,
-        message: 'AI 返回了空内容。',
+        message: 'AI 未返回可用的简短提示。',
       };
       this.state = {
         source: 'script',
@@ -214,6 +252,13 @@ export class ConversationController {
       return undefined;
     }
     return reply;
+  }
+
+  private enforceAvailability(): void {
+    if (!this.aiAvailable) {
+      this.state.source = 'script';
+      this.state.lastError = undefined;
+    }
   }
 
   private assistantMessage(text: string): ChatMessage {
@@ -229,10 +274,11 @@ export class ConversationController {
     return next;
   }
 
-  private toSummary(draft: Draft): DraftSummaryExport {
+  private toSummary(draft: Draft, recentOnly: boolean = true): DraftSummaryExport {
     const summary: DraftSummaryExport = {
       mood: draft.mood,
-      transcript: draft.transcript.slice(),
+      // Keep a recent context window within the gateway request limit.
+      transcript: recentOnly ? draft.transcript.slice(-24) : draft.transcript.slice(),
     };
     if (draft.timeMark !== undefined) {
       summary.timeMark = draft.timeMark;
@@ -259,4 +305,18 @@ function cloneDraftWith(draft: Draft, transcript: ChatMessage[]): Draft {
   if (draft.diary !== undefined) next.diary = draft.diary;
   if (draft.stickerTemplate !== undefined) next.stickerTemplate = draft.stickerTemplate;
   return next;
+}
+
+/** Choose one complete short sentence; never show a clipped paragraph. */
+export function conciseReply(text: string): string | undefined {
+  const cleaned = text.trim().replace(/[*_`#]/g, '');
+  const sentences = cleaned.match(/[^。！？!?\n]+[。！？!?]?/g);
+  if (sentences === null) return undefined;
+  for (let index = 0; index < sentences.length; index += 1) {
+    const sentence = sentences[index].trim();
+    if (sentence.length <= 48 && /[？?]$/.test(sentence)) return sentence;
+  }
+  const first = sentences[0].trim();
+  if (first.length > 0 && first.length <= 48) return first;
+  return undefined;
 }

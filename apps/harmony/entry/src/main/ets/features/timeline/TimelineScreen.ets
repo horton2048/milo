@@ -29,6 +29,7 @@ function preview(entry: DiaryEntry): string {
   } else {
     text = '';
   }
+  text = text.replace(/\s+/g, ' ').trim();
   if (text.length === 0) {
     return '（一次安静的记录）';
   }
@@ -72,7 +73,7 @@ export struct TimelineScreen {
         }
         .margin({ top: 120 })
       } else {
-        List({ space: 14 }) {
+        List({ space: 10 }) {
           ForEach(this.entries, (entry: DiaryEntry) => {
             ListItem() {
               Column() {
@@ -83,30 +84,40 @@ export struct TimelineScreen {
                   Text(formatDate(entry.createdAt))
                     .fontColor('#8b87a6')
                     .fontSize(12)
+                    .maxLines(1)
+                  Blank()
                   Text(entry.kind === 'past' ? (entry.timeMark ?? '过去') : '此刻')
                     .fontColor('#c9befc')
                     .fontSize(11)
                     .padding({ left: 6, right: 6, top: 2, bottom: 2 })
                     .borderRadius(8)
                     .backgroundColor('rgba(139,124,246,0.15)')
-                  Text(moodWord(entry.mood.valence, entry.mood.emotionId))
-                    .fontColor('#c9befc')
-                    .fontSize(11)
+                    .maxLines(1)
+                    .constraintSize({ maxWidth: 96 })
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
                 }
+                .width('100%')
                 .margin({ bottom: 10 })
+                Text(moodWord(entry.mood.valence, entry.mood.emotionId))
+                  .fontColor('#eae6ff').fontSize(15).fontWeight(FontWeight.Medium)
+                  .maxLines(1).margin({ bottom: 6 })
                 Text(preview(entry))
                   .fontSize(14)
                   .fontColor('#c9befc')
                   .lineHeight(20)
+                  .maxLines(2)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
               }
               .width('100%')
-              .padding(18)
-              .borderRadius(24)
+              .height(132)
+              .alignItems(HorizontalAlign.Start)
+              .padding(16)
+              .borderRadius(12)
               .backgroundColor('rgba(255,255,255,0.04)')
               .border({ width: 1, color: 'rgba(255,255,255,0.08)' })
               .onClick(() => this.onOpen(entry.id))
             }
-          })
+          }, (entry: DiaryEntry) => entry.id)
         }
         .layoutWeight(1)
         .width('100%')

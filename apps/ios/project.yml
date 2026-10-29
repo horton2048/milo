@@ -55,7 +55,7 @@ targets:
   MiloAccountTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [tests/AccountBehaviorTests.swift, tests/NativeKeychainTests.swift]
+    sources: [tests/AccountBehaviorTests.swift, tests/NativeKeychainTests.swift, tests/SpeechInputTests.swift]
     dependencies:
       - target: Milo
     settings:

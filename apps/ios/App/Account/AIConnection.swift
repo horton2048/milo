@@ -2,6 +2,13 @@ import Foundation
 import Security
 import CryptoKit
 
+/// Reversible product-wide pause. Saved preferences and Keychain values are
+/// retained, but cannot override this gate or start a model request.
+enum AIFeaturePolicy {
+    static let isAvailable = false
+    static let pausedMessage = "AI 功能暂时下架，仍可在本机记录、编辑和导出回忆。"
+}
+
 enum AIProvider: String, Codable, CaseIterable, Identifiable, Sendable {
     case deepseek, qwen, kimi, minimax, custom
     var id: String { rawValue }
@@ -115,6 +122,7 @@ private final class NoCredentialRedirects: NSObject, URLSessionTaskDelegate, Sen
 
 enum PersonalAIConnection {
     static func complete(settings: PersonalAISettings, key: String, messages: [AIMessage]) async throws -> String {
+        guard AIFeaturePolicy.isAvailable else { throw AccountFailure.message(AIFeaturePolicy.pausedMessage) }
         guard let endpoint = settings.endpoint, !settings.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AccountFailure.message("请填写 HTTPS 接口地址、模型名称和 API Key。")

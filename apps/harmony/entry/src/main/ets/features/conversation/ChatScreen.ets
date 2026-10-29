@@ -8,12 +8,10 @@ import {
   initialConversationState,
   type ConversationState,
 } from './ConversationController';
-import { SpeechInput, mergeRecognizedText, type SpeechResult } from '../../core/system/SpeechInput';
+import { SpeechInput, mergeRecognizedText, speechFeedback, type SpeechResult } from '../../core/system/SpeechInput';
 import { HarmonySpeechPlatform } from '../../core/system/HarmonySpeechPlatform';
 import { MiloBackNode, MiloPrimaryButton, pathPx } from '../ui/MiloButtons';
-
-/** AI-mode conversations stop after this many exchanges. */
-const MAX_AI_TURNS: number = 3;
+import { AI_AVAILABLE, effectiveAiEnabled } from '../../core/config/FeatureFlags';
 
 /** Web `cubic-bezier(0.22, 1, 0.36, 1)` — the signature Milo ease. */
 const MILO_EASE: ICurve = curves.cubicBezierCurve(0.22, 1, 0.36, 1);
@@ -24,34 +22,38 @@ const INK_INTERACTIVE: string = 'rgba(238,234,255,0.78)';
 const GLASS_BG: string = 'rgba(255,255,255,0.06)';
 const GLASS_BORDER: string = 'rgba(255,255,255,0.12)';
 
-/**
- * Past-branch guided conversation, styled 1:1 after the Web `Chat.tsx` screen.
- * The top-left "AI" pill toggles AI mode (default off → scripted guide only).
- * AI conversations are capped at MAX_AI_TURNS exchanges, after which the
- * closing line and the "沉淀这段回忆" button appear and the input is retired.
- */
+/** Short prompts leave room for the user to keep talking or save at any time. */
 @Component
 export struct ChatScreen {
   @State messages: ChatMessage[] = [];
   @State input: string = '';
   @State busy: boolean = false;
-  @State aiMode: boolean = false;
-  @State aiTurns: number = 0;
-  @State conversationDone: boolean = false;
+  @State aiMode: boolean = AI_AVAILABLE;
+  defaultAiEnabled: boolean = true;
+  onAiSettings: () => void = () => {};
   @State listening: boolean = false;
+  @State speechStatus: string = '';
+  @State finishingSpeech: boolean = false;
   @State userSpoke: boolean = false;
   @State conversationState: ConversationState = initialConversationState();
   @State sendPressScale: number = 1;
+  private active: boolean = false;
   private guide: FallbackGuide | null = null;
   private scroller: Scroller = new Scroller();
   private speech: SpeechInput | null = null;
+  private speechTurn: number = 0;
   controller: ConversationController | null = null;
   draft: Draft = { mood: { valence: 0, labels: [] }, transcript: [], diaryEnabled: true };
   onFinish: (transcript: ChatMessage[]) => void = () => {};
   onBack: () => void = () => {};
-  onSend: (text: string) => void = () => {};
+  onChatChange: (transcript: ChatMessage[], inputText: string, aiEnabled: boolean) => void = () => {};
 
   aboutToAppear(): void {
+    this.active = true;
+    this.aiMode = effectiveAiEnabled(this.draft.aiEnabled ?? this.defaultAiEnabled);
+    this.input = this.draft.inputText ?? '';
+    this.conversationState = initialConversationState();
+    this.conversationState.source = this.aiMode ? 'ai' : 'script';
     const timeMark = this.draft.timeMark ?? '过去的某一天';
     this.guide = new FallbackGuide(timeMark);
     this.speech = new SpeechInput({
@@ -60,51 +62,94 @@ export struct ChatScreen {
     if (this.controller !== null) {
       this.controller.restoreState(this.conversationState);
     }
-    this.messages = [];
-    this.aiTurns = 0;
-    this.conversationDone = false;
-    this.pushMessage({ role: 'ai', text: this.guide.opening(), ts: Date.now() });
+    this.messages = this.draft.transcript.slice();
+    let answered = 0;
+    for (let index = 0; index < this.messages.length; index += 1) {
+      if (this.messages[index].role === 'user') answered += 1;
+    }
+    this.userSpoke = answered > 0;
+    this.guide.restoreStep(answered);
+    this.controller?.restore(answered);
+    if (this.messages.length === 0) {
+      if (this.aiMode && this.controller !== null) {
+        this.busy = true;
+        void this.controller.open(this.draft).then((result) => {
+          if (!this.active) return;
+          this.conversationState = result.state;
+          this.pushMessage(result.message);
+        }).catch(() => {
+          if (this.active && this.guide !== null) this.pushMessage({ role: 'ai', text: this.guide.opening(), ts: Date.now() });
+        }).finally(() => { if (this.active) this.busy = false; });
+      } else {
+        this.pushMessage({ role: 'ai', text: this.guide.opening(), ts: Date.now() });
+      }
+    } else {
+      this.scrollToEnd();
+    }
   }
 
   aboutToDisappear(): void {
+    this.active = false;
+    this.speechTurn += 1;
     if (this.speech !== null) {
       void this.speech.dispose();
       this.speech = null;
     }
   }
 
-  private async sendReply(text: string): Promise<void> {
-    if (this.conversationDone) {
-      return;
-    }
-    if (this.aiMode) {
-      if (this.controller === null || this.aiTurns >= MAX_AI_TURNS) {
-        this.finishConversation();
-        return;
-      }
-      const result = await this.controller.respond(this.draft, text, Date.now());
+  private async sendReply(draft: Draft, text: string, ts: number): Promise<void> {
+    if (this.aiMode && this.controller !== null) {
+      // A transient failure must not permanently disable future AI attempts.
+      this.controller.restoreState({ source: 'ai', fallbackStep: this.guide?.currentStep() ?? 0, lastError: undefined });
+      this.controller.restore(this.guide?.currentStep() ?? 0);
+      const result = await this.controller.respond(draft, text, ts);
+      if (!this.active) return;
       this.conversationState = result.state;
+      this.guide?.restoreStep(result.state.fallbackStep);
       this.pushMessage(result.message);
-      this.aiTurns += 1;
-      if (this.aiTurns >= MAX_AI_TURNS) {
-        this.finishConversation();
-      }
       return;
     }
-    if (this.guide === null) {
-      return;
-    }
-    this.pushMessage({ role: 'ai', text: this.guide.next(), ts: Date.now() });
+    this.pushLocalReply(text);
   }
 
-  private finishConversation(): void {
-    if (this.conversationDone) {
-      return;
+  private pushLocalReply(text: string): void {
+    if (this.guide !== null && this.active) {
+      this.pushMessage({ role: 'ai', text: this.guide.next(text), ts: Date.now() });
     }
-    this.conversationDone = true;
-    if (this.guide !== null) {
-      this.pushMessage({ role: 'ai', text: this.guide.closing(), ts: Date.now() });
+  }
+
+  private toggleAi(): void {
+    if (!AI_AVAILABLE || this.busy || this.listening) return;
+    this.aiMode = !this.aiMode;
+    if (this.aiMode) {
+      this.conversationState = initialConversationState();
+      this.conversationState.fallbackStep = this.guide?.currentStep() ?? 0;
+      this.controller?.restoreState(this.conversationState);
+    } else {
+      this.conversationState.source = 'script';
+      this.controller?.restoreState(this.conversationState);
     }
+    this.persistChat();
+  }
+
+  private finish(): void {
+    if (!this.canFinish()) return;
+    if (!this.aiMode) {
+      this.controller?.restoreState({
+        source: 'script',
+        fallbackStep: this.guide?.currentStep() ?? 0,
+        lastError: undefined,
+      });
+    } else {
+      this.controller?.restoreState({ source: 'ai', fallbackStep: this.guide?.currentStep() ?? 0, lastError: undefined });
+    }
+    this.active = false;
+    this.onFinish(this.messages);
+  }
+
+  private persistChat(): void {
+    const preference = AI_AVAILABLE ? this.aiMode : (this.draft.aiEnabled ?? this.defaultAiEnabled);
+    this.onChatChange(this.messages, this.input, preference);
   }
 
   private pushMessage(message: ChatMessage): void {
@@ -114,49 +159,65 @@ export struct ChatScreen {
     }
     next.push(message);
     this.messages = next;
+    this.persistChat();
     this.scrollToEnd();
   }
 
   private scrollToEnd(): void {
     setTimeout(() => {
-      this.scroller.scrollEdge(Edge.Bottom);
+      if (this.active) this.scroller.scrollEdge(Edge.Bottom);
     }, 60);
   }
 
   private canFinish(): boolean {
-    if (this.conversationDone) {
-      return true;
-    }
-    return this.userSpoke && !this.busy;
+    return this.userSpoke && !this.busy && !this.listening && this.input.trim().length === 0;
   }
 
   private toggleMic(): void {
     const speech = this.speech;
-    if (speech === null) {
+    if (speech === null || this.busy) {
       return;
     }
     if (this.listening) {
-      this.listening = false;
-      void speech.cancel();
+      if (this.finishingSpeech) return;
+      this.finishingSpeech = true;
+      this.speechStatus = '正在整理识别结果…';
+      void speech.finish();
       return;
     }
     this.listening = true;
+    this.finishingSpeech = false;
+    this.speechStatus = '正在准备语音识别…';
+    const turn = ++this.speechTurn;
     const prior = this.input;
     speech
-      .begin()
+      .begin((result: SpeechResult) => {
+        if (!this.active || turn !== this.speechTurn) return;
+        if (!this.finishingSpeech && (result.state === 'listening' || result.state === 'recognizing')) {
+          this.speechStatus = '正在聆听，说完后稍停，或再次点击麦克风结束。';
+        }
+        if (result.text.trim().length > 0) this.input = mergeRecognizedText(prior, result.text);
+      })
       .then((result: SpeechResult) => {
+        if (!this.active || turn !== this.speechTurn) return;
         this.listening = false;
+        this.finishingSpeech = false;
+        this.speechStatus = speechFeedback(result);
         if (result.text.trim().length > 0) {
           this.input = mergeRecognizedText(prior, result.text);
+          this.persistChat();
         }
       })
       .catch(() => {
+        if (!this.active || turn !== this.speechTurn) return;
         this.listening = false;
+        this.finishingSpeech = false;
+        this.speechStatus = '语音识别暂不可用，请重试或使用键盘输入。';
       });
   }
 
   private canSend(): boolean {
-    return this.input.trim().length > 0 && !this.busy && !this.listening && !this.conversationDone;
+    return this.input.trim().length > 0 && !this.busy && !this.listening;
   }
 
   private sendGradientStops(): Array<[ResourceColor, number]> {
@@ -176,29 +237,26 @@ export struct ChatScreen {
   }
 
   private sendCurrent(): void {
+    if (!this.canSend()) return;
     const text = this.input.trim();
-    if (text.length === 0 || this.busy || this.conversationDone) {
-      return;
-    }
+    const ts = Date.now();
+    // The controller appends this turn; send it all earlier messages exactly once.
+    const context: Draft = {
+      mood: this.draft.mood,
+      kind: this.draft.kind,
+      timeMark: this.draft.timeMark,
+      transcript: this.messages.slice(),
+      diaryEnabled: this.draft.diaryEnabled,
+    };
     this.input = '';
     this.busy = true;
     this.userSpoke = true;
-    this.pushMessage({ role: 'user', text: text, ts: Date.now() });
-    this.onSend(text);
-    void this.sendReply(text).then(() => {
-      this.busy = false;
-    });
-  }
-
-  private fallbackNotice(): string {
-    const error = this.conversationState.lastError;
-    if (error === undefined) {
-      return '';
-    }
-    if (error.retryable) {
-      return 'AI 暂时不可用，已切换到引导式回响。';
-    }
-    return '对话内容需要换个方向，已回到本地引导。';
+    this.pushMessage({ role: 'user', text: text, ts: ts });
+    void this.sendReply(context, text, ts)
+      .catch(() => this.pushLocalReply(text))
+      .finally(() => {
+        if (this.active) this.busy = false;
+      });
   }
 
   build() {
@@ -207,25 +265,29 @@ export struct ChatScreen {
         MiloBackNode({
           onTap: () => this.onBack(),
         })
-        Text(this.aiMode ? '✦ AI' : 'AI')
-          .fontSize(11)
+        if (AI_AVAILABLE) {
+          Text(this.aiMode ? '✦ AI 开' : 'AI 关')
+          .fontSize(13)
           .fontWeight(FontWeight.Medium)
           .fontColor(this.aiMode ? '#050608' : '#8b87a6')
           .backgroundColor(this.aiMode ? '#8b7cf6' : 'rgba(139,124,246,0.14)')
           .borderRadius(13)
-          .height(26)
+          .height(36)
           .padding({ left: 10, right: 10 })
           .margin({ left: 12 })
           .onClick(() => {
-            this.aiMode = !this.aiMode;
+            this.toggleAi();
           })
+        }
         Blank()
         Text(this.draft.timeMark ?? '')
           .fontSize(12)
           .fontColor(INK_FAINT)
-          .letterSpacing(5)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .constraintSize({ maxWidth: '40%' })
         Blank()
-        Text(this.aiMode ? '回响' : '引导')
+        Text(this.aiMode && this.conversationState.source === 'ai' ? '回响' : '引导')
           .fontSize(12)
           .fontColor(INK_FAINT)
           .width(48)
@@ -234,46 +296,47 @@ export struct ChatScreen {
       .width('100%')
       .padding({ bottom: 14 })
 
-      if (this.fallbackNotice().length > 0) {
-        Text(this.fallbackNotice())
-          .fontSize(12)
-          .fontColor('#c9befc')
-          .backgroundColor('rgba(139,124,246,0.12)')
-          .padding(8)
-          .borderRadius(10)
-          .margin({ bottom: 10 })
-          .width('100%')
+      if (AI_AVAILABLE) {
+        Row({ space: 10 }) {
+          Text(this.busy && this.aiMode ? '正在连接 AI，请稍候…' :
+            (this.aiMode ? (this.conversationState.lastError?.message ?? 'AI 已开启，下一条消息将使用当前模型。') : 'AI 已关闭，正在使用本地引导。'))
+            .fontSize(12).fontColor('#c9befc').layoutWeight(1).maxLines(3)
+          Text('AI 设置').fontSize(13).fontColor('#b9aefc').padding(8)
+            .enabled(!this.busy).onClick(() => { this.persistChat(); this.onAiSettings(); })
+        }.width('100%').margin({ bottom: 10 })
       }
 
       List({ space: 14, scroller: this.scroller }) {
         ForEach(this.messages, (message: ChatMessage) => {
           ListItem() {
-            Text(message.text)
-              .fontSize(14.5)
-              .lineHeight(26.8)
-              .fontColor(INK)
-              .padding({ left: 17, right: 17, top: 13, bottom: 13 })
-              .borderRadius({
-                topLeft: 20,
-                topRight: 20,
-                bottomLeft: message.role === 'ai' ? 6 : 20,
-                bottomRight: message.role === 'user' ? 6 : 20,
-              })
-              .backgroundColor(message.role === 'user' ? 'rgba(255,255,255,0.09)' : 'rgba(139,124,246,0.14)')
-              .border({
-                width: 1,
-                color: message.role === 'user' ? 'rgba(255,255,255,0.13)' : 'rgba(139,124,246,0.25)',
-              })
-              .constraintSize({ maxWidth: '82%' })
-              .transition(
-                TransitionEffect.OPACITY
-                  .combine(TransitionEffect.translate({ y: 10 }))
-                  .animation({ duration: 500, curve: MILO_EASE }),
-              )
+            Row() {
+              Text(message.text)
+                .fontSize(16)
+                .lineHeight(28)
+                .fontColor(INK)
+                .padding({ left: 17, right: 17, top: 13, bottom: 13 })
+                .borderRadius({
+                  topLeft: 20,
+                  topRight: 20,
+                  bottomLeft: message.role === 'ai' ? 6 : 20,
+                  bottomRight: message.role === 'user' ? 6 : 20,
+                })
+                .backgroundColor(message.role === 'user' ? 'rgba(255,255,255,0.09)' : 'rgba(139,124,246,0.14)')
+                .border({
+                  width: 1,
+                  color: message.role === 'user' ? 'rgba(255,255,255,0.13)' : 'rgba(139,124,246,0.25)',
+                })
+                .constraintSize({ maxWidth: message.role === 'user' ? '88%' : '82%' })
+                .transition(
+                  TransitionEffect.OPACITY
+                    .combine(TransitionEffect.translate({ y: 10 }))
+                    .animation({ duration: 500, curve: MILO_EASE }),
+                )
+            }
+            .width('100%')
+            .justifyContent(message.role === 'user' ? FlexAlign.End : FlexAlign.Start)
           }
-          .width('100%')
-          .alignSelf(message.role === 'user' ? ItemAlign.End : ItemAlign.Start)
-        }, (message: ChatMessage) => `${message.ts}-${message.role}`)
+        }, (message: ChatMessage, index: number) => `${index}-${message.ts}-${message.role}`)
       }
       .layoutWeight(1)
       .width('100%')
@@ -288,18 +351,25 @@ export struct ChatScreen {
         .backgroundColor('rgba(139,124,246,0.14)')
         .border({ width: 1, color: 'rgba(139,124,246,0.25)' })
         .alignSelf(ItemAlign.Start)
-        .width('100%')
+        .width(72)
       }
 
       if (this.canFinish()) {
         MiloPrimaryButton({
-          label: '✦ 沉淀这段回忆',
-          onTap: () => this.onFinish(this.messages),
+          label: '保存这段回忆',
+          onTap: () => this.finish(),
         })
           .margin({ bottom: 12 })
       }
 
-      if (!this.conversationDone) {
+      Column() {
+        if (this.speechStatus.length > 0) {
+          Text(this.speechStatus)
+            .fontSize(12)
+            .fontColor(INK_FAINT)
+            .width('100%')
+            .margin({ bottom: 8 })
+        }
         Row({ space: 10 }) {
           Column({ space: 1 }) {
             Column()
@@ -334,26 +404,27 @@ export struct ChatScreen {
             color: 'rgba(0,0,0,0)',
           })
           .scale(this.listening ? { x: 1.06, y: 1.06 } : { x: 1, y: 1 })
+          .accessibilityText(this.listening ? '结束语音输入' : '开始语音输入')
           .onClick(() => {
             this.toggleMic();
           })
 
-          TextInput({
-            placeholder: this.listening ? '正在聆听…' : '说说那时的事…',
+          TextArea({
+            placeholder: this.listening ? '正在聆听…' : '想说什么都可以…',
             text: this.input,
           })
+            .enabled(!this.listening)
             .onChange((value: string) => {
               this.input = value;
+              this.persistChat();
             })
-            .onSubmit((enterKey: EnterKeyType) => {
-              this.sendCurrent();
-            })
+            .enterKeyType(EnterKeyType.NEW_LINE)
             .layoutWeight(1)
-            .height(44)
+            .height(76)
             .padding({ left: 8, right: 8, top: 10, bottom: 10 })
             .backgroundColor(Color.Transparent)
             .fontColor(INK)
-            .fontSize(15)
+            .fontSize(16)
             .placeholderColor('rgba(234,230,255,0.64)')
             .placeholderFont({ size: 15 })
             .caretColor('#c9befc')
@@ -386,6 +457,7 @@ export struct ChatScreen {
             color: 'rgba(0,0,0,0)',
           })
           .scale({ x: this.sendPressScale, y: this.sendPressScale })
+          .accessibilityText('发送')
           .onClick(() => {
             this.sendCurrent();
           })
@@ -401,6 +473,7 @@ export struct ChatScreen {
           })
         }
         .width('100%')
+        .alignItems(VerticalAlign.Center)
         .padding(10)
         .borderRadius(24)
         .backgroundColor(GLASS_BG)

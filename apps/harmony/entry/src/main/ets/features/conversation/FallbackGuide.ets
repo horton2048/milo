@@ -25,18 +25,26 @@ export function moodWord(valence: number, emotionId?: MoodId): string {
 }
 
 const GUIDE_STEPS: string[] = [
-  '嗯，我听到了。在那个画面里，你正在经历什么？是一段困难的时刻，还是一段开心的日子？',
-  '为什么会是那样呢？当时的你，处在怎样的背景里——身边有谁，生活正发生着什么？',
-  '如果回到那一天，你觉得它对今天的你来说，有什么特别的意义？',
-  '现在的你，还走在当时选择的那条路上吗？如果是，是什么让你坚持了下来；如果不是，中间发生了什么样的改变？',
-  '谢谢你愿意说出这些。关于那段时光，还有什么想补充的吗？如果没有了，可以点击下方「沉淀这段回忆」，我们把它写成一篇属于你的日记。',
+  '那一刻，你是什么感受？',
+  '哪件小事让你记得最清楚？',
+  '现在想起它，心里有什么变化？',
+  '还有什么想说的？',
+  '嗯，我在听。',
 ];
 
-/**
- * Scripted fallback guide used when the AI gateway is unavailable.
- * Verbatim port of `apps/web/src/lib/guide.ts` so the offline tone matches
- * the web build.
- */
+/** Match a present request to stop, not a story about a past reluctance. */
+export function wantsToPause(text: string): boolean {
+  const line = text.trim().replace(/[，,。.!！?？\s]/g, '');
+  return /^(我)?(现在|今天|暂时|真的)?(不想说|不想聊|不说了|不聊了|先不说|先不聊|说不下去|聊不下去|先这样|就这样|到这里|算了|没了|没有了)(了|吧)?$/.test(line);
+}
+
+/** A quiet prompt is enough when the person has no words yet. */
+function hasNoWords(text: string): boolean {
+  const line = text.trim().replace(/[，,。.!！?？\s]/g, '');
+  return /^(我)?(也|现在|有点)?(不知道|不知道怎么说|说不上来|想不起来|没什么|没啥)(了|吧)?$/.test(line);
+}
+
+/** Offline prompts leave the story and its meaning to the user. */
 export class FallbackGuide {
   private step: number = 0;
   private timeMark: string;
@@ -46,55 +54,53 @@ export class FallbackGuide {
   }
 
   opening(): string {
-    return `闭上眼睛，我们轻轻回到「${this.timeMark}」。不着急，先告诉我——那段时间里，最先浮现在你眼前的，是怎样的一个画面？`;
+    if (this.timeMark.length > 18) {
+      return '那段时光里，你最先想起什么？';
+    }
+    return `「${this.timeMark}」，你最先想起什么？`;
   }
 
-  next(): string {
+  next(userText: string = ''): string {
+    if (wantsToPause(userText)) {
+      this.step = Math.max(this.step + 1, GUIDE_STEPS.length);
+      return '好，先停在这里。';
+    }
     const reply = GUIDE_STEPS[Math.min(this.step, GUIDE_STEPS.length - 1)];
     this.step += 1;
+    if (hasNoWords(userText)) {
+      return '没关系，慢慢来。';
+    }
     return reply;
   }
 
-  /** Closing line used when an AI-mode conversation reaches its turn cap. */
   closing(): string {
-    return GUIDE_STEPS[GUIDE_STEPS.length - 1];
+    return '先把这些留下来。';
   }
 
+  /** A soft checkpoint, never a requirement to end or complete the chat. */
   isWrappingUp(): boolean {
-    return this.step >= 5;
+    return this.step >= GUIDE_STEPS.length;
   }
 
-  /** Test seam: return the current step count. */
   currentStep(): number {
     return this.step;
   }
 
-  /** Test seam: restore a previously persisted step count. */
   restoreStep(step: number): void {
-    this.step = step;
+    this.step = Math.max(0, Math.floor(step));
   }
 }
 
-/**
- * Stitch a first-person diary from the user's transcript lines.
- * Mirrors `fallbackDiary(draft)` from the web build.
- */
+/** Keep the user's own words; never invent relief, gratitude or a lesson. */
 export function fallbackDiary(draft: Draft): string {
   const userLines: string[] = [];
   for (let index = 0; index < draft.transcript.length; index += 1) {
     const message = draft.transcript[index];
-    if (message.role === 'user') {
-      userLines.push(message.text);
+    if (message.role === 'user' && message.text.trim().length > 0) {
+      userLines.push(message.text.trim());
     }
   }
-  const mark = draft.timeMark ?? '过去的某一天';
-  const mood = moodWord(draft.mood.valence, draft.mood.emotionId);
-  const body = userLines.join(' ');
-  return (
-    `今天，我的心情有些${mood}，思绪不自觉地飘回了${mark}。\n\n` +
-    `${body}\n\n` +
-    `把这些写下来之后，才发现那一天一直安静地住在我心里。谢谢当时的自己，也谢谢现在愿意回头看的自己。`
-  );
+  return userLines.length > 0 ? userLines.join('\n\n') : '今天的心情，先记在这里。';
 }
 
 /** Format a transcript as `我：…` / `回响：…` lines. */

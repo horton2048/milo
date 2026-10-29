@@ -14,18 +14,18 @@ import {
 } from '../model/MoodAssets';
 import { MOODS } from '../model/Moods';
 import {
+  CARD_BODY_FONT_SIZE,
+  CARD_BODY_LINE_HEIGHT,
   getStickerCopy,
   memoryTicketId,
   normalizeStickerTemplate,
 } from './CardRenderer';
 
 /**
- * Pixel-faithful port of `apps/web/src/lib/card.ts`. Both sticker templates
- * ("planet-letter" memory ticket and "orbit-theatre" poster) are drawn with
- * the exact same design coordinates (1080 x 1434 design units) so the output
- * matches the Web canvas card 1:1. The caller is responsible for scaling the
- * context (`ctx.scale(w / 1080, h / 1080)`) before `drawCardArt` and for
- * measuring the (possibly extended) design height first.
+ * Both sticker templates use a 1080-unit design grid. ArkUI's default
+ * canvas coordinates are vp, so font sizes must also use vp: Web-style px
+ * fonts shrink relative to the artwork on high-density screens. The caller
+ * scales the entire context once by the preview width / 1080.
  */
 
 export const CARD_DESIGN_WIDTH: number = 1080;
@@ -139,8 +139,17 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.closePath();
 }
 
-/** Character-wrap in design units; call on an UNSCALED context. */
-function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, ctxScale: number = 1): string[] {
+/** Keep measurement in the same design space for thumbnails and full cards. */
+function measureTextDesign(ctx: CanvasRenderingContext2D, text: string): number {
+  ctx.save();
+  ctx.resetTransform();
+  const width: number = ctx.measureText(text).width;
+  ctx.restore();
+  return width;
+}
+
+/** Character-wrap in design units, independent of the preview transform. */
+function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const lines: string[] = [];
   const paragraphs: string[] = text.split('\n');
   for (let p = 0; p < paragraphs.length; p += 1) {
@@ -152,7 +161,7 @@ function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: n
     let line: string = '';
     for (let index = 0; index < para.length; index += 1) {
       const ch: string = para.charAt(index);
-      if (line.length > 0 && ctx.measureText(line + ch).width / ctxScale > maxWidth) {
+      if (line.length > 0 && measureTextDesign(ctx, line + ch) > maxWidth) {
         lines.push(line);
         line = ch;
       } else {
@@ -164,6 +173,17 @@ function wrapTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: n
     }
   }
   return lines;
+}
+
+function fitTextDesign(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (measureTextDesign(ctx, text) <= maxWidth) {
+    return text;
+  }
+  let visible: string = text;
+  while (visible.length > 0 && measureTextDesign(ctx, `${visible}…`) > maxWidth) {
+    visible = visible.slice(0, visible.length - 1);
+  }
+  return `${visible}…`;
 }
 
 function fitLines(lines: string[], maxLines: number): string[] {
@@ -194,14 +214,14 @@ function drawSpacedText(
   ctx.textAlign = 'left';
   let total: number = 0;
   for (let index = 0; index < text.length; index += 1) {
-    total += ctx.measureText(text.charAt(index)).width;
+    total += measureTextDesign(ctx, text.charAt(index));
   }
   total += spacing * Math.max(0, text.length - 1);
   let cursor: number = centered ? x - total / 2 : x;
   for (let index = 0; index < text.length; index += 1) {
     const ch: string = text.charAt(index);
     ctx.fillText(ch, cursor, y);
-    cursor += ctx.measureText(ch).width + spacing;
+    cursor += measureTextDesign(ctx, ch) + spacing;
   }
   ctx.textAlign = previousAlign;
 }
@@ -232,13 +252,13 @@ function drawDateLine(ctx: CanvasRenderingContext2D, entry: DiaryEntry, color: s
   const date: Date = new Date(entry.createdAt);
   const dateText: string = `${date.getFullYear()} 年 ${date.getMonth() + 1} 月 ${date.getDate()} 日 · 记于米洛`;
   ctx.textAlign = 'center';
-  ctx.font = '25px sans-serif';
+  ctx.font = '36vp sans-serif';
   ctx.fillStyle = color;
   ctx.fillText(dateText, CARD_DESIGN_WIDTH / 2, y);
 }
 
 function drawBrand(ctx: CanvasRenderingContext2D, color: string, y: number): void {
-  ctx.font = 'bold 22px sans-serif';
+  ctx.font = 'bold 22vp sans-serif';
   ctx.fillStyle = color;
   drawSpacedText(ctx, 'M I L O', CARD_DESIGN_WIDTH / 2, y, 8, true);
 }
@@ -257,18 +277,18 @@ function drawHatchRule(ctx: CanvasRenderingContext2D, x: number, y: number, widt
 }
 
 function drawTicketTag(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {
-  ctx.font = 'bold 22px sans-serif';
+  ctx.font = 'bold 34vp sans-serif';
   const label: string = `# ${text}`;
-  const width: number = ctx.measureText(label).width + 34;
+  const width: number = measureTextDesign(ctx, label) + 36;
   ctx.fillStyle = 'rgba(255,255,255,0.18)';
   ctx.strokeStyle = 'rgba(21,19,27,0.58)';
   ctx.lineWidth = 2;
-  roundRectPath(ctx, x, y, width, 42, 21);
+  roundRectPath(ctx, x, y, width, 54, 27);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = '#17151d';
   ctx.textAlign = 'left';
-  ctx.fillText(label, x + 17, y + 29);
+  ctx.fillText(label, x + 18, y + 39);
 }
 
 function drawBurst(ctx: CanvasRenderingContext2D, x: number, y: number, outerRadius: number, innerRadius: number): void {
@@ -388,11 +408,11 @@ export function measureCardDesignHeight(
   const copy = getStickerCopy(entry);
   const normalized: StickerTemplateId = normalizeStickerTemplate(templateId);
   if (normalized === 'planet-letter') {
-    ctx.font = '64px serif';
-    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 3) * 88;
+    ctx.font = `${CARD_BODY_FONT_SIZE}vp serif`;
+    return CARD_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 796).length - 3) * CARD_BODY_LINE_HEIGHT;
   }
-  ctx.font = '64px serif';
-  return ORBIT_THEATRE_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * 88;
+  ctx.font = `${CARD_BODY_FONT_SIZE}vp serif`;
+  return ORBIT_THEATRE_DESIGN_HEIGHT + Math.max(0, wrapTextDesign(ctx, copy.body, 790).length - 6) * CARD_BODY_LINE_HEIGHT;
 }
 
 function drawMemoryTicket(
@@ -402,7 +422,6 @@ function drawMemoryTicket(
   contract: CardArtContract,
   artworkImage: CardArtworkImage | null,
   random: () => number,
-  ctxScale: number,
 ): void {
   const copy = getStickerCopy(entry);
   const primary: string = contract.palette[0];
@@ -460,7 +479,7 @@ function drawMemoryTicket(
 
   ctx.fillStyle = '#17151d';
   ctx.textAlign = 'left';
-  ctx.font = 'bold 29px sans-serif';
+  ctx.font = 'bold 29vp sans-serif';
   ctx.fillText('MILO', 132, 111);
   ctx.fillText('MILO', 456, 111);
   ctx.fillText('MILO', 790, 111);
@@ -479,9 +498,9 @@ function drawMemoryTicket(
   }
   const identityMood: string = secondaryMood !== undefined ? `${mainMood} · ${secondaryMood}` : mainMood;
   ctx.fillStyle = '#17151d';
-  ctx.font = 'bold 35px sans-serif';
-  ctx.fillText(identityMood, 238, 204);
-  ctx.font = 'bold 19px monospace';
+  ctx.font = 'bold 46vp sans-serif';
+  ctx.fillText(fitTextDesign(ctx, identityMood, 480), 238, 204);
+  ctx.font = 'bold 24vp monospace';
   ctx.fillStyle = 'rgba(23,21,29,0.66)';
   ctx.fillText(`PLANET ID: ${memoryTicketId(entry)}`, 238, 239);
 
@@ -493,7 +512,7 @@ function drawMemoryTicket(
   ctx.strokeRect(-94, -41, 188, 82);
   ctx.fillStyle = '#17151d';
   ctx.textAlign = 'center';
-  ctx.font = 'bold 16px monospace';
+  ctx.font = 'bold 16vp monospace';
   ctx.fillText('ORIGINAL', 0, -8);
   ctx.fillText('MEMORY', 0, 18);
   ctx.restore();
@@ -531,30 +550,30 @@ function drawMemoryTicket(
   ctx.restore();
 
   ctx.fillStyle = '#17151d';
-  roundRectPath(ctx, 390, 591, 300, 58, 15);
+  roundRectPath(ctx, 320, 591, 440, 66, 15);
   ctx.fill();
   ctx.fillStyle = '#fff';
   ctx.textAlign = 'center';
-  ctx.font = 'bold 27px sans-serif';
-  ctx.fillText(copy.heading, CARD_DESIGN_WIDTH / 2, 630);
+  ctx.font = 'bold 40vp sans-serif';
+  ctx.fillText(fitTextDesign(ctx, copy.heading, 400), CARD_DESIGN_WIDTH / 2, 638);
 
   const tags: string[] = entry.mood.labels.length > 0 ? entry.mood.labels.slice(0, 3) : [mainMood];
   let tagX: number = 140;
   for (let index = 0; index < tags.length; index += 1) {
     drawTicketTag(ctx, tags[index], tagX, 694);
-    ctx.font = 'bold 22px sans-serif';
-    tagX += ctx.measureText(`# ${tags[index]}`).width + 52;
+    ctx.font = 'bold 34vp sans-serif';
+    tagX += measureTextDesign(ctx, `# ${tags[index]}`) + 54;
   }
 
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(23,21,29,0.62)';
-  ctx.font = 'bold 17px monospace';
+  ctx.font = 'bold 17vp monospace';
   drawSpacedText(ctx, 'MEMORY NOTE / 025', 142, 766, 4, false);
   ctx.fillStyle = '#17151d';
-  ctx.font = '64px serif';
-  const lines: string[] = wrapTextDesign(ctx, copy.body, 796, ctxScale);
+  ctx.font = `${CARD_BODY_FONT_SIZE}vp serif`;
+  const lines: string[] = wrapTextDesign(ctx, copy.body, 796);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 142, 860 + index * 88);
+    ctx.fillText(lines[index], 142, 860 + index * CARD_BODY_LINE_HEIGHT);
   }
 
   ctx.save();
@@ -583,25 +602,25 @@ function drawMemoryTicket(
   ctx.stroke();
   ctx.fillStyle = '#17151d';
   ctx.textAlign = 'center';
-  ctx.font = 'bold 21px sans-serif';
+  ctx.font = 'bold 21vp sans-serif';
   ctx.fillText('HEY~', 196, 1237 + heightExtension);
 
   ctx.textAlign = 'left';
   ctx.fillStyle = '#17151d';
-  ctx.font = 'bold 43px sans-serif';
+  ctx.font = 'bold 43vp sans-serif';
   ctx.fillText('收下这颗星', 284, 1209 + heightExtension);
-  ctx.font = 'normal 21px sans-serif';
+  ctx.font = 'normal 30vp sans-serif';
   ctx.fillStyle = 'rgba(23,21,29,0.7)';
   ctx.fillText('记忆编号已与这颗星绑定。', 286, 1250 + heightExtension);
 
-  ctx.font = 'bold 17px monospace';
+  ctx.font = 'bold 17vp monospace';
   ctx.fillStyle = '#17151d';
   ctx.fillText('MEMORY CODE', 720, 1164 + heightExtension);
   ctx.strokeStyle = 'rgba(23,21,29,0.48)';
   ctx.lineWidth = 2;
   roundRectPath(ctx, 720, 1180 + heightExtension, 224, 58, 14);
   ctx.stroke();
-  ctx.font = 'bold 17px monospace';
+  ctx.font = 'bold 17vp monospace';
   ctx.textAlign = 'center';
   ctx.fillText(memoryTicketId(entry), 832, 1216 + heightExtension);
 
@@ -610,8 +629,8 @@ function drawMemoryTicket(
   const day: string = String(date.getDate()).padStart(2, '0');
   const dateText: string = `${date.getFullYear()}.${month}.${day}  /  MILO ARCHIVE`;
   ctx.textAlign = 'center';
-  ctx.font = 'bold 17px monospace';
-  ctx.fillStyle = 'rgba(23,21,29,0.45)';
+  ctx.font = '32vp sans-serif';
+  ctx.fillStyle = 'rgba(23,21,29,0.72)';
   ctx.fillText(dateText, CARD_DESIGN_WIDTH / 2, 1356 + heightExtension);
 
   const edgeGlow: CanvasGradient = ctx.createLinearGradient(ticketX, tearY, ticketX + ticketW, tearY);
@@ -629,7 +648,6 @@ function drawOrbitTheatre(
   contract: CardArtContract,
   artworkImage: CardArtworkImage | null,
   random: () => number,
-  ctxScale: number,
 ): void {
   const copy = getStickerCopy(entry);
   const heightExtension: number = canvasH - ORBIT_THEATRE_DESIGN_HEIGHT;
@@ -658,14 +676,14 @@ function drawOrbitTheatre(
 
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(228,220,247,0.76)';
-  ctx.font = 'bold 21px sans-serif';
+  ctx.font = 'bold 21vp sans-serif';
   drawSpacedText(ctx, 'ORBITAL MEMORY THEATRE', 566, 132, 5, false);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 72px sans-serif';
-  const headingLines: string[] = fitLines(wrapTextDesign(ctx, copy.heading, 440, ctxScale), 3);
+  ctx.font = 'bold 72vp sans-serif';
+  const headingLines: string[] = fitLines(wrapTextDesign(ctx, copy.heading, 440), 3);
   for (let index = 0; index < headingLines.length; index += 1) {
-    ctx.fillText(headingLines[index], 566, 224 + index * 78);
+    ctx.fillText(fitTextDesign(ctx, headingLines[index], 440), 566, 224 + index * 78);
   }
 
   if (copy.labels.length > 0) {
@@ -673,8 +691,8 @@ function drawOrbitTheatre(
     roundRectPath(ctx, 566, 450, 390, 52, 26);
     ctx.fill();
     ctx.fillStyle = '#d5c9f1';
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText(copy.labels, 592, 485);
+    ctx.font = 'bold 34vp sans-serif';
+    ctx.fillText(fitTextDesign(ctx, copy.labels, 338), 592, 487);
   }
 
   ctx.fillStyle = 'rgba(7,8,22,0.58)';
@@ -686,14 +704,14 @@ function drawOrbitTheatre(
   ctx.stroke();
 
   ctx.fillStyle = '#c6b4ed';
-  ctx.font = 'bold 20px sans-serif';
+  ctx.font = 'bold 20vp sans-serif';
   drawSpacedText(ctx, 'PLAYBACK / MEMORY 07', 140, 694, 5, false);
 
   ctx.fillStyle = 'rgba(246,244,252,0.9)';
-  ctx.font = '64px serif';
-  const lines: string[] = wrapTextDesign(ctx, copy.body, 790, ctxScale);
+  ctx.font = `${CARD_BODY_FONT_SIZE}vp serif`;
+  const lines: string[] = wrapTextDesign(ctx, copy.body, 790);
   for (let index = 0; index < lines.length; index += 1) {
-    ctx.fillText(lines[index], 140, 784 + index * 88);
+    ctx.fillText(lines[index], 140, 784 + index * CARD_BODY_LINE_HEIGHT);
   }
 
   ctx.save();
@@ -703,12 +721,12 @@ function drawOrbitTheatre(
   ctx.lineWidth = 2;
   ctx.strokeRect(-126, -35, 252, 70);
   ctx.fillStyle = '#d4c7f1';
-  ctx.font = 'bold 18px sans-serif';
+  ctx.font = 'bold 18vp sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('MILO ARCHIVE / 07', 0, 7);
   ctx.restore();
 
-  drawDateLine(ctx, entry, 'rgba(221,213,241,0.58)', canvasH - 96);
+  drawDateLine(ctx, entry, 'rgba(221,213,241,0.82)', canvasH - 96);
   drawBrand(ctx, 'rgba(205,193,236,0.52)', canvasH - 50);
 }
 
@@ -719,13 +737,12 @@ export function drawCardArt(
   entry: DiaryEntry,
   templateId: StickerTemplateId,
   artworkImage: CardArtworkImage | null,
-  ctxScale: number = 1,
 ): void {
   const contract: CardArtContract = cardArtContract(entry, templateId);
   const random: () => number = createSeededRandom(stableHash(entry.id) ^ TEMPLATE_SEEDS[contract.templateId]);
   if (contract.templateId === 'planet-letter') {
-    drawMemoryTicket(ctx, canvasH, entry, contract, artworkImage, random, ctxScale);
+    drawMemoryTicket(ctx, canvasH, entry, contract, artworkImage, random);
     return;
   }
-  drawOrbitTheatre(ctx, canvasH, entry, contract, artworkImage, random, ctxScale);
+  drawOrbitTheatre(ctx, canvasH, entry, contract, artworkImage, random);
 }

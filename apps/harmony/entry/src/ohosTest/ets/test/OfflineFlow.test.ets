@@ -4,6 +4,7 @@ import {
   fallbackDiary,
   moodWord,
   transcriptToText,
+  wantsToPause,
 } from '../../../main/ets/features/conversation/FallbackGuide';
 import { type ChatMessage, type Draft } from '../../../main/ets/core/model/Domain';
 import {
@@ -12,17 +13,6 @@ import {
   transition,
   type RecallState,
 } from '../../../main/ets/core/flow/RecallMachine';
-
-const EXPECTED_OPENING =
-  '闭上眼睛，我们轻轻回到「去年夏天」。不着急，先告诉我——那段时间里，最先浮现在你眼前的，是怎样的一个画面？';
-
-const EXPECTED_STEPS: string[] = [
-  '嗯，我听到了。在那个画面里，你正在经历什么？是一段困难的时刻，还是一段开心的日子？',
-  '为什么会是那样呢？当时的你，处在怎样的背景里——身边有谁，生活正发生着什么？',
-  '如果回到那一天，你觉得它对今天的你来说，有什么特别的意义？',
-  '现在的你，还走在当时选择的那条路上吗？如果是，是什么让你坚持了下来；如果不是，中间发生了什么样的改变？',
-  '谢谢你愿意说出这些。关于那段时光，还有什么想补充的吗？如果没有了，可以点击下方「沉淀这段回忆」，我们把它写成一篇属于你的日记。',
-];
 
 const USER_ANSWERS: string[] = [
   '阳光很刺眼，蝉鸣很响',
@@ -58,14 +48,29 @@ function offlineFlowSuite() {
       expect(chat.draft.kind).assertEqual('past');
     });
 
-    it('replays the scripted opening and five guide replies verbatim', 0, () => {
+    it('offers one short prompt at a time and leaves room after the guided turns', 0, () => {
       const guide = new FallbackGuide('去年夏天');
-      expect(guide.opening()).assertEqual(EXPECTED_OPENING);
-
-      for (let index = 0; index < EXPECTED_STEPS.length; index += 1) {
-        expect(guide.next()).assertEqual(EXPECTED_STEPS[index]);
+      expect(guide.opening().indexOf('去年夏天') >= 0).assertTrue();
+      expect(guide.opening().length <= 36).assertTrue();
+      for (let index = 0; index < 5; index += 1) {
+        const reply = guide.next();
+        expect(reply.length <= 24).assertTrue();
+        expect(reply.split('？').length <= 2).assertTrue();
       }
       expect(guide.isWrappingUp()).assertTrue();
+      expect(guide.next()).assertEqual('嗯，我在听。');
+    });
+
+    it('accepts a pause and gives space when the user has no words', 0, () => {
+      const guide = new FallbackGuide('去年夏天');
+      expect(guide.next('我不想说了')).assertEqual('好，先停在这里。');
+      expect(guide.next('不知道怎么说')).assertEqual('没关系，慢慢来。');
+      expect(wantsToPause('那时候我不想说，但现在想说说')).assertEqual(false);
+    });
+
+    it('keeps long time labels out of the opening question', 0, () => {
+      const guide = new FallbackGuide('那是几年前一个特别长的夏天，我和朋友第一次去海边的时候');
+      expect(guide.opening().length <= 36).assertTrue();
     });
 
     it('runs the full offline trip and saves a first-person diary', 0, () => {
@@ -89,8 +94,9 @@ function offlineFlowSuite() {
       const diary = fallbackDiary(draft);
       // 第一人称
       expect(diary.indexOf('我') >= 0).assertTrue();
-      expect(diary.indexOf('心情有些') >= 0).assertTrue();
-      expect(diary.indexOf('去年夏天') >= 0).assertTrue();
+      expect(diary).assertEqual(USER_ANSWERS.join('\n\n'));
+      expect(diary.indexOf('心情：') < 0).assertTrue();
+      expect(diary.indexOf('回忆：') < 0).assertTrue();
       for (let index = 0; index < USER_ANSWERS.length; index += 1) {
         expect(diary.indexOf(USER_ANSWERS[index]) >= 0).assertTrue();
       }
@@ -100,6 +106,19 @@ function offlineFlowSuite() {
 
       const formatted = transcriptToText(transcript);
       expect(formatted.split('\n').length).assertEqual(transcript.length);
+    });
+
+    it('does not add gratitude, relief or other invented feelings to a short entry', 0, () => {
+      const diary = fallbackDiary({
+        mood: { valence: -2, labels: ['低落'] },
+        timeMark: '昨天',
+        transcript: [
+          { role: 'ai', text: '你一定很感激那一天。', ts: 1 },
+          { role: 'user', text: '我只记得下雨了。', ts: 2 },
+        ],
+        diaryEnabled: true,
+      });
+      expect(diary).assertEqual('我只记得下雨了。');
     });
 
     it('moodWord returns the catalogue label for known emotion ids', 0, () => {

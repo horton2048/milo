@@ -25,6 +25,8 @@ interface PersistedDraft {
   diaryEnabled: boolean;
   stickerTemplate?: string;
   transcript: PersistedChatMessage[];
+  aiEnabled?: boolean;
+  inputText?: string;
 }
 
 interface PersistedChatMessage {
@@ -93,6 +95,12 @@ function serialiseState(state: RecallState): PersistedRecallState {
     diaryEnabled: draft.diaryEnabled,
     transcript: transcript,
   };
+  if (draft.aiEnabled !== undefined) {
+    persisted.aiEnabled = draft.aiEnabled;
+  }
+  if (draft.inputText !== undefined) {
+    persisted.inputText = draft.inputText;
+  }
   if (draft.mood.emotionId !== undefined) {
     persisted.emotionId = draft.mood.emotionId;
   }
@@ -216,6 +224,20 @@ function validateDraft(value: Object): PersistedDraft | undefined {
     diaryEnabled: record['diaryEnabled'] as boolean,
     transcript: transcript,
   };
+  const aiEnabledRaw = record['aiEnabled'];
+  if (aiEnabledRaw !== undefined) {
+    if (typeof aiEnabledRaw !== 'boolean') {
+      return undefined;
+    }
+    draft.aiEnabled = aiEnabledRaw;
+  }
+  const inputTextRaw = record['inputText'];
+  if (inputTextRaw !== undefined) {
+    if (typeof inputTextRaw !== 'string') {
+      return undefined;
+    }
+    draft.inputText = inputTextRaw;
+  }
   const kindRaw = record['kind'];
   if (kindRaw !== undefined) {
     if (typeof kindRaw !== 'string' || VALID_KINDS.indexOf(kindRaw as 'now' | 'past') < 0) {
@@ -299,6 +321,12 @@ function hydrateState(persisted: PersistedRecallState): RecallState {
     transcript: transcript,
     diaryEnabled: draft.diaryEnabled,
   };
+  if (draft.aiEnabled !== undefined) {
+    draftValue.aiEnabled = draft.aiEnabled;
+  }
+  if (draft.inputText !== undefined) {
+    draftValue.inputText = draft.inputText;
+  }
   if (draft.emotionId !== undefined) {
     draftValue.mood.emotionId = draft.emotionId as MoodId;
   }

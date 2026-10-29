@@ -16,6 +16,7 @@ import MiloCore
         self.directory = directory
         aiSettings = Self.fixtureSettings[directory.path] ?? PersonalAISettings()
     }
+    var aiUnavailableReason: String? { aiSettings.source == .milo ? "MILO 默认模型尚未接通。" : nil }
     func completeAI(messages: [AIMessage]) async throws -> String { throw URLError(.notConnectedToInternet) }
 }
 
@@ -29,7 +30,7 @@ import MiloCore
         return try await withCheckedThrowingContinuation { waiting[index] = $0 }
     }
     func reply(_ value: String, at index: Int = 0) { waiting.removeValue(forKey: index)!.resume(returning: value) }
-    func fail(at index: Int = 0) { waiting.removeValue(forKey: index)!.resume(throwing: URLError(.notConnectedToInternet)) }
+    func fail(error: any Error = URLError(.notConnectedToInternet), at index: Int = 0) { waiting.removeValue(forKey: index)!.resume(throwing: error) }
 }
 
 enum CheckError: Error { case failed(String) }
@@ -75,7 +76,7 @@ enum CheckError: Error { case failed(String) }
     }
     static func fullDraft(_ note: String) -> RecallDraft {
         RecallDraft(mood: .bright, labels: ["明亮", "温暖"], kind: "past", timeMark: "那个夏天", note: note,
-                    transcript: transcript(), aiEnabled: false, inputText: "还没有发送的文字", diary: "亲手修改的日记",
+                    transcript: transcript(), aiEnabled: false, inputText: "还没有发送的文字", diary: "亲手修改的日记", previousDiary: "上一版👩🏽‍🚀\n补充文字",
                     diaryEnabled: true, stickerTemplate: .orbitTheatre, page: "diary", entryID: "browsed-entry", pendingEntryID: "pending-entry")
     }
     static func write(_ text: String, to url: URL) throws {
@@ -86,6 +87,166 @@ enum CheckError: Error { case failed(String) }
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("MILO-AI-Checks-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         var passed = 0
+        do {
+            let fixture = StorageFixture(root), model = fixture.model()
+            model.startPresentConversation()
+            try require(model.draft.page == "chat" && model.draft.kind == "now" && model.draft.timeMark == nil, "present chat skips past time selection")
+            try require(model.chatNotice == "仅本地记录" && model.chatDetail == AIFeaturePolicy.pausedMessage, "paused model has a concise local status with an honest detailed cause")
+            model.draft.inputText = "今天心情不好，想吐槽"; model.send(); model.send()
+            try require(model.draft.transcript.count == 2 && !model.isThinking && !model.canRetryReply, "unconfigured send records once with no fabricated reply or loading")
+            model.draft.inputText = "开了一天会，最后又被加活。"; model.send()
+            try require(model.draft.transcript.count == 3 && model.entries.isEmpty && model.draft.diary == nil, "offline user can continue expressing without turn-count responses")
+            model.draft.inputText = "没说完的文字"; model.endConversation()
+            let restored = fixture.model()
+            try require(restored.hasUnfinishedDraft && restored.draft.page == "home" && restored.entries.isEmpty, "exit persists raw draft, not a diary or saved entry")
+            restored.resumeDraft()
+            try require(restored.draft.page == "chat" && restored.draft.inputText == "没说完的文字", "present draft resumes after restart without generation")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation()
+            try require(ai.messages.isEmpty, "present welcome is local and does not invent a user opening request")
+            let examples = ["开了一天会，最后被加活，只想说说，先别建议", "最近每天这样", "同事没回消息肯定看不起我，别一味附和", "请给两个建议"]
+            for (index, example) in examples.enumerated() {
+                model.draft.inputText = example; model.send()
+                try await wait { ai.messages.count == index + 1 }
+                try require(ai.messages[index].last?.content == example && ai.messages[index].last?.role == .user, "synthetic latest request is passed verbatim")
+                let instruction = ai.messages[index][0].content
+                try require(instruction.contains("可以只回应而不提问") && instruction.contains("不一味附和") && instruction.contains("给两个") && instruction.contains("不要强迫转向过去") && !instruction.contains("48"), "prompt defines listening, uncertainty, requested help and present context; this is not a semantic quality test")
+                let response = "你说开了一天会之后还被加活，这样的日子又接连出现，留给自己喘口气的时间很少。\n这次可以先把想吐槽的话说完，不急着解决。👩🏽‍🚀\n这是必须完整保留的最后一句。"
+                model.draft.inputText = "等待时的新草稿"; model.send()
+                try require(ai.messages.count == index + 1, "send is rejected during generation without losing new typing")
+                ai.reply(response, at: index)
+                try await wait { !model.isThinking }
+                try require(model.draft.transcript.last?.text == response && model.draft.inputText == "等待时的新草稿", "reply longer than 48 characters, emoji, newline and tail survive exactly")
+                model.draft.inputText = ""
+            }
+            model.draft.inputText = "先到这里，也不用生成日记"; model.send(); model.endConversation()
+            await drain()
+            try require(ai.messages.count == 4 && model.entries.isEmpty && model.draft.diary == nil && model.hasUnfinishedDraft, "explicit ending triggers neither another reply nor diary generation or collection")
+            passed += 1
+        }
+        for error in [URLError(.timedOut) as any Error, AccountFailure.message("API Key 无效或没有模型权限，请检查 Key。")] {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation(); model.draft.inputText = "今天被加活了。"; model.send()
+            try await wait { ai.messages.count == 1 }; ai.fail(error: error)
+            try await wait { !model.isThinking }
+            try require(model.draft.transcript.count == 2 && model.chatNotice == "回复失败，原话已保留" && model.chatDetail == error.localizedDescription,
+                        "timeout/authentication failure keeps a short status, optional cause and user text without inventing a reply")
+            model.draft.inputText = "只想再说一点。"; model.send()
+            await drain()
+            try require(ai.messages.count == 1 && model.draft.transcript.count == 3, "failure does not loop requests or repeated scripted responses")
+            model.retryReply(); model.retryReply()
+            try await wait { ai.messages.count == 2 }
+            try require(model.draft.transcript.count == 3, "retry neither resends a duplicate user message nor creates concurrent requests")
+            ai.reply("这次连接恢复了。", at: 1)
+            try await wait { !model.isThinking }
+            try require(model.draft.transcript.count == 4 && model.chatDetail == nil && model.chatNotice.isEmpty,
+                        "explicit retry appends exactly one real reply and clears stale failure details")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation(); model.draft.inputText = "今天有点累。"; model.send()
+            try await wait { ai.messages.count == 1 }; model.stopReply()
+            model.openSettings(); model.back(); await drain()
+            try require(ai.messages.count == 1, "unchanged settings must not restart a deliberately stopped reply")
+            model.draft.inputText = "我想接着说。"; model.send()
+            try await wait { ai.messages.count == 2 }
+            ai.reply("已经停止的旧回复", at: 0); await drain()
+            try require(model.isThinking && model.draft.transcript.count == 3, "late stopped reply must not end a newer request")
+            ai.reply("新的回复", at: 1); try await wait { !model.isThinking }
+            try require(model.draft.transcript.last?.text == "新的回复", "sending after stop can start a new request without a connection-failure claim")
+            passed += 1
+        }
+        for operation in ["stop", "back", "settings", "end", "off"] {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation(); model.draft.inputText = "今天心情不好。"; model.send()
+            try await wait { ai.messages.count == 1 }
+            model.draft.inputText = "未发送的新句子"
+            switch operation {
+            case "stop": model.stopReply()
+            case "back": model.back()
+            case "settings": model.openSettings()
+            case "end": model.endConversation()
+            default: model.setAIEnabled(false)
+            }
+            let retained = model.draft
+            ai.reply("不能插入的迟到回复")
+            await drain()
+            try require(!model.isThinking && model.draft == retained && model.draft.transcript.count == 2 && model.draft.inputText == "未发送的新句子", "present \(operation) cancels safely, retaining user input and suppressing late data")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation(); model.draft.inputText = "今天被加活了。"; model.send()
+            try await wait { ai.messages.count == 1 }; ai.reply("可以先把这件事说完。")
+            try await wait { !model.isThinking }; model.saveConversation()
+            try require(ai.messages.count == 1 && model.entries.count == 1 && model.entries[0].kind == "now" && model.entries[0].transcript.count == 3 && !model.entries[0].diaryEnabled && model.entries[0].diary == nil, "present conversation-only collection never calls diary generation")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.startPresentConversation(); model.draft.inputText = "今天被加活了。"; model.send()
+            try await wait { ai.messages.count == 1 }; ai.reply("可以先把这件事说完。")
+            try await wait { !model.isThinking }; model.prepareDiary()
+            try await wait { ai.messages.count == 2 }
+            try require(ai.messages[1].filter { $0.role == .user }.map(\.content) == ["今天被加活了。"] && ai.messages[1][0].content.contains("今天 / 此刻"), "explicit present diary uses user facts and present time only")
+            ai.reply("今天被加活了。", at: 1); try await wait { !model.isThinking }
+            try require(model.save() && model.entries[0].diary == "今天被加活了。" && model.entries[0].kind == "now", "optional present diary saves and validates without relabeling it as past")
+            passed += 1
+        }
+        for kind in ["now", "past"] {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: kind, timeMark: kind == "past" ? "昨天" : nil,
+                                      transcript: transcript(), diary: "之前整理的日记。", page: "diary")
+            model.editDiary("我亲手修改过的日记。"); model.back()
+            try require(model.draft.diary == "我亲手修改过的日记。", "navigation alone must retain the edited diary")
+            model.draft.inputText = "后来还看见天边的彩虹。"; model.send()
+            try await wait { ai.messages.count == 1 }
+            let storedDraft = try JSONDraftRepository(fileURL: model.account.directory.appendingPathComponent("draft.json")).load()
+            try require(model.draft.diary == nil && storedDraft?.diary == nil && storedDraft?.previousDiary == "我亲手修改过的日记。",
+                        "new user expression invalidates the old cache while retaining the edited body in a persisted backup in \(kind) mode")
+            ai.reply("你还记得那道彩虹。"); try await wait { !model.isThinking }
+            model.prepareDiary(); try await wait { ai.messages.count == 2 }
+            try require(ai.messages[1].filter { $0.role == .user }.map(\.content) == ["我在河边散步，看见一只白鸟。", "后来还看见天边的彩虹。"],
+                        "regenerated diary receives both old and newly added user content")
+            ai.reply("我在河边散步，看见白鸟，后来又看见彩虹。", at: 1)
+            try await wait { !model.isThinking }
+            model.restorePreviousDiary()
+            try require(model.draft.diary == "我亲手修改过的日记。" && model.draft.previousDiary == "我在河边散步，看见白鸟，后来又看见彩虹。",
+                        "restoring the edited prior body keeps the newly generated body available")
+            model.restorePreviousDiary()
+            try require(model.save() && model.entries[0].diary == "我在河边散步，看见白鸟，后来又看见彩虹。",
+                        "saving after more conversation never reuses the outdated diary")
+            passed += 1
+        }
+        for kind in ["now", "past"] {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: kind, timeMark: kind == "past" ? "昨天" : nil,
+                                      transcript: transcript(), diary: "手改正文，包含未在聊天说过的补充。",
+                                      previousDiary: "更早的正文。", page: "chat")
+            model.draft.inputText = "先到这里，也不用生成日记"; model.send(); model.endConversation()
+            await drain()
+            let stored = try JSONDraftRepository(fileURL: model.account.directory.appendingPathComponent("draft.json")).load()
+            try require(ai.messages.isEmpty && stored?.diary == "手改正文，包含未在聊天说过的补充。" && stored?.previousDiary == "更早的正文。",
+                        "pausing and leaving preserve both edited diary versions without treating pause as new material")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "now", transcript: transcript(), previousDiary: "之前手改的正文。", page: "chat")
+            model.prepareDiary(); try await wait { ai.messages.count == 1 }
+            model.restorePreviousDiary()
+            try require(model.draft.diary == "之前手改的正文。" && model.draft.previousDiary == nil && !model.isThinking,
+                        "restoring a backup without a current body cancels generation and consumes the backup")
+            ai.reply("不能覆盖恢复正文的迟到日记"); await drain()
+            let savedDraft = try JSONDraftRepository(fileURL: model.account.directory.appendingPathComponent("draft.json")).load()
+            try require(savedDraft?.diary == "之前手改的正文。" && savedDraft?.previousDiary == nil,
+                        "restored backup survives persistence and a late cancelled diary reply")
+            passed += 1
+        }
         for enabled in [false, true] {
             let fixture = StorageFixture(root)
             var settings = PersonalAISettings(); settings.enabled = enabled
@@ -113,8 +274,7 @@ enum CheckError: Error { case failed(String) }
             try require(model.draft == saved, "restored draft must preserve its choice even when the account default differs")
             model.openSettings()
             try require(model.draft.aiEnabled == enabled, "opening settings without saving cannot replace the session choice")
-            model.back()
-            try require(model.draft == saved, "leaving unchanged settings must retain the complete restored diary")
+            try require(model.draft == saved, "paused settings entry must retain the complete restored diary without navigating")
             passed += 1
         }
         do {
@@ -136,7 +296,7 @@ enum CheckError: Error { case failed(String) }
             let restored = JournalModel(repository: repository, directory: model.account.directory)
             try require(!restored.draft.aiEnabled, "the synchronized session AI choice survives restart")
             model.draft.inputText = "我还记得河边的树。"; model.send()
-            try require(model.draft.transcript.count == 3 && !model.isThinking && ai.messages.count == 1, "local chat remains usable after saving settings")
+            try require(model.draft.transcript.count == 2 && !model.isThinking && ai.messages.count == 1, "local chat remains usable after saving settings")
             passed += 1
         }
         do {
@@ -247,7 +407,7 @@ enum CheckError: Error { case failed(String) }
             try await wait { ai.messages.count == 1 }
             ai.fail()
             try await wait { !model.isThinking }
-            try require(model.draft.transcript[2].text == "风很温柔。" && model.draft.transcript[3].role == .ai, "failed response preserves user text and falls back")
+            try require(model.draft.transcript[2].text == "风很温柔。" && model.draft.transcript.count == 3 && model.chatNotice == "回复失败，原话已保留", "failed response preserves user text without fabricated understanding")
             passed += 1
         }
         do {
@@ -313,19 +473,30 @@ enum CheckError: Error { case failed(String) }
             try await wait { ai.messages.count == 1 }
             ai.fail()
             try await wait { !model.isThinking }
-            try require(model.draft.diary == OfflineGuide.diary(transcript: transcript()), "diary network failure is fact-only fallback")
+            try require(model.draft.diary == OfflineGuide.diary(transcript: transcript()) && model.guidanceNotice == "已按原话整理" && model.guidanceDetail != nil,
+                        "diary network failure is a clearly identified fact-only fallback with optional error details")
+            passed += 1
+        }
+        do {
+            let ai = ControlledAI(), model = create(ai, root)
+            model.draft = RecallDraft(kind: "now", transcript: transcript(), page: "chat")
+            model.prepareDiary(); try await wait { ai.messages.count == 1 }
+            ai.reply(" \n "); try await wait { !model.isThinking }
+            try require(model.draft.diary == OfflineGuide.diary(transcript: transcript()) && model.guidanceNotice == "已按原话整理" && model.guidanceDetail?.contains("未返回日记正文") == true,
+                        "empty provider output must not claim a successful model-written diary")
             passed += 1
         }
         do {
             let fixture = StorageFixture(root)
             let originalDraft = RecallDraft(kind: "past", timeMark: "去年", transcript: transcript(), aiEnabled: false,
-                                            page: "past-time", pendingEntryID: "previously-written")
+                                            previousDiary: "上一时间的日记备份。", page: "past-time", pendingEntryID: "previously-written")
             let original = try originalDraft.makeEntry(id: "previously-written")
             try fixture.journal.save(original)
             try fixture.drafts.save(originalDraft)
             let model = fixture.model()
             model.setPendingTime("  ")
-            try require(model.draft.pendingEntryID == nil && model.draft.timeMark == nil, "clearing time must discard the previous pending save identity")
+            try require(model.draft.pendingEntryID == nil && model.draft.timeMark == nil && model.draft.previousDiary == nil,
+                        "clearing time must discard the previous pending save identity and unrelated diary backup")
             model.setPendingTime("今年")
             model.draft.transcript = [TranscriptMessage(role: .user, text: "这是另一段回忆。")]
             try require(model.save(), "new time context must save")

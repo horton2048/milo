@@ -1,42 +1,28 @@
-# MILO HarmonyOS Permission Matrix
+# MILO 鸿蒙首发权限与系统能力
 
-Every permission declared in `apps/harmony/entry/src/main/module.json5` must
-have a matching entry here. A permission with no implementation is treated as
-an audit failure.
+核对日期：2026-10-11。清单对应 entry/src/main/module.json5 和首发实际入口；AI 保持关闭。
 
-| Permission | Used by feature | Request moment | Denial behaviour | User-facing explanation | Official API |
-| --- | --- | --- | --- | --- | --- |
-| `ohos.permission.MICROPHONE` | Voice input button in `ChatScreen` (planned; not yet wired into the default UI) | Only when the user taps the voice input control. Never at startup, never pre-emptively. | Speech input is unavailable; text entry remains fully functional. The `SpeechInput` state machine treats denial as a normal outcome and never throws. | "用于在「回响」时录入你的声音，方便你口述回忆。" (`mic_reason` in `string.json`) | `@ohos.ai.speechRecognizer` (HarmonyOS SpeechKit) with `locale = zh-CN` |
+| 声明权限 | 实际用途 | 请求时机 / 拒绝行为 |
+| --- | --- | --- |
+| ohos.permission.INTERNET | AGC 邮箱认证、验证码、密码管理、注销 | 本版隐私同意之后，用户操作账号功能时调用；无网时账号网络操作失败，已登录日记仍可本地使用 |
+| ohos.permission.VIBRATE | 轻触操作反馈 | 操作触发，不采集个人信息 |
+| ohos.permission.MICROPHONE | 回忆页面语音输入，Core Speech Kit 中文离线短句识别 | 仅用户点语音后请求；拒绝后仍可打字，不阻断记录 |
 
-## Unrequested by design
+麦克风系统提示使用资源 mic_reason：“用于在「回响」时录入你的声音，方便你口述回忆。”
 
-The following capabilities appear in some competing diary apps but are
-**deliberately not** requested by MILO:
+## 不需要广泛权限的系统能力
 
-- **Microphone background listening.** Voice capture only runs while the
-  chat screen is foregrounded; the session is torn down on cancel or dispose.
-- **Location.** Not required for emotion capture or recall.
-- **Contacts.** No social features; we never read or sync the address book.
-- **Storage / media library.** The rendered card image is written to an
-  app-owned sandbox temp file (`ShareService.preview`); it never touches
-  public media folders and is cleaned up after the share completes.
-- **Device identifiers.** No `UDID`, `OAID`, or advertising-id reads. The
-  gateway's `requestId` is generated client-side and used only for log
-  correlation, not for device fingerprinting.
-- **Camera.** Not used.
-- **Push / notification permissions.** Not requested.
+- 更换头像使用 PhotoViewPicker，最多一张，仅复制用户选中的图片。不申请读取整个图库。
+- 卡片使用系统 SaveButton 的用户授权，将缓存 PNG 保存到图库。不宣称仅写沙箱或分享后自动删除。
+- JSON/Markdown 导出使用 DocumentViewPicker，由用户选择目标，不扫描任意目录。
+- BackupExtensionAbility 已启用，系统备份及恢复根据系统设置执行，不是 MILO 账号云同步。
+- 未声明相机、联系人、位置或推送权限。应用本身不读取广告标识；AGC 认证 SDK 的 AAID 处理另见隐私政策，不应宣传“任何设备标识都不处理”。
 
-## How to verify
+## 验证项
 
-```bash
-# Inspect the manifest directly:
-cat apps/harmony/entry/src/main/module.json5 | grep -A 2 requestPermissions
-
-# Confirm permission prompts only fire on user activation:
-rg -n 'atManager.requestPermissionsFromUser' apps/harmony
-```
-
-The unit test suite (`SystemAdapters.test.ets`) covers the denial path:
-`SpeechInput.begin()` returns `state === 'denied'` without throwing when
-the injected `SpeechPlatform.checkPermission()` reports `denied`, so the
-rest of the conversation flow stays usable.
+- [ ] 首次启动和暂不同意时没有麦克风弹窗、没有认证初始化/网络调用。
+- [ ] 使用语音时才申请麦克风；拒绝、关闭系统权限后仍能输入文字。
+- [ ] 识别完成、取消、离开页面后停止采集，系统资源缺失时提供可恢复提示。
+- [ ] 照片选择器取消不改变头像；无权读取或过大图片提示失败。
+- [ ] 保存卡片出现系统授权保存入口，成功后图库有图；取消/失败不丢原记录。
+- [ ] 导出使用用户选择的位置；取消、磁盘空间不足不删原日记。

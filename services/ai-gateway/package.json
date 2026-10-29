@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --import tsx/esm src/server.ts",
+    "dev": "node --import tsx/esm src/main.ts",
+    "start": "node dist/main.js",
     "build": "tsc -p tsconfig.json",
     "test": "node --import tsx/esm --test tests/*.test.ts"
   },

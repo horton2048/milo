@@ -121,6 +121,43 @@ import Testing
     #expect(draft.transcript.isEmpty && draft.note.isEmpty && draft.labels.isEmpty)
 }
 
+@Test func presentConversationAndOptionalDiaryRoundTripWithoutLosingNote() throws {
+    let io = ParityMemoryIO(), repository = JSONJournalRepository(fileURL: parityURL, fileIO: ParityMemoryIO())
+    var draft = RecallDraft(kind: "now", note: "我自己写下的补充。", transcript: [.init(role: .user, text: "今天很累。", ts: 1)], aiEnabled: false, diaryEnabled: false, page: "chat")
+    draft.goBack()
+    #expect(draft.page == "classify" && draft.transcript.count == 1)
+    let raw = try draft.makeEntry(id: "present-chat", createdAt: 2)
+    #expect(raw.note == "我自己写下的补充。" && raw.transcript == draft.transcript && raw.diary == nil && !raw.diaryEnabled)
+    #expect(try repository.save(raw).first == raw)
+    draft.diaryEnabled = true; draft.diary = "今天很累。"
+    let diary = try draft.makeEntry(id: "present-diary", createdAt: 3)
+    #expect(try repository.save(diary).first == diary)
+    #expect(try repository.load().first == diary)
+    #expect(diary.kind == "now" && diary.timeMark == nil && diary.diaryEnabled)
+    let drafts = JSONDraftRepository(fileURL: parityURL, fileIO: io)
+    try drafts.save(draft)
+    #expect(try drafts.load() == draft)
+    let exported = try DiaryExport.json(entries: [raw, diary])
+    #expect(String(decoding: exported, as: UTF8.self).contains("今天很累"))
+}
+
+@Test func presentDiaryUsesBackwardReadableEncodingAndRejectsInvalidFlag() throws {
+    let entry = JournalEntry(id: "present-diary-compat", createdAt: 2, mood: .low, kind: "now", transcript: [.init(role: .user, text: "今天很累👩🏽‍🚀\n第二行", ts: 1)], diary: "今天很累👩🏽‍🚀\n第二行", diaryEnabled: true)
+    let bytes = try JSONEncoder().encode(entry)
+    var object = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+    #expect(object["kind"] as? String == "now")
+    #expect(object["diaryEnabled"] as? Bool == false)
+    #expect(object["presentDiaryEnabled"] as? Bool == true)
+    #expect(try JSONDecoder().decode(JournalEntry.self, from: bytes) == entry)
+    object["kind"] = "past"; object["timeMark"] = "昨天"
+    #expect(throws: JournalError.self) { try JSONDecoder().decode(JournalEntry.self, from: JSONSerialization.data(withJSONObject: object)) }
+}
+
+@Test func pausesAreConservativeAndIncludeExplicitNoDiaryEndings() {
+    for text in ["暂停", "先停一下", "先到这里，也不用生成日记", "不聊了。"] { #expect(OfflineGuide.wantsToPause(text)) }
+    for text in ["先别建议", "那时候我不想说，但现在可以了", "同事说算了但我还想继续"] { #expect(!OfflineGuide.wantsToPause(text)) }
+}
+
 @Test func pastJourneyPreservesDraftOnBackAndClearsChangedTimeContextOnly() throws {
     var draft = RecallDraft(mood: .calm, labels: ["平静"])
     draft.chooseKind("past")
@@ -165,6 +202,30 @@ import Testing
     io.failWrite = false
     try repository.clear()
     #expect(try repository.load() == nil)
+}
+
+@Test func previousDiaryBackupIsOptionalDurableAndScopedToTheConversation() throws {
+    let repository = JSONDraftRepository(fileURL: parityURL, fileIO: ParityMemoryIO())
+    var draft = RecallDraft(kind: "past", timeMark: "昨天", diary: "新的正文。",
+                            previousDiary: "用户修改的上一版👩🏽‍🚀\n保留补充。", page: "diary")
+    try repository.save(draft)
+    #expect(try repository.load() == draft)
+
+    var legacy = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(draft)) as? [String: Any])
+    legacy.removeValue(forKey: "previousDiary")
+    let old = try JSONDecoder().decode(RecallDraft.self, from: JSONSerialization.data(withJSONObject: legacy))
+    #expect(old.previousDiary == nil && old.diary == draft.diary)
+
+    _ = draft.selectTimeMark("昨天")
+    #expect(draft.previousDiary == "用户修改的上一版👩🏽‍🚀\n保留补充。")
+    _ = draft.selectTimeMark("去年")
+    #expect(draft.diary == nil && draft.previousDiary == nil)
+    draft.previousDiary = "上一段回忆的正文。"
+    draft.chooseKind("now")
+    #expect(draft.previousDiary == nil)
+    draft.previousDiary = "上一次情绪的正文。"
+    draft.selectMood(.bright)
+    #expect(draft.previousDiary == nil)
 }
 
 @Test func pendingSaveIdentityPersistsIndependentlyAndResetsWithContext() throws {
@@ -222,15 +283,15 @@ func corruptOrFutureDraftCannotBeSavedOverOrCleared(json: String) throws {
     #expect(OfflineGuide.opening(timeMark: String(repeating: "很久", count: 20)) == "那段时光里，你最先想起什么？")
     #expect(OfflineGuide.respond(transcript: [.init(role: .user, text: "先这样", ts: 1)]) == "好，先停在这里。")
     #expect(!OfflineGuide.wantsToPause("那时候我不想说，但现在可以了"))
-    #expect(OfflineGuide.respond(transcript: [.init(role: .user, text: "我不知道怎么说", ts: 1)]) == "没关系，慢慢来。")
+    #expect(OfflineGuide.respond(transcript: [.init(role: .user, text: "我不知道怎么说", ts: 1)]) == OfflineGuide.recordingNotice)
     var messages = [TranscriptMessage(role: .ai, text: "今天你一定很开心。", ts: 0)]
     messages.append(.init(role: .user, text: "  今天很难。\n不想假装开心。  ", ts: 1))
-    #expect(OfflineGuide.respond(transcript: messages) == "那一刻，你是什么感受？")
+    #expect(OfflineGuide.respond(transcript: messages) == OfflineGuide.recordingNotice)
     messages.append(.init(role: .user, text: "我去了公园。", ts: 2))
-    #expect(OfflineGuide.respond(transcript: messages) == "哪件小事让你记得最清楚？")
+    #expect(OfflineGuide.respond(transcript: messages) == OfflineGuide.recordingNotice)
     #expect(OfflineGuide.diary(transcript: messages) == "今天很难。\n不想假装开心。\n\n我去了公园。")
     for i in 3...50 { messages.append(.init(role: .user, text: "继续说", ts: Double(i))) }
-    #expect(OfflineGuide.respond(transcript: messages) == "嗯，我在听。")
+    #expect(OfflineGuide.respond(transcript: messages) == OfflineGuide.recordingNotice)
 }
 
 @Test func exportsContainFullMemoriesAndOnlyAllowlistedEnvelope() throws {

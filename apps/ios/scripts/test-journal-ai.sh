@@ -19,7 +19,7 @@ macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
     -o "$test_root/libMiloCore.dylib" \
     "$ios_directory"/MiloCore/Sources/MiloCore/*.swift
 
-"$swift_compiler" -swift-version 6 -warnings-as-errors \
+"$swift_compiler" -swift-version 6 -warnings-as-errors -D MILO_AI_COORDINATOR_TESTS \
     -sdk "$macos_sdk" \
     -I "$test_root" -L "$test_root" -lMiloCore \
     -Xlinker -rpath -Xlinker "$test_root" \
@@ -29,3 +29,16 @@ macos_sdk="$(xcrun --sdk macosx --show-sdk-path)"
     -o "$test_root/journal-ai-check"
 
 "$test_root/journal-ai-check"
+
+# Compile a separate process with the production gate, without the coordinator
+# harness flag: even an injected closure and enabled old draft must stay offline.
+"$swift_compiler" -swift-version 6 -warnings-as-errors \
+    -sdk "$macos_sdk" \
+    -I "$test_root" -L "$test_root" -lMiloCore \
+    -Xlinker -rpath -Xlinker "$test_root" \
+    "$ios_directory/App/Account/AIConnection.swift" \
+    "$ios_directory/App/JournalModel.swift" \
+    "$ios_directory/tests/ai-pause-check.swift" \
+    -o "$test_root/ai-pause-check"
+
+"$test_root/ai-pause-check"

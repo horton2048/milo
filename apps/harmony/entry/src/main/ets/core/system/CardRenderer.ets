@@ -10,6 +10,8 @@ import { moodPalette, moodLabel, moodWord } from '../../core/model/MoodAssets';
 const CARD_WIDTH: number = 1080;
 const MAX_BODY_LINES: number = 8;
 const BODY_WIDTH: number = 796;
+export const CARD_BODY_FONT_SIZE: number = 64;
+export const CARD_BODY_LINE_HEIGHT: number = 88;
 
 export interface CardTheme {
   backgroundTop: string;
@@ -379,9 +381,9 @@ export function renderCardLayout(
   const normalized = normalizeStickerTemplate(templateId);
   const contract = cardRenderContract(entry.mood.valence, entry.mood.emotionId, normalized);
   const copy = getStickerCopy(entry);
-  const lines = fitLines(wrapText(copy.body, MAX_BODY_LINES * Math.floor(BODY_WIDTH / MAX_BODY_LINES)), MAX_BODY_LINES);
-  const bodyHeight = lines.length * 56 + 24;
-  const height = Math.max(1350, 720 + bodyHeight + 200);
+  const lines = fitLines(wrapText(copy.body, Math.floor(BODY_WIDTH / CARD_BODY_FONT_SIZE)), MAX_BODY_LINES);
+  const bodyHeight = lines.length * CARD_BODY_LINE_HEIGHT;
+  const height = Math.max(1350, 860 + bodyHeight + 164);
 
   const sections: RenderSection[] = [];
   sections.push(section('background', 0, 0, CARD_WIDTH, height, '', CARD_THEME.backgroundTop, 0));
@@ -389,12 +391,12 @@ export function renderCardLayout(
   if (contract.artwork !== null) {
     sections.push(section('artwork', 120, 140, CARD_WIDTH - 240, 540, '', contract.palette[0], 0));
   }
-  sections.push(section('heading', 120, 720, CARD_WIDTH - 240, 64, copy.heading, CARD_THEME.silverBright, 36));
+  sections.push(section('heading', 120, 720, CARD_WIDTH - 240, 64, copy.heading, CARD_THEME.silverBright, 52));
   if (copy.labels.length > 0) {
-    sections.push(section('labels', 120, 800, CARD_WIDTH - 240, 32, copy.labels, CARD_THEME.lavender, 18));
+    sections.push(section('labels', 120, 800, CARD_WIDTH - 240, 44, copy.labels, CARD_THEME.lavender, 36));
   }
-  sections.push(section('body', 120, 860, BODY_WIDTH, bodyHeight, lines.join('\n'), CARD_THEME.bodyText, 22));
-  sections.push(section('ticket', CARD_WIDTH - 260, height - 110, 200, 40, memoryTicketId(entry), CARD_THEME.faintText, 16));
+  sections.push(section('body', 120, 860, BODY_WIDTH, bodyHeight, lines.join('\n'), CARD_THEME.bodyText, CARD_BODY_FONT_SIZE));
+  sections.push(section('ticket', 120, height - 110, CARD_WIDTH - 240, 40, memoryTicketId(entry), CARD_THEME.secondaryText, 28));
 
   return new CardLayoutImpl(
     normalized,

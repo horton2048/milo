@@ -1,143 +1,97 @@
-# MILO · AppGallery Connect Submission Cheatsheet
+# MILO 鸿蒙首发 · AppGallery Connect 提交材料
 
-The values below are pre-filled from the in-tree config so you can copy-paste
-into the AGC form. The signed release HAP is produced locally by hvigorw
-(see "Software package" below); all signing material stays on this machine.
+更新时间：2026-10-11。以当前控制台、本次正式包及验收记录为准。旧草稿/旧包通过校验不代表本版已提交或已上线。
 
-## 1. App identity
+## 1. 应用身份
 
-| Field | Value | Source |
-| --- | --- | --- |
-| 应用名称（中文） | `MILO 米洛` | brand |
-| 应用名称（英文） | `MILO` | brand |
-| Bundle ID | `com.milo.echoes` | `apps/harmony/entry/src/main/module.json5` |
-| 一级分类 | `工具` | product |
-| 二级分类 | `效率` | product |
-| 应用类型 | `App` (not 元服务) | platform |
-| 适用设备 | `手机 / 平板 / 2in1` | HarmonyOS supported devices |
-
-## 2. Application information (应用信息)
-
-| Field | Value | Length |
-| --- | --- | --- |
-| 简短描述 | `回到过去的某一天 —— 让 AI 陪你唤醒一段记忆，沉淀成一篇属于你的日记。` | ≤ 80 chars |
-| 完整描述 | 详见下文 | ≤ 4000 chars |
-| 应用图标 | `docs/operations/agc-assets/app-icon-1024.png` (1024×1024 PNG) | required |
-| 应用截图（手机） | `docs/operations/agc-assets/screenshot-01.png` ~ `screenshot-05.png` (5 张 1080×2340 PNG，2026-09-12 真机模拟器截取) | required |
-| 应用截图（平板，可选） | 同比例 | optional |
-
-### 完整描述（可直接粘贴）
-
-```
-MILO 是一款个人情绪日记与回忆应用。
-
-你只需要转动光球、选一个模糊的时间（比如"去年夏天"），回响
-MILO 的本地引导会一步步陪你说出当时的情景、困难或快乐、背后的原因，以及那一天对现在的意义。对话结束后，AI 以你的第一人称视角写成一篇日记（可手动开关、可编辑）。
-
-特性：
-· 离线优先 —— 飞行模式也能完整走完流程
-· 隐私友好 —— 所有日记存在你的设备本地，不上传自有服务器
-· 透明降级 —— AI 不可用时自动切回本地脚本与模板
-· 多端 —— Web / HarmonyOS 原生，同一份后端契约
-
-我们使用 MiniMax 作为对话与日记生成的 AI 处理者。MILO 不提供任何医疗、心理诊断或治疗服务。
-```
-
-## 3. Software package (软件包)
-
-| Field | Value |
+| 字段 | 本轮内容 |
 | --- | --- |
-| 上传文件 | `apps/harmony/build/outputs/release/harmony-release-signed.app`（AGC 软件包管理要求 `.app` 格式；2026-09-12 已上传，合法性"已达标"） |
-| 构建命令 | `cd apps/harmony && ./hvigorw assembleApp --mode project -p product=release -p buildMode=release` |
-| 包内 HAP | `entry-default.hap`（≈6.8 MB，type=release） |
-| 版本 | 1.0.0（versionCode 1000000） |
-| Bundle ID | `com.milo.echoes` |
-| 签名 Profile | AGC 发布 Profile `milo_release`（2026-09-12 创建，有效期至 2029-09-12） |
-| 签名证书 | AGC 发布证书 `milo_release.cer`（certId 2037718107778208512，有效期至 2029-09-12，SHA1 指纹 `431c22413571fc3304f47f9801f458ceebb271e7`） |
+| 应用名 | MILO-米洛（与最终安装包/AGC实际名称复核） |
+| APP ID | 6917615962315597189 |
+| 包名 | com.milo.echoes |
+| APP备案号 | 京ICP备2026067150号-1A |
+| 产品 | 个人情绪日记与回忆记录工具，非诊疗服务 |
+| 分类 | 工具；以控制台可用子类选择记录/笔记相关项 |
+| 设备范围 | 依据本次包声明与完成验收的设备选择，不凭历史表格扩选 |
+| 隐私联系邮箱 | 1972375139@qq.com |
+| AI / 会员 | 本版本关闭，不提供模型连接或付费订阅 |
 
-> 2026-09-12 之前的旧发布证书 `milo` / 旧 Profile `com.milo.echoesRelease.p7b` 已废弃——其配对私钥随 9月11日 调试材料重建时丢失。勿再上传旧 Profile 对应的 HAP。
-> ⚠️ 如 App 备案（ICP/App Filing）此前绑定的是旧证书指纹 `3ea4590089be234301d8b2933651989afdf8e4d4`，需在备案平台更新为新指纹 `431c22413571fc3304f47f9801f458ceebb271e7`。
+## 2. 可直接使用的公开介绍
 
-## 4. Privacy & legal
+一句话简介（17字以内）：
 
-| Field | Value |
-| --- | --- |
-| 隐私政策 URL | `{{ 你的 URL —— 来自 docs/operations/privacy-policy.template.md }}` |
-| 权限声明 | `ohos.permission.MICROPHONE`，理由见 `apps/harmony/entry/src/main/resources/base/element/string.json#mic_reason` |
-| 数据收集清单 | 见 `docs/compliance/data-flow.md` |
-| 第三方 SDK | MiniMax（`api.minimax.chat`）—— 用途：对话与日记生成 |
+> 记录心情，珍藏每一段回忆
 
-## 5. 发布设置
+完整介绍：
 
-| Field | Value |
-| --- | --- |
-| 发布地区 | `中国 / 全球（推荐先选中国）` |
-| 上架类型 | `首次上架` |
-| 审核类型 | `首次审核` |
-| 预计上线时间 | `审核通过后立即` |
+MILO 是一款个人情绪日记与回忆记录应用。
 
-## 6. Pre-submit checks
+用一颗星球表达此刻的心情，添加属于自己的情绪标签，留下今天的一句话；也可以选择过去的一段时间，跟随本地文字提示，慢慢整理那段经历与感受。记录保存在当前设备，回忆长廊让每一段心情都能被重新看见。
 
-```bash
-# From repo root:
-node scripts/device-checklist.mjs https://<your-gateway-url>
+主要功能：
+- 心情与标签：选择情绪，记录当下感受。
+- 回忆引导：用本地提示回顾过去，整理并编辑自己的日记。
+- 回忆长廊：按记录查看日记，生成星球风格的回忆卡片并保存到图库。
+- 个性头像：使用默认星球头像，或从系统照片选择器更换自己的图片。
+- 数据导出：将已保存的记录导出为 Markdown 或 JSON，保存到自己选择的位置。
+- 账号管理：邮箱登录、验证码找回或修改密码、退出登录与注销账号。
 
-# Expect:
-#   ✅ gateway /health
-#   ✅ unsigned HAP exists
-#   ⚠️  p12 candidates (none found — DevEco will ask for the path)
-```
+首次邮箱登录需要联网，成功登录后可离线记录和查看本机日记。日记不提供 MILO 账号云同步；同一设备的记录不按账号隔离，请定期导出重要内容。系统备份和导出副本由用户自行管理。
 
-## 7. After submission
+MILO 是记录工具，不提供医疗、心理诊断或治疗。本版本不提供 AI 生成或付费会员服务。
 
-- 审核通常 1-3 工作日。
-- 在 `docs/compliance/release-checklist.md` 的 Step 12 "Sign-off" 追加：
-  - AGC 提交记录 URL
-  - 提交时间戳
-  - 审核结果
+## 3. 素材与正式软件包
 
-## 7.5 Submission draft status (2026-09-12 盘点)
+- 图标候选：docs/operations/agc-assets/app-icon-1024.png；提交时核对其与本版品牌一致。
+- 旧 screenshot-01.png 至 screenshot-05.png 为历史素材，不能直接认定适用。更新为当前版本实际页面，不能出现AI/会员入口或未经验证的功能；按当前AGC表单尺寸和张数要求提交。
+- AGC 软件包管理上传正式发布 .app，不用调试 HAP 冒充发布包。
+- 正式包构建与签名由本轮打包记录确认；版本、实际输出路径、SHA-256 和体积应从本次产物读取，不硬抄旧记录。
+- 构建入口：在 apps/harmony 执行 ./hvigorw assembleApp --mode project -p product=release -p buildMode=release；最终包须 clean 后构建。
+- 禁止携带内测共享 gateway-credentials.local.json；不得把私钥、P12密码或真实模型Key上传至源码仓库/审核描述。
+- 版本来源为 AppScope/app.json5；若AGC草稿占用了同一版本，由主代理核实后统一调整，不能在文档擅自声称已升级。
 
-AGC 草稿地址：`#/myApp/6917615962315597189/v2035850932872307584`（版本信息 → 准备提交）。
+## 4. 隐私政策及用户协议
 
-已完成（无需再动）：
+随包全文：
+- apps/harmony/entry/src/main/resources/rawfile/privacy-policy.txt
+- apps/harmony/entry/src/main/resources/rawfile/user-agreement.txt
 
-- 应用信息步骤全部就绪：名称 MILO-米洛、图标、分类（应用/工具）、标签（AI 主标签 + 健康/笔记/专注/健康管理）、客服邮箱/QQ
-- 软件包已上传并通过合法性校验（"已达标"），上架自检已通过（2026-09-13，报告在 软件包管理 → 上架自检 → 报告）
+便于编辑/托管的同文内容：
+- docs/operations/privacy-policy.template.md（文件名保留兼容；内容不再含占位符）
+- docs/compliance/user-agreement.md
 
-剩余必填项（表单里的顺序）：
+公开网页状态：待本轮 AGC 正式托管完成后记录实际 URL。当前不把仓库文件、临时预览页、未发布草稿或猜测的 /privacy 地址填成有效隐私政策 URL。托管后须匿名打开全文核验，并将实际URL及托管时间记入本页。
 
-| # | 字段 | 状态 | 说明 |
-| --- | --- | --- | --- |
-| 1 | 应用介绍（≤8000字）+ 一句话简介（≤17字） | 可抄本文档 §2 | 直接粘贴 |
-| 2 | 应用介绍截图 3~10 张 | ⚠️ 尺寸待核 | 表单要求最低 1920×1080（16:9）；现有截图 1080×2340 竖向，上传时若被拒需补横版或确认竖向最低 1080×1920 |
-| 3 | 内容分级问卷 | 可填 | "设置"按钮进入问卷 |
-| 4 | 隐私政策 | 🔴 需用户决策 | 选"隐私托管"（AGC 协议服务生成）或"自定义隐私政策"（需 URL） |
-| 5 | 隐私标签：是否涉及个人信息收集 | 可答"是" | App 有 AGC 邮箱登录 |
-| 6 | AI 功能声明 | 🔴 需用户决策 | App 含可选 AI 对话；"涉及"可能触发深度合成备案要求 |
-| 7 | 备案信息：APP类型/主办单位类型/名称/证件号 | 🔴 需用户输入 | 需工信部 App 备案；单机 APP 选项可能简化流程 |
-| 8 | 应用审核信息 | 可填 | 勾"需要登录进行审核"，备注：邮箱输 `milo` 直接进入 |
-| 9 | 联系方式：手机号+短信验证码 | 🔴 仅用户 | 需接收短信并"提交验证" |
-| 10 | 上架时间 | 可选"审核通过立即上架" | |
+应用内入口：首次隐私同意页、登录页、“我的—关于 MILO”；均从本地资源阅读。初次或新版政策未同意前不初始化认证SDK、不允许登录/进入记录；已有数据不因拒绝而删除。
 
-## 8. Update path (after first release)
+## 5. 隐私标签、SDK和权限
 
-```bash
-cd apps/harmony
-# 1. Bump version in entry/src/main/module.json5 (versionCode + versionName)
-# 2. ./hvigorw assembleHap --mode module -p product=release -p buildMode=release
-# 3. AGC → 我的项目 → milo → MILO-米洛 → 版本管理与发布 → 上传新版本 HAP
-# 4. 提交审核
-```
+- “是否涉及个人信息收集”：是。邮箱认证并非“完全不收集任何信息”。
+- 第三方 SDK：华为软件技术有限公司的 AGC 认证服务（@hw-agconnect/auth），用于邮箱认证、验证码、密码管理和注销。
+- 应申报邮箱、认证信息，以及适用SDK说明列明的AAID/应用信息等认证处理范围；不要把SDK全能力中的手机号或OAuth头像说成本应用启用了这些登录方式。
+- 官方资料：[API 12及以上版本集成入口](https://developer.huawei.com/consumer/cn/doc/appgallery-connect-Guides/agc-auth-harmonyos-arkts12-0000001922376960)、[认证SDK隐私声明](https://developer.huawei.com/consumer/cn/doc/AppGallery-connect-Guides/agc-auth-harmonyos-arkts-sdksecurity-0000001631246482)、[SDK合规及个人信息说明](https://developer.huawei.com/consumer/cn/doc/appgallery-connect-Guides/agc-auth-harmonyos-arkts-personal-data-0000001631566342)。已核对API12入口实际链接至该隐私声明；随包与网页全文使用直接链接。
+- 权限：INTERNET、VIBRATE、MICROPHONE。麦克风仅主动语音输入时申请；照片选取、文件导出及图库保存使用系统选择/授权入口。
+- 日记/情绪/头像仅本机处理；系统备份、用户导出和图库副本有单独管理路径。详见 docs/compliance/data-flow.md 与 permissions.md。
+- 本版AI总开关关闭，不申报正在使用MiniMax处理日记，不展示会员收费方案。AGC问题若问“当前提供的功能”，以本版实际关闭情况回答；涉及其他法律范围的问题逐项核实，不用旧草稿代填。
 
-## 9. Release signing materials (local machine only)
+## 6. 审核员操作说明（只填审核备注，不用于公开文案）
 
-Created 2026-09-12, all under `~/.ohos/config/`, never committed:
+应用正常使用须先同意隐私政策及用户协议，再使用邮箱验证码/密码登录。审核人员可按控制台提供的审核登录说明进入，走“现在”记录及“过去”回忆流程，保存后查看长廊、导出和卡片。
 
-| File | What |
-| --- | --- |
-| `release_harmony_milo.cer` | 发布证书链（leaf=黄运樟 Release，SHA1 `431c2241…`） |
-| `release_harmony_milo.p7b` | 发布 Profile `milo_release`（AGC 控制台创建下载） |
-| `default_harmony_*.p12` | 与发布证书同密钥对的 keystore（`debugKey`，debug/release 共用） |
+现有内部审核体验入口：邮箱位置输入 milo 后继续，可本地进入，不要求真实邮箱验证码。此入口必须如实告知审核，不能假装是普通账号服务测试；邮箱登录、修改密码及真实云端注销需另用可接收验证码的测试邮箱验证。
 
-`build-profile.json5` 中 `signingConfigs.release` 引用以上文件；`products.release` 使用该签名。若 p12 密码变更，DevEco Studio 重新打开工程时会刷新 `material` 里的加密密码串。
+测试删除：详情“放下”为单篇删除；“我的—注销账号”先删除认证账号，再清理本机数据。若本机清理未完成，应出现可重试提示；旧图库图片及导出文件不会自动删除。
+
+## 7. 提交前与提交后
+
+- 按 docs/compliance/release-checklist.md 完成本版验收，不沿用历史全部通过结论。
+- 在AGC确认：当前版本软件包合法性/上架自检、应用分类与非AI标签、内容分级、备案及签名关联、隐私托管、联系方式验证和审核登录说明。
+- 发布地区、审核后上架方式与用户授权保持一致，不自动新增全球分发或收费项目。
+- 提交后记录真实回执：提交时间、版本、审核状态、AGC链接。仅“已提交审核”不等同于“审核通过/已上线”。
+- 若还缺手机验证码等仅用户可完成步骤，明确列出，不冒称完成。
+
+## 8. 历史签名记录（只供核对，非本次验证结果）
+
+2026-09-12 记录的发布证书为 milo_release.cer（certId 2037718107778208512），公开 SHA1 指纹 431c22413571fc3304f47f9801f458ceebb271e7；Profile 名 milo_release。9月11日及以前旧证书/profile不得误用。
+
+本次仍须以实际发布包提取结果与备案资料匹配为准。历史本机材料位于 ~/.ohos/config/，私钥和密码从不放入此文档。不要根据旧日志自动重建或替换签名。
